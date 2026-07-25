@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sophie UI · Guía de componentes — Crezcamos Online</title>
+<link rel="stylesheet" href="./sophie-ui.css">
+<style>
+  body { margin:0 }
+  .gh { max-width:940px; margin:0 auto 30px; }
+  .gh__logo { font-size:34px; line-height:1 }
+  .gh h1 { font-family:'Plus Jakarta Sans',sans-serif; font-size:30px; font-weight:800;
+           letter-spacing:-.02em; color:#fff; margin:12px 0 4px }
+  .gh p  { font-family:'Plus Jakarta Sans',sans-serif; color:#8b9bbd; font-size:14px; margin:0 }
+  .gh__ctrl { display:flex; gap:10px; flex-wrap:wrap; margin:24px 0 8px }
+  .gh__v { font-family:ui-monospace,monospace; font-size:11px; color:#6b7c9e; margin-top:18px }
+</style>
+</head>
+<body class="sophie-page">
+
+<div class="gh">
+  <div class="gh__logo">🚀</div>
+  <h1>Sophie UI · Guía de componentes</h1>
+  <p>Si ves esta página con estilos y los botones funcionan, la capa compartida está desplegada.</p>
+
+  <div class="gh__ctrl">
+    <button class="s-btn" id="btnDemo" type="button">▶ Simular análisis en vivo</button>
+    <button class="s-btn s-btn--fantasma" id="btnRescate" type="button">🛟 Ver Rescate (árbol)</button>
+    <button class="s-btn s-btn--fantasma" id="btnNoGo" type="button">⛔ Ver NO GO + bloqueos</button>
+  </div>
+  <div class="gh__v" id="ver"></div>
+</div>
+
+<div class="sophie-wrap">
+  <div id="resultado"></div>
+</div>
+
+<script src="./sophie-render.js"></script>
+<script>
+document.getElementById('ver').textContent = 'sophie-render.js v' + Sophie.version + ' · cargado correctamente';
+
+/* ---- Datos de ejemplo: caso "bamboo spice rack organizer" ---- */
+
+var METRICAS = [
+  { label:'Búsquedas / mes', valor:'22,400', estado:'ok',      nota:'keyword principal' },
+  { label:'Competidores fuertes', valor:'6',  estado:'ok',      nota:'rango objetivo 3–10' },
+  { label:'Reseñas top 10', valor:'412',      estado:'alerta',  nota:'umbral ≤ 400' },
+  { label:'Precio promedio', valor:'$24.99',  estado:'ok',      nota:'margen viable' }
+];
+
+var SCORECARD = [
+  { criterio:'Volumen de búsqueda', valor:'22,400', umbral:'≥ 300',
+    valor_num:22400, umbral_num:300, direccion:'min', estado:'pass',
+    por_que:'El volumen define el techo de tu negocio. Un nicho sin búsquedas no se arregla con un buen listing ni con presupuesto de publicidad — simplemente no hay gente buscando.',
+    leccion:'La demanda no se crea en Amazon, se captura.',
+    error_comun:'Validar con la búsqueda que a ti se te ocurrió en vez de la que el cliente realmente escribe.',
+    glosario:['search volume','Cerebro'] },
+
+  { criterio:'Competidores fuertes', valor:'6', umbral:'3 – 10',
+    valor_num:6, umbral_num:6, direccion:'min', estado:'pass',
+    por_que:'Menos de 3 competidores suele significar que no hay mercado. Más de 10 significa que llegaste tarde. La franja intermedia es donde un vendedor nuevo puede entrar.',
+    leccion:'Un nicho sin competencia casi nunca es una oportunidad: es una advertencia.',
+    glosario:['competitor count'] },
+
+  { criterio:'Reseñas promedio top 10', valor:'412', umbral:'≤ 400',
+    valor_num:412, umbral_num:400, direccion:'max', estado:'alerta',
+    por_que:'Cada reseña es una barrera de confianza acumulada por tu competidor. Es el único activo que no puedes comprar ni acelerar con presupuesto.',
+    leccion:'El costo de entrada a un nicho no se mide en dólares, se mide en reseñas.',
+    error_comun:'Ver búsquedas altas y asumir oportunidad, ignorando la muralla social que ya construyeron.',
+    glosario:['review count','Vine'] },
+
+  { criterio:'Precio promedio de venta', valor:'$24.99', umbral:'≥ $19.99',
+    valor_num:24.99, umbral_num:19.99, direccion:'min', estado:'pass',
+    por_que:'Por debajo de $19.99 las tarifas de FBA y el costo de PPC se comen el margen. El precio no es solo ingreso: es tu colchón para poder anunciar.',
+    leccion:'El precio define cuánto puedes gastar en publicidad. Sin margen no hay ranking.',
+    glosario:['break-even','ACOS'] },
+
+  { criterio:'Densidad de título', valor:'8', umbral:'≤ 15',
+    valor_num:8, umbral_num:15, direccion:'max', estado:'pass',
+    por_que:'La densidad de título mide cuántos competidores del top 10 ya usan la keyword exacta en su título. Baja densidad = espacio para rankear rápido.',
+    leccion:'Busca las keywords que tus competidores todavía no defendieron.',
+    glosario:['title density'] },
+
+  { criterio:'Estacionalidad', valor:'18%', umbral:'≤ 40%',
+    valor_num:18, umbral_num:40, direccion:'max', estado:'pass',
+    por_que:'Un producto con picos fuertes te obliga a acertar el timing de inventario. Como primer producto, la estabilidad vale más que el volumen.',
+    leccion:'Tu primer producto debe perdonarte errores de inventario.',
+    glosario:['seasonality'] }
+];
+
+var VEREDICTO_GO = {
+  veredicto:'GO', etiqueta:'GO ✅', puntaje:84, puntaje_max:100,
+  criterios:{ aprobados:11, total:13 },
+  titular:'Demanda sólida, competencia alcanzable y margen sano',
+  razon:'Sophie recomienda avanzar con una variante diferenciada: **bundle con etiquetas bilingües + embudo de recarga**. Las reseñas del top 10 están al límite, así que el plan de lanzamiento debe incluir Vine desde la semana 1.',
+  siguiente_paso:{ paso:'Paso 2', titulo:'Cotiza antes de enamorarte del producto',
+    detalle:'Sophie Proveedores calcula tu costo real puesto en FBA.',
+    cta:'Continuar → Sophie Proveedores', modulo:'proveedores' }
+};
+
+var VEREDICTO_NOGO = {
+  veredicto:'NO GO', etiqueta:'NO GO ⛔', puntaje:31, puntaje_max:100,
+  criterios:{ aprobados:5, total:13 },
+  titular:'Parece buena idea — y por eso es peligrosa',
+  razon:'Guerra de precios a $9.99, dos marcas dominan el 63% de las ventas y el top 10 promedia 8,340 reseñas. Para competir aquí necesitarías cerca de **$40,000 y 18 meses**. Sophie no te deja invertir en un producto que va a perder tu capital.',
+  bloqueados:[
+    { titulo:'Sophie Proveedores', motivo:'Se habilita cuando un producto obtiene veredicto GO.', tag:'Bloqueado sin GO' },
+    { titulo:'Sophie Listing',     motivo:'No se construye un listing sobre un nicho no validado.', tag:'Bloqueado sin GO' }
+  ],
+  siguiente_paso:{ paso:'Pivote', titulo:'Tres ángulos adyacentes menos saturados',
+    detalle:'botella con filtro para senderismo · kit botella + electrolitos · botella térmica para mate',
+    cta:'🔁 Validar un pivote', modulo:'producto', fantasma:true }
+};
+
+var ARBOL = [
+  { nombre:'Viabilidad del nicho', etiqueta:'Sana',      estado:'ok',      detalle:'Demanda estable, 6 competidores alcanzables' },
+  { nombre:'Indexación',           etiqueta:'Completa',  estado:'ok',      detalle:'Indexado en 24 de 26 keywords objetivo' },
+  { nombre:'Visibilidad',          etiqueta:'Crítica',   estado:'critico', detalle:'Ranking orgánico promedio: posición 67' },
+  { nombre:'Reputación',           etiqueta:'En riesgo', estado:'alerta',  detalle:'6 reseñas · 4.2 estrellas' },
+  { nombre:'Conversión',           etiqueta:'Aceptable', estado:'ok',      detalle:'CVR 11.4% · por encima de la categoría' }
+];
+
+var VEREDICTO_RESCATE = {
+  veredicto:'RESCATAR', etiqueta:'RESCATAR 🛟', puntaje:58, puntaje_max:100,
+  criterios:{ aprobados:3, total:5 },
+  titular:'El producto no está muerto: está invisible',
+  razon:'El nicho sigue siendo viable y el listing convierte cuando lo ven. El problema es visibilidad y una campaña quemando dinero en términos irrelevantes. Sophie genera un **plan de rescate de 30 días**: reestructura de campañas, 10 reseñas vía Vine y re-ranking en 3 keywords alcanzables.',
+  siguiente_paso:{ paso:'Plan SOS', titulo:'Plan de rescate de 30 días',
+    detalle:'Fase por fase, con métricas de salida.', cta:'Generar plan de 30 días', modulo:'rescate' }
+};
+
+/* ---- Simulación de las 3 llamadas en paralelo ---- */
+
+document.getElementById('btnDemo').onclick = function () {
+  var s = Sophie.mount('#resultado', { esqueleto:{ metricas:4, scorecard:6 } });
+  setTimeout(function(){ s.metricas(METRICAS, 'Radiografía del nicho'); }, 700);
+  setTimeout(function(){ s.scorecard(SCORECARD, 'Scorecard · 13 criterios'); }, 1100);
+  setTimeout(function(){ s.veredicto(VEREDICTO_GO); }, 2600);
+};
+
+document.getElementById('btnRescate').onclick = function () {
+  var s = Sophie.mount('#resultado', { esqueleto:{ arbol:true }, mensaje:'Sophie está diagnosticando 5 capas…' });
+  setTimeout(function(){ s.arbol(ARBOL, 'Árbol de diagnóstico · 5 capas'); }, 800);
+  setTimeout(function(){ s.veredicto(VEREDICTO_RESCATE); }, 2000);
+};
+
+document.getElementById('btnNoGo').onclick = function () {
+  Sophie.render('#resultado', {
+    metricas: [
+      { label:'Búsquedas / mes', valor:'31,900', estado:'ok' },
+      { label:'Reseñas top 10',  valor:'8,340',  estado:'critico', nota:'umbral ≤ 400' },
+      { label:'Precio promedio', valor:'$9.99',  estado:'critico', nota:'sin margen para PPC' },
+      { label:'Cuota 2 marcas',  valor:'63%',    estado:'critico' }
+    ],
+    titulo_metricas: 'Radiografía del nicho',
+    scorecard: [{
+      criterio:'Reseñas promedio top 10', valor:'8,340', umbral:'≤ 400',
+      valor_num:8340, umbral_num:400, direccion:'max', estado:'fail',
+      por_que:'Cada reseña es una barrera de confianza acumulada por tu competidor. Es el único activo que no puedes comprar ni acelerar con presupuesto.',
+      leccion:'El costo de entrada a un nicho no se mide en dólares, se mide en reseñas.',
+      error_comun:'Ver búsquedas altas y asumir oportunidad, ignorando la muralla social.',
+      glosario:['review count','Vine']
+    }],
+    titulo_scorecard: 'Criterio decisivo',
+    veredicto: VEREDICTO_NOGO
+  });
+};
+
+document.getElementById('btnDemo').click();
+</script>
+</body>
+</html>
