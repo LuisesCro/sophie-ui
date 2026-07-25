@@ -223,7 +223,8 @@
     if (!c) return '';
     var boton = c.url
       ? '<a class="s-btn' + (c.fantasma ? ' s-btn--fantasma' : '') + '" href="' + esc(c.url) + '">' + esc(c.cta) + '</a>'
-      : '<button class="s-btn' + (c.fantasma ? ' s-btn--fantasma' : '') + '" type="button" data-sophie-cadena="' + esc(c.modulo || '') + '">' + esc(c.cta) + '</button>';
+      : '<button class="s-btn' + (c.fantasma ? ' s-btn--fantasma' : '') + '" type="button" data-sophie-cadena="' + esc(c.modulo || '') + '"' +
+        (c.enviar ? ' data-sophie-enviar="' + esc(c.enviar) + '"' : '') + '>' + esc(c.cta) + '</button>';
 
     return '' +
       '<div class="s-cadena">' +
@@ -377,6 +378,22 @@
     var abierto = fila.getAttribute('aria-expanded') === 'true';
     fila.setAttribute('aria-expanded', abierto ? 'false' : 'true');
     lec.hidden = abierto;
+  });
+
+  /* ---------- botón de la cadena (delegación de eventos) ---------- */
+
+  // La página anfitriona decide qué hacer definiendo Sophie.alContinuar:
+  //   Sophie.alContinuar = function (modulo, texto) { if (texto) send(texto); };
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest && ev.target.closest('[data-sophie-cadena]');
+    if (!btn) return;
+    var modulo = btn.getAttribute('data-sophie-cadena') || '';
+    var texto = btn.getAttribute('data-sophie-enviar') || '';
+    if (typeof global.Sophie.alContinuar === 'function') {
+      btn.disabled = true;
+      try { global.Sophie.alContinuar(modulo, texto); }
+      catch (e) { btn.disabled = false; console.warn('Sophie: alContinuar falló', e); }
+    }
   });
 
   /* ---------- API pública ---------- */

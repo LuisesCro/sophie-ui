@@ -161,14 +161,21 @@
 
   /* ---------- métricas de cabecera ---------- */
 
-  function metricas(datos, r) {
+  // filas (opcional): si se pasa, el conteo se hace sobre esas filas y no
+  // sobre los 13 criterios. Necesario en Fase 1 y Fase 2, que muestran
+  // solo una parte — decir "6/13" cuando solo existen 6 confunde al estudiante.
+  function metricas(datos, r, filas) {
     var m = [];
+    var lista = filas && filas.length ? filas : r.filas;
+    var aprobados = lista.filter(function (f) { return f.estado === 'pass'; }).length;
+    var total = lista.length;
+
     function add(label, valor, estado, nota) {
       if (valor === undefined || valor === null || valor === '') return;
       m.push({ label: label, valor: valor, estado: estado, nota: nota });
     }
-    add('Criterios aprobados', r.aprobados + ' / ' + r.total,
-        r.aprobados >= 10 ? 'ok' : r.aprobados >= 7 ? 'alerta' : 'critico');
+    add('Criterios aprobados', aprobados + ' / ' + total,
+        aprobados >= total - 1 ? 'ok' : aprobados >= Math.ceil(total * 0.6) ? 'alerta' : 'critico');
     if (datos.margenAntesPPC !== undefined)
       add('Margen antes de PPC', fmt(datos.margenAntesPPC, 'margen'),
           num(datos.margenAntesPPC) >= 30 ? 'ok' : num(datos.margenAntesPPC) >= 20 ? 'alerta' : 'critico');

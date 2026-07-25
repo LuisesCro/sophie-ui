@@ -57,7 +57,7 @@
     // En fase 1 y 2 solo se muestran los criterios de esa fase.
     var filas = fase === 9 ? r.filas : r.filas.filter(function (f) { return f.fase === fase; });
 
-    ctrl.metricas(SophieMotor.metricas(payload.datos || {}, r), t.metricas);
+    ctrl.metricas(SophieMotor.metricas(payload.datos || {}, r, filas), t.metricas);
     ctrl.scorecard(filas, t.scorecard);
 
     if (fase === 9) {
@@ -92,7 +92,8 @@
       titular: (payload.narrativa && payload.narrativa.titular) || '',
       razon: (payload.narrativa && payload.narrativa.razon) || '',
       siguiente_paso: { paso: 'Continúa', titulo: fase === 1 ? 'Pasas a la Validación Avanzada' : 'Listo para el veredicto',
-        detalle: 'Escribe "continuar" para seguir.', cta: 'Seguir con Sophie', fantasma: true }
+        detalle: 'Toca el botón o escribe "continuar".', cta: 'Seguir con Sophie',
+        enviar: 'continuar', fantasma: true }
     });
 
     return { resultado: r };
