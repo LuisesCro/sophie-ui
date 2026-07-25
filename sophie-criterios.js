@@ -1,0 +1,248 @@
+/* ============================================================
+   SOPHIE · CURRÍCULUM GO/NO GO v2
+   Crezcamos Online — ui.crezcamosonline.com/sophie-criterios.js
+
+   Esta es la fuente única de la metodología. Los umbrales, la
+   pedagogía y los vetos viven AQUÍ, no dentro de un prompt.
+   El modelo no puede alterarlos, omitirlos ni suavizarlos.
+
+   Para mejorar la metodología: se edita este archivo y se
+   despliega. Cambia para todos los módulos a la vez.
+
+   ESTRUCTURA de cada criterio:
+     id           número del criterio (1–13)
+     fase         1 = validación inicial · 2 = validación avanzada
+     criterio     nombre visible
+     umbral       regla en texto (lo que ve el estudiante)
+     FUENTE DE LOS DATOS: los criterios se evalúan con el HEADER DE XRAY
+     (Average Revenue, Average Price, Average Reviews). Los filtros de
+     descubrimiento de Black Box > Keywords usan otra nomenclatura
+     (Monthly Revenue, Price) y viven en el contenido del paso 3, no aquí.
+     campo        clave del dato crudo que evalúa el motor
+     direccion    'min' (valor ≥ umbral) | 'max' (valor ≤ umbral) | 'rango' | 'juicio'
+     umbral_num   número para la barra de distancia
+     veto         true = un ❌ aquí limita el veredicto a RIESGO MODERADO
+     por_que      por qué el criterio existe
+     leccion      la frase que el estudiante debe recordar
+     error_comun  el error que este criterio previene
+     glosario     términos del vocabulario del vendedor
+   ============================================================ */
+
+(function (global) {
+  'use strict';
+
+  var CRITERIOS = [
+
+    /* ---------- FASE 1 — VALIDACIÓN INICIAL ---------- */
+
+    {
+      id: 1, fase: 1, veto: true, alerta_num: 4500,
+      criterio: 'Tendencia y volumen de mercado',
+      umbral: 'SV ≥ 4,500 + tendencia estable o alcista',
+      campo: 'searchVolume', direccion: 'min', umbral_num: 4500,
+      extra: 'tendencia',
+      por_que: 'El volumen mide cuánta gente busca. La tendencia mide si ese interés está creciendo o muriendo. Un mercado estable es predecible: puedes planificar inventario. Un mercado en caída es una trampa, porque cuando llegues con tu producto la demanda ya habrá bajado más.',
+      leccion: 'La demanda no se crea en Amazon, se captura.',
+      error_comun: 'Mirar el volumen y no mirar la curva. Un nicho con 20,000 búsquedas cayendo vale menos que uno con 6,000 estable.',
+      glosario: ['search volume', 'Black Box']
+    },
+
+    {
+      id: 2, fase: 1, veto: false, alerta_num: 3000,
+      criterio: 'Ingresos reales del mercado',
+      umbral: 'Average Revenue ≥ $4,500 /mes',
+      campo: 'averageRevenue', direccion: 'min', umbral_num: 4500,
+      por_que: 'El ingreso promedio por listing es la estimación de lo que tú podrías generar cuando estés bien posicionado. Si el promedio es bajo, el mercado tiene poco dinero circulando: incluso siendo el mejor vendedor, tu techo de ingresos es bajo.',
+      leccion: 'Ser el número uno de un mercado pequeño sigue siendo un mercado pequeño.',
+      error_comun: 'Confundir búsquedas con dinero. Un nicho puede tener mucho tráfico y muy poca facturación por competidor.',
+      glosario: ['average revenue', 'Xray']
+    },
+
+    {
+      id: 3, fase: 1, veto: false, alerta_num: 60,
+      criterio: 'Distribución de ingresos',
+      umbral: 'Ningún producto concentra > 40% del revenue total',
+      campo: 'concentracionTop1', direccion: 'max', umbral_num: 40,
+      por_que: 'Un mercado donde el 60% del dinero va a un solo producto está dominado por un ganador que probablemente tiene marca fuerte, miles de reseñas y presupuesto de PPC que tú no puedes igualar. Un mercado distribuido significa que hay espacio para varios ganadores, y tú puedes ser uno.',
+      leccion: 'No entres a un mercado donde ya hay un rey coronado.',
+      error_comun: 'Ver un revenue total alto sin revisar quién se lo lleva. El promedio esconde la concentración.',
+      glosario: ['winner-take-all', 'total revenue']
+    },
+
+    {
+      id: 4, fase: 1, veto: false, alerta_num: 500,
+      criterio: 'Reseñas y ratio ventas/reseñas',
+      umbral: 'Average Reviews ≤ 300 · ningún top 3 sobre 500',
+      campo: 'averageReviews', direccion: 'max', umbral_num: 300,
+      extra: 'ratioVentasReviews',
+      por_que: 'El conteo de reseñas te dice la barrera de entrada. El ratio ventas/reseñas te dice cuánto te va a costar cruzarla. Si un producto tiene 100 reseñas y vende 400 unidades al mes, los clientes compran sin necesitar ver cientos de reseñas primero. Si el ratio es 0.5, necesitas cientos de reseñas antes de vender bien: ese es el mercado más caro de entrar.',
+      leccion: 'El costo de entrada a un nicho no se mide en dólares, se mide en reseñas.',
+      error_comun: 'Ver búsquedas altas y asumir oportunidad, ignorando la muralla social que la competencia ya construyó.',
+      glosario: ['review count', 'ratio ventas/reseñas', 'Vine']
+    },
+
+    {
+      id: 5, fase: 1, veto: false, alerta_num: 20,
+      criterio: 'Precio promedio de venta',
+      umbral: 'Average Price ≥ $20 (ideal ≥ $25)',
+      campo: 'averagePrice', direccion: 'min', umbral_num: 20,
+      por_que: 'El precio de venta es el techo de todo lo demás. Con las tarifas FBA de 2026, un producto de $15 no tiene margen viable después de fees, COGS y envío. El piso real hoy es $20, y para tener colchón cómodo para PPC y diferenciación el objetivo es $25 o más.',
+      leccion: 'El precio define cuánto puedes gastar en publicidad. Sin margen no hay ranking.',
+      error_comun: 'Elegir un producto barato pensando que se vende más fácil. Barato significa que no puedes anunciarlo.',
+      glosario: ['FBA fees', 'COGS']
+    },
+
+    {
+      id: 6, fase: 1, veto: false,
+      criterio: 'Calidad de listings de la competencia',
+      umbral: '3+ de los top 5 con listings débiles = oportunidad alta',
+      direccion: 'juicio',
+      por_que: 'En Amazon no siempre gana el mejor producto: gana el mejor listing. Si los competidores tienen fotos mediocres, títulos mal optimizados y páginas sin A+, puedes superarlos con mejor ejecución sin necesitar un producto radicalmente distinto. Si ya tienen listings perfectos, necesitas una diferenciación de producto mucho más fuerte.',
+      leccion: 'La mediocridad de tu competencia es un activo. Cuéntala antes de entrar.',
+      error_comun: 'Evaluar listings por impresión en vez de por conteo. Fotos, título, A+ y bullets: cuatro áreas, se cuentan.',
+      glosario: ['A+ content', 'keyword stuffing', 'lifestyle']
+    },
+
+    /* ---------- FASE 2 — VALIDACIÓN AVANZADA ---------- */
+
+    {
+      id: 7, fase: 2, veto: true, alerta_num: 15,
+      criterio: 'Demanda en profundidad (Cerebro)',
+      umbral: '≥ 30 keywords orgánicas tras filtrar',
+      campo: 'keywordsCerebro', direccion: 'min', umbral_num: 30,
+      por_que: 'Las keywords orgánicas de Cerebro son las rutas reales por las que los clientes encuentran y compran este tipo de producto. Sesenta keywords significan sesenta caminos distintos para generar ventas: si una baja, quedan cincuenta y nueve. Quince keywords significan que dependes de muy pocas rutas, y cualquier cambio de algoritmo puede tumbarte.',
+      leccion: 'Un nicho robusto tiene muchas puertas de entrada, no una sola.',
+      error_comun: 'Correr Cerebro sobre un solo competidor. El ruido de un ASIN individual no es la demanda del mercado.',
+      glosario: ['Cerebro', 'organic rank', 'COSMO']
+    },
+
+    {
+      id: 8, fase: 2, veto: true, alerta_num: 20,
+      criterio: 'Margen antes de PPC y ROI',
+      umbral: 'Margen ≥ 30% antes de PPC · ROI ≥ 100%',
+      campo: 'margenAntesPPC', direccion: 'min', umbral_num: 30,
+      extra: 'roi',
+      por_que: 'El ROI del 100% significa que por cada dólar que inviertes recuperas dos. No es ambicioso: es el mínimo para que el negocio sea sostenible mientras pagas PPC, gastos operativos y reinviertes en el siguiente pedido. El margen antes de PPC es el colchón del que sale todo lo demás.',
+      leccion: 'Un producto con 11 de 13 criterios y 15% de margen no es un GO: es una trampa bien presentada.',
+      error_comun: 'Calcular el margen sin aranceles, empaque, inspección, devoluciones ni colocación de inbound. El margen "de servilleta" siempre miente hacia arriba.',
+      glosario: ['ROI', 'break-even ACOS', 'landed cost']
+    },
+
+    {
+      id: 9, fase: 2, veto: false,
+      criterio: 'Intención no satisfecha (COSMO)',
+      umbral: '≥ 1 intención o problema claro y resoluble',
+      direccion: 'juicio',
+      por_que: 'Amazon ya no solo empareja palabras: su IA entiende la intención detrás de la búsqueda, para quién es el producto, qué problema resuelve y en qué escenario se usa. Cuando alguien escribe "una estrella, lo compré para viajar y pesa demasiado" te regala dos cosas: tu propuesta de valor y la intención que vas a dominar.',
+      leccion: 'Las reseñas negativas de tu competencia son la investigación de mercado más valiosa y gratuita que existe.',
+      error_comun: 'Quedarse en quejas de precio. El precio no es una intención no satisfecha: es una guerra que no quieres pelear.',
+      glosario: ['COSMO', 'Alexa for Shopping', 'Review Insights']
+    },
+
+    {
+      id: 10, fase: 2, veto: true, alerta_num: 40,
+      criterio: 'Sourcing y aranceles',
+      umbral: 'MOQ ≤ 300 · costo aterrizado ≤ 30% del precio',
+      campo: 'costoAterrizadoPct', direccion: 'max', umbral_num: 30,
+      extra: 'moq',
+      por_que: 'El análisis de mercado más perfecto no sirve si no puedes conseguir el producto a un precio que funcione aterrizado en la bodega de Amazon. En 2026 eso incluye aranceles: un producto de cinco dólares en Alibaba puede costarte siete puesto en Estados Unidos según el origen.',
+      leccion: 'El costo aterrizado se calcula antes de enamorarse del producto, no después.',
+      error_comun: 'Usar el precio FOB como si fuera el costo real. El flete, el arancel y la colocación de inbound no son detalles.',
+      glosario: ['MOQ', 'DDP', 'FOB', 'landed cost', 'HTS']
+    },
+
+    {
+      id: 11, fase: 2, veto: false, alerta_num: 100,
+      criterio: 'Capital estructurado',
+      umbral: 'Alcanza para 150+ unidades + reserva de PPC',
+      campo: 'unidadesPosibles', direccion: 'min', umbral_num: 150,
+      por_que: 'El capital tiene que cubrir producto, envío, empaque y reserva de publicidad sin dejarte sin liquidez. La regla es que el 60% del capital va al inventario y el 40% se reserva para PPC y operación. Un pedido que consume todo tu dinero te deja sin combustible para rankear.',
+      leccion: 'Comprar inventario que no puedes anunciar es comprar una bodega, no un negocio.',
+      error_comun: 'Gastar el 100% del capital en el primer pedido para "aprovechar el descuento por volumen".',
+      glosario: ['reserva PPC', 'primer pedido']
+    },
+
+    {
+      id: 12, fase: 2, veto: false,
+      criterio: 'Resistencia a competencia china',
+      umbral: 'El nicho no está dominado por genéricos de $8–15',
+      direccion: 'juicio',
+      por_que: 'Los nichos donde puedes ganar son aquellos donde el diseño importa, la marca genera confianza, o el cliente prefiere pagar más por percepción de calidad. Si el nicho ya está dominado por productos genéricos sin diferenciación posible, no hay espacio rentable por más bien que ejecutes.',
+      leccion: 'Si tu única ventaja posible es el precio, no tienes ventaja.',
+      error_comun: 'Creer que un mejor listing compensa un producto idéntico a uno que cuesta la mitad.',
+      glosario: ['diferenciación', 'commodity']
+    },
+
+    {
+      id: 13, fase: 2, veto: true,
+      criterio: 'Barreras de entrada',
+      umbral: 'Categoría abierta · sin patentes · líderes superables',
+      direccion: 'juicio',
+      extra: 'proofOfEntry',
+      por_que: 'El mejor mercado del mundo no sirve si no puedes entrar. Si los líderes tienen miles de reseñas vas a tardar meses en rankear. Si la categoría está gated y no te aprueban, no puedes ni listar. Y si el producto está patentado, Amazon te suspende.',
+      leccion: 'Que dos de los diez que más venden se hayan lanzado este año es la mejor prueba de que el nicho deja entrar.',
+      error_comun: 'Dar la categoría por abierta sin verificarla en Seller Central. Se comprueba en sesenta segundos.',
+      glosario: ['gated', 'ungating', 'proof of entry', 'creation date']
+    }
+  ];
+
+  /* ---------- Filtros de herramientas ----------
+     Los nombres de campo de Helium 10 cambian cada cierto tiempo y los
+     umbrales se recalibran. Viven aquí para que una sola edición actualice
+     las instrucciones de todos los módulos. */
+
+  var FILTROS = {
+
+    // Black Box > Keywords — descubrimiento de nichos (paso 3)
+    // Nomenclatura vigente: 'Monthly Revenue' y 'Price'
+    // (antes 'Average Revenue' y 'Average Monthly Price').
+    blackBox: [
+      { campo: 'Search Volume',       min: 4500, max: null, nota: 'sin máximo' },
+      { campo: 'Monthly Sales Units', min: 300,  max: null },
+      { campo: 'Review Count',        min: null, max: 500 },
+      { campo: 'Monthly Revenue',     min: 4500, max: null, moneda: true },
+      { campo: 'Price',               min: 20,   max: 60, moneda: true, nota: 'ideal desde $25' },
+      { campo: 'Word Count',          min: 2,    max: null }
+    ],
+
+    // Cerebro — validación de keyword y medición de demanda (pasos 4 y 7)
+    // Se corre sobre los 10 competidores marcados en Xray, nunca sobre un ASIN suelto.
+    cerebro: [
+      { campo: 'Search Volume',                min: 300, max: null },
+      { campo: 'Match Type',                   valor: 'Organic' },
+      { campo: 'Number of Organic Competitors', min: 3,  max: 10 },
+      { campo: 'Competitor Organic Rank',       min: 1,  max: 45 }
+    ]
+  };
+
+  /* ---------- Escala de veredictos ---------- */
+
+  var ESCALA = [
+    { min: 12, veredicto: 'PRODUCTO ESTRELLA', etiqueta: 'PRODUCTO ESTRELLA 🌟', estado: 'go' },
+    { min: 10, veredicto: 'GO CON AJUSTES',    etiqueta: 'GO CON AJUSTES 🟢',    estado: 'go' },
+    { min: 7,  veredicto: 'RIESGO MODERADO',   etiqueta: 'RIESGO MODERADO 🟡',   estado: 'alerta' },
+    { min: 0,  veredicto: 'NO GO',             etiqueta: 'NO GO 🔴',             estado: 'nogo' }
+  ];
+
+  // Un ❌ en cualquiera de estos limita el veredicto a RIESGO MODERADO,
+  // sin importar el puntaje total. Son los criterios que quiebran negocios.
+  var VETOS = CRITERIOS.filter(function (c) { return c.veto; }).map(function (c) { return c.id; });
+
+  global.SophieCriterios = {
+    version: '2.0',
+    lista: CRITERIOS,
+    escala: ESCALA,
+    filtros: FILTROS,
+    vetos: VETOS,
+    fase: function (n) { return CRITERIOS.filter(function (c) { return c.fase === n; }); },
+    porId: function (id) {
+      for (var i = 0; i < CRITERIOS.length; i++) if (CRITERIOS[i].id === id) return CRITERIOS[i];
+      return null;
+    },
+    // Los que el motor calcula solo, sin pedirle nada al modelo.
+    calculables: CRITERIOS.filter(function (c) { return c.direccion !== 'juicio'; }).map(function (c) { return c.id; }),
+    // Los que requieren juicio del modelo sobre observación del estudiante.
+    dejuicio: CRITERIOS.filter(function (c) { return c.direccion === 'juicio'; }).map(function (c) { return c.id; })
+  };
+
+})(window);
