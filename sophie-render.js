@@ -284,7 +284,7 @@
     if (!host) throw new Error('Sophie: no encuentro el contenedor ' + sel);
     opts = opts || {};
 
-    host.className = 'sophie-root';
+    host.classList.add('sophie-root');
     host.innerHTML = SLOTS.map(function (s) {
       return '<div data-slot="' + s + '"></div>';
     }).join('');

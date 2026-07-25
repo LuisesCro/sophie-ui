@@ -85,6 +85,22 @@
   letter-spacing: -0.01em;
 }
 
+/* Panel embebido: para incrustar los componentes dentro de una página de
+   tema claro (el chat de Sophie). Aísla el tema oscuro en su propia tarjeta
+   y evita chocar con las clases .s-card / .s-num del chat, que están
+   limitadas a .landing y no alcanzan aquí. */
+.sophie-panel {
+  background: var(--s-bg);
+  border-radius: 18px;
+  padding: 18px;
+  margin: 0 0 18px;
+  overflow: hidden;
+}
+
+@media (max-width: 620px) {
+  .sophie-panel { padding: 12px; border-radius: 14px; }
+}
+
 /* ---------- 3. TARJETA BASE ---------- */
 
 .s-card {
