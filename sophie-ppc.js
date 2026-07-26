@@ -28,7 +28,10 @@
     // semanas en llegar. Como el gasto es la SEGUNDA compuerta y casi
     // siempre es la que manda, este piso solo protege del clic caro
     // aislado. Subirlo a 12-15 hace el motor más conservador.
-    PISO_CLICS: 8,
+    // UNIFICADO con el Optimizador (decisión de Luis, metodología híbrida):
+    // el piso de clics oficial de la suite es 10. La compuerta de gasto sigue
+    // siendo la que decide; este piso solo exige evidencia mínima.
+    PISO_CLICS: 10,
 
     // Cosecha: órdenes mínimas para promover a exacta.
     MIN_ORDENES_COSECHA: 2,
