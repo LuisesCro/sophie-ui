@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auditor de títulos de Amazon · Crezcamos Online</title>
+<meta name="description" content="Desde el 27 de julio de 2026 Amazon limita los títulos a 75 caracteres y reescribe con IA los que se pasen. Audita el tuyo gratis y arma el reparto 75 + 125 antes de la fecha.">
+
+<link rel="stylesheet" href="./sophie-ui.css">
+<style>
+  body { margin:0; background:linear-gradient(170deg,#0b1638 0%,#122252 60%,#16306b 100%);
+         background-attachment:fixed; font-family:'Plus Jakarta Sans',sans-serif;
+         color:#fff; -webkit-font-smoothing:antialiased; min-height:100vh; }
+  .wrap { max-width:880px; margin:0 auto; padding:34px 20px 80px; }
+  .hd__logo { font-size:34px; line-height:1 }
+  .hd h1 { font-size:clamp(26px,5vw,36px); font-weight:800; letter-spacing:-.025em; margin:14px 0 10px; line-height:1.2 }
+  .hd p { font-size:16px; color:#cbd6ea; line-height:1.65; margin:0 0 8px; max-width:660px }
+  .cuenta { display:inline-flex; align-items:center; gap:10px; background:rgba(229,72,77,.14);
+    border:1px solid rgba(229,72,77,.34); color:#ff8a8d; font-size:13.5px; font-weight:700;
+    padding:9px 16px; border-radius:99px; margin:18px 0 26px }
+  .cuenta.ok { background:rgba(247,170,46,.12); border-color:rgba(247,170,46,.3); color:#f7aa2e }
+  label.f { display:block; font-size:11px; font-weight:800; letter-spacing:.11em; text-transform:uppercase;
+    color:#8b9bbd; margin:0 0 9px }
+  textarea, input.t { width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12);
+    border-radius:14px; color:#fff; font-family:'Plus Jakarta Sans',sans-serif; font-size:15.5px;
+    line-height:1.6; padding:15px 17px; outline:none; resize:vertical; }
+  textarea:focus, input.t:focus { border-color:#3271d6; background:rgba(255,255,255,.07) }
+  textarea::placeholder, input.t::placeholder { color:#6b7c9e }
+  .fila { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:16px 0 0 }
+  @media (max-width:620px){ .fila { grid-template-columns:1fr } }
+  #salida { margin-top:26px }
+  .vacio { color:#8b9bbd; font-size:14.5px; text-align:center; padding:40px 20px;
+    border:1px dashed rgba(255,255,255,.14); border-radius:18px }
+  .pie { margin-top:44px; padding-top:22px; border-top:1px solid rgba(255,255,255,.1);
+    font-size:13.5px; color:#8b9bbd; line-height:1.7 }
+  .pie a { color:#f7aa2e; font-weight:700; text-decoration:none }
+  .corte { font-family:ui-monospace,monospace; font-size:14px; line-height:1.75;
+    background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.08); border-radius:12px;
+    padding:14px 16px; word-break:break-word; }
+  .corte .in { color:#5fd6a6 }
+  .corte .out { color:#ff8a8d; text-decoration:line-through; opacity:.75 }
+  .copiar { margin-top:10px }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hd">
+    <div class="hd__logo">🚀</div>
+    <h1>Tu título de Amazon tiene 75 caracteres a partir del 27 de julio</h1>
+    <p>Amazon anunció el 10 de junio de 2026 que los títulos de todas las categorías, excepto medios,
+       deben caber en 75 caracteres. Los que se pasen los reescribe su IA por su cuenta, y recuperar
+       el original después exige abrir un caso de soporte.</p>
+    <p>Pega tu título actual y te digo qué sobrevive, qué se va, y cómo repartirlo antes de que
+       lo decida un algoritmo que no conoce tu marca.</p>
+    <div class="cuenta" id="cuenta">Calculando…</div>
+  </div>
+
+  <div class="sophie-root">
+    <section class="s-card">
+      <label class="f" for="titulo">Tu título actual</label>
+      <textarea id="titulo" rows="3" placeholder="Pega aquí el título tal como está hoy en Seller Central"></textarea>
+      <div class="fila">
+        <div>
+          <label class="f" for="marca">Tu marca</label>
+          <input class="t" id="marca" type="text" placeholder="Crezcamos" autocomplete="off">
+        </div>
+        <div>
+          <label class="f" for="kw">Tu keyword principal</label>
+          <input class="t" id="kw" type="text" placeholder="punch needle kit" autocomplete="off">
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <label class="f" for="backend">Backend / Search Terms (opcional)</label>
+        <textarea id="backend" rows="2" placeholder="Pégalo si quieres verificar también los 249 bytes"></textarea>
+      </div>
+    </section>
+  </div>
+
+  <div id="salida" class="sophie-root">
+    <div class="vacio">Pega tu título arriba y el análisis aparece aquí, al instante.</div>
+  </div>
+
+  <div class="pie">
+    <b style="color:#fff">Sobre esta herramienta.</b> La construimos para los estudiantes de
+    Crezcamos Online y la dejamos abierta porque la fecha no espera a nadie.
+    Todo el cálculo ocurre en tu navegador: nada de lo que pegues se envía ni se guarda.<br><br>
+    Verificado contra el anuncio de Seller Central del 10 de junio de 2026. Amazon ajusta límites
+    sin aviso: la guía de estilo de tu categoría en Seller Central es siempre la palabra final.<br><br>
+    ¿Quieres construir listings completos con este criterio?
+    <a href="https://sophie-listing.crezcamosonline.com">Conoce Sophie Listing</a>
+  </div>
+
+</div>
+
+<script src="./sophie-render.js"></script>
+<script src="./sophie-keywords.js"></script>
+<script>
+(function () {
+  var LIMITE = 75, LIM_IH = 125, LIM_BACK = 249;
+  var FECHA = new Date('2026-07-27T00:00:00-05:00');
+
+  /* ---- cuenta regresiva ---- */
+  (function cuenta() {
+    var el = document.getElementById('cuenta');
+    var dias = Math.ceil((FECHA - new Date()) / 86400000);
+    if (dias > 1) { el.textContent = '⏳ Faltan ' + dias + ' días para el 27 de julio'; }
+    else if (dias === 1) { el.textContent = '⏳ Falta 1 día para el 27 de julio'; }
+    else if (dias === 0) { el.textContent = '⚠️ La regla entra en vigor hoy'; }
+    else { el.className = 'cuenta ok'; el.textContent = '✅ La regla ya está vigente desde el 27 de julio de 2026'; }
+  })();
+
+  var $ = function (id) { return document.getElementById(id); };
+  var salida = $('salida');
+
+  function esc(s) { return window.Sophie ? Sophie.esc(s) : String(s == null ? '' : s); }
+
+  // Corta en el último separador razonable antes del límite, para no partir palabras.
+  function cortar(t, max) {
+    if (t.length <= max) return { dentro: t, fuera: '' };
+    var trozo = t.slice(0, max);
+    var corte = Math.max(
+      trozo.lastIndexOf(' - '), trozo.lastIndexOf(' – '),
+      trozo.lastIndexOf(', '), trozo.lastIndexOf(' ')
+    );
+    if (corte < max * 0.55) corte = trozo.lastIndexOf(' ');
+    if (corte < 1) corte = max;
+    return { dentro: t.slice(0, corte).trim(), fuera: t.slice(corte).replace(/^[\s\-–,]+/, '').trim() };
+  }
+
+  function metrica(label, valor, max, unidad, nota) {
+    var estado = valor === 0 ? 'critico' : valor > max ? 'critico' : valor > max * 0.95 ? 'alerta' : 'ok';
+    return '<div class="s-metrica" data-estado="' + estado + '">' +
+      '<div class="s-metrica__label"><span class="s-metrica__dot"></span>' + esc(label) + '</div>' +
+      '<div class="s-metrica__valor">' + valor +
+      '<span style="font-size:15px;opacity:.45"> / ' + max + '</span></div>' +
+      '<div class="s-metrica__nota">' + esc(unidad + (nota ? ' · ' + nota : '')) + '</div></div>';
+  }
+
+  function botonCopiar(texto, etiqueta) {
+    var id = 'c' + Math.random().toString(36).slice(2, 8);
+    setTimeout(function () {
+      var b = document.getElementById(id);
+      if (!b) return;
+      b.addEventListener('click', function () {
+        var ta = document.createElement('textarea');
+        ta.value = texto; ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta); ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) {}
+        ta.remove();
+        b.textContent = ok ? '✅ Copiado' : '⚠️ Selecciónalo a mano';
+        setTimeout(function () { b.textContent = etiqueta; }, 2200);
+      });
+    }, 0);
+    return '<button class="s-btn copiar" id="' + id + '" type="button">' + esc(etiqueta) + '</button>';
+  }
+
+  function analizar() {
+    var K = window.SophieKeywords;
+    var t = $('titulo').value.trim();
+    var marca = $('marca').value.trim();
+    var kw = $('kw').value.trim();
+    var back = $('backend').value.trim();
+
+    if (!t) {
+      salida.innerHTML = '<div class="vacio">Pega tu título arriba y el análisis aparece aquí, al instante.</div>';
+      return;
+    }
+
+    var n = t.length;
+    var cabe = n <= LIMITE;
+    var c = cortar(t, LIMITE);
+    var ih = cortar(c.fuera, LIM_IH);
+
+    var prohibidas = K ? K.frasesProhibidas(t) : [];
+    var repetidas = K ? K.palabrasRepetidas(t, 2) : [];
+    var conMarca = marca && t.toLowerCase().indexOf(marca.toLowerCase()) > -1;
+    var marcaCabe = marca && c.dentro.toLowerCase().indexOf(marca.toLowerCase()) > -1;
+    var empieza = kw && t.toLowerCase().indexOf(kw.toLowerCase()) === 0;
+
+    var met = metrica('Título actual', n, LIMITE, 'caracteres',
+        cabe ? 'cabe' : 'se pasa por ' + (n - LIMITE));
+    met += metrica('Título propuesto', c.dentro.length, LIMITE, 'caracteres', '');
+    met += metrica('Item Highlights', ih.dentro.length, LIM_IH, 'caracteres',
+        ih.dentro.length ? 'con lo que no cupo' : 'nada que mover');
+    if (back) met += metrica('Backend', K ? K.bytes(back) : back.length, LIM_BACK, 'BYTES',
+        (K && K.bytes(back) !== back.length) ? back.length + ' caracteres' : '');
+
+    var visual = '<span class="in">' + esc(c.dentro) + '</span>' +
+      (c.fuera ? '<span class="out">' + esc(' ' + c.fuera) + '</span>' : '');
+
+    var avisos = [];
+    if (!cabe) avisos.push({ e: 'fail', t: 'Tu título se pasa por ' + (n - LIMITE) + ' caracteres. ' +
+      'Si llega el 27 de julio así, la IA de Amazon lo reescribe con su propio criterio.' });
+    if (kw && !empieza) avisos.push({ e: 'alerta', t: 'El título no abre con "' + kw + '". ' +
+      'La primera coincidencia carga el mayor peso de ranking, y con 75 caracteres ese lugar vale más que nunca.' });
+    if (marca && !conMarca) avisos.push({ e: 'alerta', t: 'No encuentro tu marca en el título. ' +
+      'Amazon confirmó que la marca cuenta dentro de los 75, así que hay que reservarle espacio.' });
+    if (marca && conMarca && !marcaCabe) avisos.push({ e: 'fail', t: 'Tu marca queda fuera del corte de 75. ' +
+      'Acorta otra parte del título: la marca no se omite.' });
+    if (prohibidas.length) avisos.push({ e: 'fail', t: 'Frases prohibidas por Amazon: ' + prohibidas.join(', ') + '.' });
+    if (repetidas.length) avisos.push({ e: 'alerta', t: 'Palabras repetidas más de dos veces: ' +
+      repetidas.map(function (r) { return r.palabra + ' ×' + r.veces; }).join(', ') + '.' });
+    if (back && K && K.bytes(back) > LIM_BACK) avisos.push({ e: 'fail', t: 'Tu backend supera los 249 bytes. ' +
+      'Un solo byte de más des-indexa el campo entero, en silencio. Los acentos del español cuentan doble.' });
+    if (!ih.dentro.length && cabe) avisos.push({ e: 'alerta', t: 'Item Highlights te da 125 caracteres ' +
+      'indexables adicionales. Vacío, se los estás regalando a la competencia: material, medidas, ' +
+      'audiencia y compatibilidad van ahí.' });
+
+    salida.innerHTML =
+      '<section class="s-card">' +
+        '<p class="s-card__eyebrow">Medidas</p>' +
+        '<div class="s-metricas">' + met + '</div>' +
+      '</section>' +
+
+      '<section class="s-card">' +
+        '<p class="s-card__eyebrow">Qué sobrevive al corte</p>' +
+        '<div class="corte">' + visual + '</div>' +
+        '<p class="s-veredicto__razon" style="margin:12px 0 0">' +
+          'En verde lo que cabe en 75 caracteres. Tachado lo que Amazon quitaría.' +
+        '</p>' +
+      '</section>' +
+
+      '<section class="s-card">' +
+        '<p class="s-card__eyebrow">Título propuesto · ' + c.dentro.length + '/75</p>' +
+        '<div class="corte">' + esc(c.dentro) + '</div>' +
+        botonCopiar(c.dentro, '📋 Copiar título') +
+      '</section>' +
+
+      (ih.dentro ?
+      '<section class="s-card">' +
+        '<p class="s-card__eyebrow">Item Highlights propuesto · ' + ih.dentro.length + '/125</p>' +
+        '<div class="corte">' + esc(ih.dentro) + '</div>' +
+        (ih.fuera ? '<p class="s-veredicto__razon" style="margin:12px 0 0">' +
+          'Esto tampoco cabe y hay que reubicarlo en viñetas o backend: <em>' + esc(ih.fuera) + '</em></p>' : '') +
+        botonCopiar(ih.dentro, '📋 Copiar Item Highlights') +
+      '</section>' : '') +
+
+      (avisos.length ?
+      '<section class="s-card">' +
+        '<p class="s-card__eyebrow">Lo que hay que revisar</p>' +
+        avisos.map(function (a) {
+          return '<div class="s-bloqueado" style="border-style:solid;border-color:' +
+            (a.e === 'fail' ? 'rgba(229,72,77,.3)' : 'rgba(247,170,46,.28)') + '">' +
+            '<span class="s-bloqueado__ico">' + (a.e === 'fail' ? '&#10007;' : '&#33;') + '</span>' +
+            '<div class="s-bloqueado__t" style="font-weight:600">' + esc(a.t) + '</div></div>';
+        }).join('') +
+      '</section>' : '') +
+
+      '<section class="s-card">' +
+        '<p class="s-card__eyebrow">Antes de guardar en Seller Central</p>' +
+        '<p class="s-veredicto__razon">El corte automático es un punto de partida, no la respuesta final. ' +
+        'Léelo y ajústalo: lo que queda en los 75 caracteres debe decir <b>qué es el producto y para quién</b>, ' +
+        'no ser el principio de una frase cortada. Amazon premia que se lea con sentido, no que apiles palabras.</p>' +
+        '<p class="s-veredicto__razon">Y revisa el resultado en el teléfono. El motivo de todo este cambio ' +
+        'es que el título quepa completo en pantalla de móvil.</p>' +
+      '</section>';
+  }
+
+  ['titulo', 'marca', 'kw', 'backend'].forEach(function (id) {
+    $(id).addEventListener('input', analizar);
+  });
+  analizar();
+})();
+</script>
+</body>
+</html>
