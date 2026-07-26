@@ -1,0 +1,373 @@
+/* ============================================================
+   SOPHIE OSCURO — Interfaz completa de Crezcamos Online
+   v1.0 · ui.crezcamosonline.com/sophie-oscuro.css
+
+   Toda la suite en el lenguaje del demo. Se carga DESPUÉS del
+   <style> de la página y redefine sus variables, así que los
+   estilos en línea de la página se adaptan solos.
+
+   DOS REGISTROS, no uno:
+     .landing        pantallas de trabajo — planas, calladas, para leer
+     .sophie-panel   momentos de veredicto — con gradiente y barra de color
+
+   Esa diferencia es la que le dice al estudiante "esto ya no es
+   la conversación, esto es el resultado".
+
+   LEGIBILIDAD: el cuerpo de texto va en #cbd6ea con interlineado
+   1.7. Es más claro de lo que pide un panel decorativo, porque
+   estas pantallas se leen durante 40 minutos y de día.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+/* Redefinir las variables de la página: los estilos en línea se adaptan solos */
+:root {
+  --azul:       #3271d6;
+  --azul-d:     #225195;
+  --azul-suave: rgba(50,113,214,.16);
+  --pagina:     #0b1638;
+  --tarjeta:    #16264f;
+  --texto:      #ffffff;
+  --texto-2:    #cbd6ea;
+  --texto2:     #cbd6ea;
+  --borde:      rgba(255,255,255,.11);
+  --rojo:       #ff8a8d;
+  --fondo:      #16264f;
+  --exito-bg:   rgba(47,191,135,.12);
+  --exito-tx:   #5fd6a6;
+  --check:      #2fbf87;
+  --why-bg:     rgba(247,170,46,.09);
+  --why-tx:     #f7aa2e;
+  --riesgo:     #ff8a8d;
+  --cta-bg:     rgba(50,113,214,.16);
+  --cta-tx:     #ffffff;
+
+  --so-navy-900:#0b1638;
+  --so-navy-800:#122252;
+  --so-navy-700:#225195;
+  --so-blue:    #3271d6;
+  --so-orange:  #f7aa2e;
+  --so-tx:      #ffffff;
+  --so-tx-2:    #cbd6ea;
+  --so-tx-3:    #8b9bbd;
+  --so-line:    rgba(255,255,255,.11);
+  --so-line-2:  rgba(255,255,255,.06);
+  --so-card:    rgba(255,255,255,.04);
+  --so-pass:    #5fd6a6;
+  --so-warn:    #f7aa2e;
+  --so-fail:    #ff8a8d;
+  --so-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --so-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+html, body {
+  background: linear-gradient(170deg, var(--so-navy-900) 0%, var(--so-navy-800) 60%, #16306b 100%);
+  background-attachment: fixed;
+  color: var(--so-tx);
+  font-family: var(--so-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- pantalla de acceso ---------- */
+
+.gate-card {
+  background: rgba(255,255,255,.045);
+  border: 1px solid var(--so-line);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+}
+.brand-icon { background: linear-gradient(135deg, var(--so-navy-700), var(--so-blue)); border-radius: 14px; }
+.brand-name { font-weight: 800; font-size: 17px; color: #fff; letter-spacing: -.01em; }
+.brand-sub  { color: var(--so-tx-3); font-size: 13px; font-weight: 500; }
+.gate-title { font-size: 23px; font-weight: 800; letter-spacing: -.02em; color: #fff; }
+.gate-desc  { color: var(--so-tx-2); font-size: 14.5px; line-height: 1.65; }
+.field-label{ color: var(--so-tx-3); font-weight: 700; font-size: 11px;
+              letter-spacing: .1em; text-transform: uppercase; }
+#code {
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--so-line);
+  border-radius: 12px; color: #fff;
+  font-family: var(--so-font); font-size: 15px;
+}
+#code::placeholder { color: var(--so-tx-3); }
+#code:focus { border-color: var(--so-blue); background: rgba(255,255,255,.07); }
+.btn {
+  background: var(--so-orange); color: #241703;
+  font-family: var(--so-font); font-weight: 800; letter-spacing: -.01em;
+  border-radius: 12px; box-shadow: 0 4px 18px rgba(247,170,46,.2);
+  transition: background .15s ease, transform .1s ease;
+}
+.btn:hover { background: #e0970f; opacity: 1; }
+.btn:active { transform: scale(.985); }
+.gate-error { color: var(--so-fail); font-weight: 600; }
+#gate a { color: var(--so-orange) !important; }
+
+/* ---------- chasis del chat ---------- */
+
+#stepper { background: rgba(11,22,56,.6); border-bottom: 1px solid var(--so-line); backdrop-filter: blur(8px); }
+.step .lbl { font-family: var(--so-font); font-size: 11px; color: var(--so-tx-3); font-weight: 600; }
+.step .dot {
+  font-family: var(--so-mono); font-weight: 700;
+  background: rgba(255,255,255,.07); color: var(--so-tx-3); border-color: rgba(255,255,255,.07);
+}
+.step:not(:first-child)::before { background: var(--so-line); }
+.step.done .dot { background: var(--so-blue); color: #fff; border-color: var(--so-blue); }
+.step.done:not(:first-child)::before,
+.step.active:not(:first-child)::before { background: var(--so-blue); }
+.step.active .dot {
+  background: transparent; color: var(--so-orange);
+  border-color: var(--so-orange); box-shadow: 0 0 0 3px rgba(247,170,46,.16);
+}
+.step.active .lbl { color: var(--so-orange); font-weight: 800; }
+
+#bar { background: rgba(11,22,56,.75); border-top: 1px solid var(--so-line); backdrop-filter: blur(8px); }
+#input {
+  background: rgba(255,255,255,.05); border: 1px solid var(--so-line);
+  border-radius: 12px; color: #fff; font-family: var(--so-font); font-size: 15px;
+}
+#input::placeholder { color: var(--so-tx-3); }
+#input:focus { border-color: var(--so-blue); }
+#send {
+  background: var(--so-orange); color: #241703;
+  font-family: var(--so-font); font-weight: 800; border-radius: 12px;
+}
+#send:hover { background: #e0970f; }
+#calcBtn {
+  background: rgba(255,255,255,.05); color: var(--so-orange);
+  border: 1px solid var(--so-line); border-radius: 12px;
+}
+#calcBtn:hover { background: rgba(255,255,255,.09); }
+
+.msg-user {
+  background: var(--so-blue); color: #fff;
+  font-family: var(--so-font); font-size: 14.5px; font-weight: 500;
+}
+.typing { color: var(--so-tx-3); font-weight: 600; }
+
+/* ---------- pantalla de trabajo: plana y callada ---------- */
+
+.landing {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--so-line);
+  border-radius: 18px;
+  overflow: hidden;
+  color: var(--so-tx);
+}
+
+.landing .s-head {
+  background: rgba(255,255,255,.04);
+  border-bottom: 1px solid var(--so-line);
+  padding: 18px 22px 16px;
+}
+.landing .s-logo { font-size: 22px; }
+.landing .s-name { font-weight: 800; font-size: 16px; color: #fff; letter-spacing: -.01em; }
+.landing .s-sub  { font-size: 12px; color: var(--so-tx-3); font-weight: 500; }
+.landing .s-prog {
+  font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--so-tx-3); margin-bottom: 8px;
+}
+.landing .s-prog span:last-child { font-family: var(--so-mono); letter-spacing: 0; color: var(--so-orange); }
+.landing .s-bar { height: 4px; background: rgba(255,255,255,.09); }
+.landing .s-bar > i { background: var(--so-orange); }
+
+.landing .s-body { padding: 24px 24px 26px; }
+
+.landing h1 {
+  font-size: 24px; font-weight: 800; letter-spacing: -.025em;
+  line-height: 1.3; color: #fff; margin: 2px 0 8px;
+}
+.landing h2 {
+  font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--so-tx-3); margin: 28px 0 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.landing h2::after { content: ''; flex: 1; height: 1px; background: var(--so-line-2); }
+
+/* Interlineado generoso: estas pantallas se leen, no se escanean */
+.landing p { font-size: 15px; line-height: 1.7; color: var(--so-tx-2); margin: 0 0 14px; }
+.landing .s-lead { font-size: 16px; margin-bottom: 20px; }
+.landing b, .landing strong { color: #fff; font-weight: 700; }
+
+.landing .s-done {
+  background: rgba(47,191,135,.10);
+  border: 1px solid rgba(47,191,135,.26);
+  color: var(--so-pass);
+  font-size: 13px; font-weight: 600;
+  padding: 10px 14px; border-radius: 10px; margin: 0 0 10px;
+}
+
+.landing .s-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--so-line-2);
+  border-radius: 14px; padding: 18px 20px; margin: 0 0 14px;
+}
+
+.landing .s-grid { gap: 10px; margin-bottom: 4px; }
+.landing .s-opt {
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--so-line);
+  border-radius: 12px; padding: 14px 16px;
+  font-size: 14.5px; font-weight: 500; color: #fff;
+  align-items: flex-start; gap: 12px;
+  transition: background .15s ease, border-color .15s ease, transform .1s ease;
+}
+.landing .s-opt:hover { background: rgba(50,113,214,.14); border-color: var(--so-blue); }
+.landing .s-opt:active { transform: scale(.99); }
+.landing .s-num {
+  width: 26px; height: 26px; flex: none; border-radius: 8px;
+  background: var(--so-blue); color: #fff;
+  font-family: var(--so-mono); font-size: 12px; font-weight: 700; margin-top: 1px;
+}
+.landing.opts-locked .s-opt { opacity: .4; }
+
+.landing .s-list li {
+  font-size: 14.5px; color: var(--so-tx-2);
+  padding: 11px 0; border-bottom: 1px solid var(--so-line-2);
+  font-variant-numeric: tabular-nums;
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.landing .s-list li b { color: #fff; font-weight: 700; }
+
+.landing .s-why {
+  background: rgba(247,170,46,.07);
+  border: 1px solid rgba(247,170,46,.22);
+  border-radius: 14px; padding: 16px 18px; margin: 0 0 14px;
+}
+.landing .s-why > b:first-child,
+.landing .s-why > strong:first-child {
+  display: block; margin-bottom: 8px;
+  font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--so-orange);
+}
+.landing .s-why p { color: #ddd0b6; font-size: 14.5px; }
+.landing .s-warn { color: var(--so-fail) !important; font-weight: 600; }
+
+.landing .s-win {
+  background: linear-gradient(100deg, rgba(47,191,135,.14), rgba(247,170,46,.10));
+  border: 1px solid rgba(47,191,135,.26);
+  color: #8ce3bd;
+  font-size: 14.5px; font-weight: 600; line-height: 1.6;
+  padding: 15px 17px; border-radius: 14px; margin: 0 0 16px;
+}
+
+.landing .s-cta {
+  background: linear-gradient(100deg, rgba(50,113,214,.18), rgba(247,170,46,.10));
+  border: 1px solid var(--so-line);
+  color: #fff; font-weight: 700; font-size: 14.5px; text-align: center;
+  padding: 15px 18px; border-radius: 14px; margin-top: 4px;
+}
+
+/* ---------- momento de veredicto: se distingue del trabajo ---------- */
+
+.sophie-panel {
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 8px 40px rgba(0,0,0,.28);
+}
+
+/* ---------- veredicto en pantallas de formato antiguo ---------- */
+
+.landing .s-verdict { border-radius: 14px; font-weight: 800; letter-spacing: -.01em; }
+.landing .s-go   { background: rgba(47,191,135,.12); color: var(--so-pass); border-color: rgba(47,191,135,.3); }
+.landing .s-nogo { background: rgba(229,72,77,.12); color: var(--so-fail); border-color: rgba(229,72,77,.32); }
+.landing .s-maybe{ background: rgba(247,170,46,.12); color: var(--so-orange); border-color: rgba(247,170,46,.3); }
+.landing .s-score {
+  font-family: var(--so-mono); font-variant-numeric: tabular-nums;
+  font-weight: 800; color: #fff; letter-spacing: -.03em;
+}
+.landing .s-score span { color: var(--so-tx-3); }
+.landing .s-metric { border: 1px solid var(--so-line); border-radius: 12px; }
+.landing .s-metric span {
+  font-size: 10px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--so-tx-3);
+}
+.landing .s-metric b {
+  font-family: var(--so-mono); font-variant-numeric: tabular-nums;
+  font-size: 19px; font-weight: 800; color: #fff;
+}
+.landing .s-crit li, .landing .s-plan li { font-size: 14.5px; color: var(--so-tx-2); }
+.landing .s-crit li { border-bottom: 1px solid var(--so-line-2); }
+.landing .s-copy {
+  font-family: var(--so-mono); font-size: 12.5px; color: var(--so-tx-2);
+  background: rgba(0,0,0,.25); border: 1px solid var(--so-line-2); border-radius: 10px;
+}
+
+/* ---------- botones del expediente ---------- */
+
+.exp-copy-btn {
+  background: var(--so-orange); color: #241703;
+  font-family: var(--so-font); font-weight: 800; border-radius: 12px;
+}
+.exp-copy-btn:hover { background: #e0970f; }
+.exp-copy-btn.exp-copied { background: var(--so-pass); color: #04241a; }
+.exp-new-btn {
+  background: transparent; color: #fff; font-family: var(--so-font); font-weight: 700;
+  border: 1px solid var(--so-line); border-radius: 12px;
+}
+.exp-new-btn:hover { background: rgba(255,255,255,.07); border-color: var(--so-blue); }
+
+/* ---------- calculadora de rentabilidad ---------- */
+
+#cogsModal { background: rgba(5,10,26,.66); backdrop-filter: blur(4px); }
+#cogsModal .cogs-sheet {
+  background: linear-gradient(165deg, #122252, #16306b);
+  border: 1px solid var(--so-line);
+}
+#cogsModal .cogs-sheet-head {
+  background: rgba(255,255,255,.06);
+  border-bottom: 1px solid var(--so-line);
+  color: #fff; font-weight: 800;
+}
+#cogsModal #cogsClose { background: rgba(255,255,255,.12); color: #fff; }
+#cogsModal .s-card {
+  background: rgba(255,255,255,.04); border: 1px solid var(--so-line); border-radius: 14px;
+}
+#cogsModal .s-card h3 { color: #fff; font-weight: 800; letter-spacing: -.01em; }
+#cogsModal .s-card p  { color: var(--so-tx-2); }
+#cogsModal .cogs-row label { color: var(--so-tx-2); font-size: 14px; }
+#cogsModal .cogs-row input,
+#cogsModal .cogs-row select {
+  background: rgba(255,255,255,.06); border: 1px solid var(--so-line);
+  border-radius: 10px; color: #fff; font-family: var(--so-mono);
+  font-variant-numeric: tabular-nums;
+}
+#cogsModal .cogs-row select { font-family: var(--so-font); }
+#cogsModal .cogs-row input::placeholder { color: var(--so-tx-3); }
+#cogsModal .cogs-row input:focus,
+#cogsModal .cogs-row select:focus { border-color: var(--so-blue); }
+#cogsModal .cogs-row input[readonly] { opacity: .65; }
+#cogsModal .cogs-row .pre, #cogsModal .cogs-row .suf { color: var(--so-tx-3); }
+#cogsModal .cogs-line {
+  border-bottom: 1px solid var(--so-line-2); color: var(--so-tx-2); font-size: 14px;
+}
+#cogsModal .cogs-line b {
+  font-family: var(--so-mono); font-variant-numeric: tabular-nums; color: #fff; font-weight: 700;
+}
+#cogsModal .cogs-big { font-family: var(--so-mono); color: var(--so-orange); font-weight: 800; }
+#cogsModal .s-cta {
+  background: rgba(50,113,214,.16); border: 1px solid var(--so-line);
+  border-radius: 14px; color: #fff;
+}
+#cogsModal .s-why {
+  background: rgba(247,170,46,.07); border: 1px solid rgba(247,170,46,.22);
+  border-radius: 14px; color: #ddd0b6;
+}
+#cogsModal .s-why b { color: var(--so-orange); }
+#cogsModal .cogs-check { background: rgba(50,113,214,.14); border-radius: 10px; }
+#cogsModal .cogs-check label { color: var(--so-tx-2); }
+#cogsModal .btn { background: var(--so-orange); color: #241703; }
+#cogsModal .btn:hover { background: #e0970f; }
+
+/* ---------- ajustes finales ---------- */
+
+::selection { background: rgba(247,170,46,.3); color: #fff; }
+
+@media (max-width: 620px) {
+  .landing { border-radius: 14px; }
+  .landing .s-body { padding: 18px 16px 20px; }
+  .landing h1 { font-size: 21px; }
+  .landing .s-head { padding: 15px 17px 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing *, .btn, #send, #calcBtn { transition-duration: .01ms !important; }
+}
