@@ -26,18 +26,21 @@
       b.setAttribute("aria-label", "Volver a la app Sophie");
       b.innerHTML = '<span aria-hidden="true" style="font-size:15px;line-height:1">←</span>' +
                     '<span>Volver a Sophie</span>';
+      // Abajo-izquierda, por ENCIMA de la barra de escribir (que va full-width
+      // abajo) y lejos del header sticky de arriba: no tapa ni el título del
+      // módulo ni el input.
       b.style.cssText = [
         "position:fixed",
-        "top:calc(10px + env(safe-area-inset-top))",
-        "left:calc(10px + env(safe-area-inset-left))",
+        "bottom:calc(80px + env(safe-area-inset-bottom))",
+        "left:calc(12px + env(safe-area-inset-left))",
         "z-index:2147483000",
-        "display:inline-flex", "align-items:center", "gap:7px",
-        "background:#3271d6", "color:#fff", "text-decoration:none",
-        "font:600 13px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif",
-        "padding:9px 14px", "border-radius:999px",
+        "display:inline-flex", "align-items:center", "gap:6px",
+        "background:rgba(50,113,214,.94)", "color:#fff", "text-decoration:none",
+        "font:600 12.5px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif",
+        "padding:8px 13px", "border-radius:999px",
         "box-shadow:0 4px 16px rgba(0,0,0,.30)",
         "cursor:pointer", "-webkit-tap-highlight-color:transparent",
-        "user-select:none"
+        "user-select:none", "backdrop-filter:blur(4px)"
       ].join(";");
       b.addEventListener("mouseenter", function () { b.style.background = "#255bbd"; });
       b.addEventListener("mouseleave", function () { b.style.background = "#3271d6"; });
