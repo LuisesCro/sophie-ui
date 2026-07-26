@@ -28,8 +28,8 @@
 
   /* ---- brand header ---- */
   .brand{display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:16px;}
-  .logo{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:9px;
-    background:var(--teal);color:#fff;font-family:var(--serif);font-weight:700;font-size:20px;flex:none;}
+  .logo{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:10px;
+    background:var(--teal-wash);border:1px solid #cfe6dc;font-size:22px;line-height:1;flex:none;}
   .brand-name{font-weight:700;letter-spacing:.02em;font-size:15px;}
   .brand-tag{color:var(--muted);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;}
   .brand-right{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);line-height:1.5;}
@@ -96,6 +96,7 @@
     h1{font-size:30px}
     .brand-right{display:none}
   }
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   @media print{
     body{background:#fff}
     .sheet{max-width:none;padding:0}
@@ -109,7 +110,7 @@
 <div class="sheet">
 
   <header class="brand">
-    <span class="logo">C</span>
+    <span class="logo" role="img" aria-label="Crezcamos Online">🚀</span>
     <div>
       <div class="brand-name">Crezcamos Online</div>
       <div class="brand-tag">Consultoría de producto · Amazon FBA</div>
