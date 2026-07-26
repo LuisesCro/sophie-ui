@@ -250,6 +250,173 @@
     };
   }
 
+  /* ============================================================
+     MATRIZ DE CANDIDATOS · 100 puntos (paso 5)
+     Los umbrales se leen contra el EXPEDIENTE del estudiante:
+     su MOQ objetivo y su precio de venta, no promedios genéricos.
+     ============================================================ */
+
+  function matriz(candidatos, ctx) {
+    ctx = ctx || {};
+    var precioVenta = n0(ctx.precioVenta);
+    var unidadesObjetivo = n0(ctx.unidadesPrimerPedido, 300);
+
+    var lista = (candidatos || []).map(function (c) {
+      var det = [];
+      function add(bloque, criterio, pts, max, ok, nota) {
+        det.push({ bloque: bloque, criterio: criterio, puntos: pts, max: max,
+                   estado: ok === true ? 'pass' : ok === 'alerta' ? 'alerta' : 'fail', nota: nota || '' });
+        return pts;
+      }
+
+      var esFabricante = /manufact|fabric/i.test(String(c.tipo || ''));
+      var ta  = c.tradeAssurance === true;
+      var ver = c.verified === true;
+      var anios = n0(c.anios);
+      var moq = n0(c.moq);
+      var precioRef = n0(c.precioReferencia);
+      var pctPrecio = precioVenta > 0 ? precioRef / precioVenta * 100 : 999;
+
+      /* NEGOCIO · 30 */
+      var neg = 0;
+      neg += add('Negocio', 'Fabricante real, no intermediario', esFabricante ? 20 : 5, 20, esFabricante,
+        esFabricante ? '' : 'Trading company: sumas un margen intermedio salvo que aporte consolidación');
+      var ptMoq = moq <= unidadesObjetivo ? 10 : moq <= unidadesObjetivo * 1.5 ? 5 : 0;
+      neg += add('Negocio', 'MOQ dentro de tu primer pedido', ptMoq, 10,
+        ptMoq === 10 ? true : ptMoq === 5 ? 'alerta' : false,
+        moq + ' unidades contra tus ' + unidadesObjetivo);
+
+      /* SEGURIDAD · 40 */
+      var seg = 0;
+      seg += add('Seguridad', 'Trade Assurance', ta ? 15 : 0, 15, ta,
+        ta ? '' : 'Sin protección de pago no hay trato, no importa el precio');
+      seg += add('Seguridad', 'Verified Supplier', ver ? 10 : 0, 10, ver);
+      var ptAnios = anios >= 5 ? 15 : anios >= 3 ? 10 : 0;
+      seg += add('Seguridad', 'Años en la plataforma', ptAnios, 15,
+        ptAnios === 15 ? true : ptAnios === 10 ? 'alerta' : false,
+        anios ? anios + ' años' : 'sin dato');
+
+      /* COSTOS · 30 */
+      var cost = 0;
+      var ptCosto = pctPrecio <= 25 ? 30 : pctPrecio <= 30 ? 20 : pctPrecio <= 35 ? 10 : 0;
+      cost += add('Costos', 'Precio de referencia vs tu precio de venta', ptCosto, 30,
+        ptCosto >= 20 ? true : ptCosto === 10 ? 'alerta' : false,
+        precioRef ? '$' + precioRef + ' = ' + r2(pctPrecio) + '% de $' + precioVenta +
+          ' · ojo: es EXW o FOB, el aterrizado sube' : 'sin precio de referencia');
+
+      var total = neg + seg + cost;
+      // Sin Trade Assurance no compite, por bueno que sea el resto.
+      var descalificado = !ta;
+
+      return {
+        proveedor: c.proveedor || 'Sin nombre',
+        link: c.link || '',
+        tipo: c.tipo || '',
+        total: descalificado ? 0 : total,
+        totalSinDescalificar: total,
+        descalificado: descalificado,
+        motivoDescalificacion: descalificado ? 'Sin Trade Assurance' : '',
+        bloques: { negocio: neg, seguridad: seg, costos: cost },
+        maximos: { negocio: 30, seguridad: 40, costos: 30 },
+        detalle: det,
+        datos: { esFabricante: esFabricante, tradeAssurance: ta, verified: ver,
+                 anios: anios, moq: moq, precioReferencia: precioRef, pctPrecio: r2(pctPrecio) }
+      };
+    });
+
+    var orden = lista.slice().sort(function (a, b) { return b.total - a.total; });
+    var vivos = orden.filter(function (x) { return !x.descalificado; });
+    var aviso = null;
+    if (!vivos.length) {
+      aviso = 'Ninguno tiene Trade Assurance. Sin protección de pago no se avanza: vuelve a la búsqueda con el filtro activado.';
+    } else if (vivos[0].total < 60) {
+      aviso = 'El mejor candidato saca ' + vivos[0].total + '/100. Tu lista verde necesita mejores perfiles antes de seguir: ninguno llega al piso de 60.';
+    }
+
+    return { candidatos: lista, ranking: orden, top3: vivos.slice(0, 3), aviso: aviso };
+  }
+
+  /* ============================================================
+     SCORE DEL PROVEEDOR · 100 puntos (paso 12)
+     ============================================================ */
+
+  function scoreProveedor(p, ctx) {
+    p = p || {}; ctx = ctx || {};
+    var det = [];
+    function add(bloque, criterio, pts, max, ok, nota) {
+      det.push({ bloque: bloque, criterio: criterio, puntos: pts, max: max,
+                 estado: ok === true ? 'pass' : ok === 'alerta' ? 'alerta' : 'fail', nota: nota || '' });
+      return pts;
+    }
+
+    /* IDENTIDAD Y SEGURIDAD · 30 */
+    var id = 0;
+    id += add('Identidad', 'Fabricante verificado, licencia coincide', p.fabricanteVerificado ? 10 : 0, 10, !!p.fabricanteVerificado);
+    id += add('Identidad', 'Trade Assurance o canal seguro activo', p.tradeAssurance ? 10 : 0, 10, !!p.tradeAssurance,
+      p.tradeAssurance ? '' : 'Sin protección de pago pierdes toda palanca ante un problema');
+    id += add('Identidad', 'Verificación nivel 2+ o video tour completado', p.verificacion ? 5 : 0, 5, !!p.verificacion);
+    id += add('Identidad', 'Tres años o más de historial', n0(p.anios) >= 3 ? 5 : 0, 5, n0(p.anios) >= 3,
+      p.anios ? p.anios + ' años' : '');
+
+    /* NÚMEROS · 40 */
+    var num_ = 0;
+    var pct = n0(p.costoAterrizadoPct);
+    var ptCosto = pct > 0 && pct < 25 ? 15 : pct <= 30 ? 10 : pct <= 35 ? 5 : 0;
+    num_ += add('Números', 'Costo aterrizado vs precio de venta', ptCosto, 15,
+      ptCosto >= 10 ? true : ptCosto === 5 ? 'alerta' : false,
+      pct ? r2(pct) + '% del precio de venta' : 'sin dato');
+    var moqOk = n0(p.moq) > 0 && n0(p.moq) <= n0(ctx.unidadesPrimerPedido, 300);
+    num_ += add('Números', 'MOQ dentro de tu primer pedido', moqOk ? 10 : 0, 10, moqOk,
+      p.moq ? p.moq + ' unidades contra tus ' + n0(ctx.unidadesPrimerPedido, 300) : '');
+    var terminos = String(p.terminosPago || '').replace(/\s/g, '');
+    var cienAdelantado = /100/.test(terminos) && !/\//.test(terminos);
+    var terminosOk = /30\/70|70\/30|50\/50/.test(terminos);
+    num_ += add('Números', 'Términos de pago sanos', terminosOk ? 10 : 0, 10, terminosOk,
+      cienAdelantado ? '100% por adelantado: pierdes toda palanca de calidad'
+                     : terminosOk ? terminos : 'sin acordar');
+    num_ += add('Números', 'Muestra acreditada a la orden', p.muestraAcreditada ? 5 : 0, 5, !!p.muestraAcreditada,
+      p.muestraAcreditada ? '' : 'Casi todos lo aceptan y casi nadie lo pide');
+
+    /* PROCESO · 30 */
+    var pro = 0;
+    pro += add('Proceso', 'Muestra de pre-producción aprobada', p.muestraPreProduccion ? 10 : 0, 10, !!p.muestraPreProduccion,
+      p.muestraPreProduccion ? '' : 'Se aprueba ANTES de pagar el 30%');
+    pro += add('Proceso', 'Muestra o inspección de pre-embarque acordada', p.preEmbarque ? 10 : 0, 10, !!p.preEmbarque,
+      p.preEmbarque ? '' : 'Es la palanca que protegiste al negociar 30/70');
+    pro += add('Proceso', 'FNSKU y empaque confirmados', p.fnskuEmpaque ? 5 : 0, 5, !!p.fnskuEmpaque);
+    pro += add('Proceso', 'Cronograma con festividades consideradas', p.cronograma ? 5 : 0, 5, !!p.cronograma,
+      p.cronograma ? '' : 'Año Nuevo Chino y Golden Week cierran fábricas semanas enteras');
+
+    var total = id + num_ + pro;
+
+    var nivel = total >= 85 ? { v: 'APROBADO', e: 'go', t: '✅ PROVEEDOR APROBADO — Ordena con confianza' }
+              : total >= 65 ? { v: 'APROBADO CON CONDICIONES', e: 'alerta', t: '⚠️ APROBADO CON CONDICIONES — Resuelve esto antes de pagar el 30%' }
+                            : { v: 'BUSCAR OTRO', e: 'nogo', t: '❌ BUSCAR OTRO — Vuelve al finalista #2 de la matriz' };
+
+    // Vetos: se aplican antes de la escala.
+    var vetos = [];
+    if (!p.tradeAssurance) vetos.push({ id: 'trade-assurance', t: 'Sin Trade Assurance ni canal seguro equivalente.' });
+    if (pct > 35) vetos.push({ id: 'costo-aterrizado', t: 'Costo aterrizado sobre el 35% del precio de venta: renegocia o cambia de origen.' });
+    if (cienAdelantado) vetos.push({ id: 'pago-adelantado', t: 'Exige el 100% por adelantado en una primera orden.' });
+
+    if (cienAdelantado) {
+      nivel = { v: 'BUSCAR OTRO', e: 'nogo', t: '❌ BUSCAR OTRO — Exige el 100% por adelantado' };
+    } else if (vetos.length && nivel.v === 'APROBADO') {
+      nivel = { v: 'APROBADO CON CONDICIONES', e: 'alerta',
+                t: '⚠️ APROBADO CON CONDICIONES — Hay un veto activo que resolver primero' };
+    }
+
+    return {
+      total: total,
+      veredicto: nivel.v, etiqueta: nivel.t, estado: nivel.e,
+      vetos: vetos,
+      bloques: { identidad: id, numeros: num_, proceso: pro },
+      maximos: { identidad: 30, numeros: 40, proceso: 30 },
+      detalle: det,
+      fallos: det.filter(function (d) { return d.estado !== 'pass'; })
+    };
+  }
+
   global.SophieCotizaciones = {
     version: '1.0',
     umbrales: UMBRALES,
@@ -257,7 +424,9 @@
     arancelEstimado: ARANCEL_ESTIMADO,
     aterrizar: aterrizar,
     evaluar: evaluar,
-    comparar: comparar
+    comparar: comparar,
+    matriz: matriz,
+    scoreProveedor: scoreProveedor
   };
 
 })(window);
