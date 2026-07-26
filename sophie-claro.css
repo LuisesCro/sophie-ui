@@ -1,0 +1,313 @@
+/* ============================================================
+   SOPHIE CLARO — Tema de trabajo de Crezcamos Online
+   v1.0 · ui.crezcamosonline.com/sophie-claro.css
+
+   El mismo lenguaje visual que los paneles oscuros, en registro
+   claro: Plus Jakarta Sans, navy de marca, naranja de acento,
+   números tabulares, mismo espaciado y mismos radios.
+
+   Dos registros, un idioma:
+     claro   -> pantallas de trabajo (pasos guiados 1-5 y 7)
+     oscuro  -> momentos de veredicto (pasos 6, 8 y 9)
+
+   Se carga DESPUÉS del <style> de la página, sobre las mismas
+   clases. No toca index.html.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --sc-navy-900: #0b1638;
+  --sc-navy-800: #122252;
+  --sc-navy-700: #225195;
+  --sc-blue-500: #3271d6;
+  --sc-orange:   #f7aa2e;
+
+  /* Texto con temperatura navy, no gris neutro */
+  --sc-tx:    #122252;
+  --sc-tx-2:  #4a5578;
+  --sc-tx-3:  #8a93ad;
+
+  /* Superficies cálidas: el gris frío es lo que hace ver genérico */
+  --sc-pag:   #f7f7f3;
+  --sc-card:  #ffffff;
+  --sc-line:  #e7e6e0;
+  --sc-line-2:#f0efea;
+
+  /* Estados en versión legible sobre blanco */
+  --sc-pass:  #17845c;
+  --sc-pass-bg: #ecfaf3;
+  --sc-pass-ln: #c3ebd8;
+  --sc-warn:  #9a6510;
+  --sc-warn-bg: #fff8ec;
+  --sc-warn-ln: #f3e3c2;
+  --sc-fail:  #c93b40;
+
+  --sc-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sc-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* ---------- chasis ---------- */
+
+body {
+  background: var(--sc-pag);
+  color: var(--sc-tx);
+  font-family: var(--sc-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+#bar { border-top: 1px solid var(--sc-line); background: var(--sc-card); }
+
+#input {
+  font-family: var(--sc-font);
+  font-size: 15px;
+  color: var(--sc-tx);
+  border: 1px solid var(--sc-line);
+  border-radius: 12px;
+}
+#input:focus { border-color: var(--sc-blue-500); }
+#input::placeholder { color: var(--sc-tx-3); }
+
+#send {
+  background: var(--sc-orange);
+  color: #241703;
+  font-family: var(--sc-font);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  border-radius: 12px;
+  transition: background .15s ease, transform .1s ease;
+}
+#send:hover { background: #e0970f; }
+#send:active { transform: scale(.985); }
+
+#calcBtn {
+  background: var(--sc-card);
+  color: var(--sc-navy-700);
+  border: 1px solid var(--sc-line);
+  border-radius: 12px;
+}
+#calcBtn:hover { background: #f2f5fb; border-color: var(--sc-blue-500); }
+
+.msg-user {
+  background: var(--sc-navy-800);
+  color: #fff;
+  font-family: var(--sc-font);
+  font-size: 14.5px;
+  font-weight: 500;
+  border-radius: 16px 16px 4px 16px;
+}
+
+/* ---------- stepper ---------- */
+
+#stepper { background: var(--sc-card); border-bottom: 1px solid var(--sc-line); }
+.step .lbl { font-family: var(--sc-font); font-size: 11px; color: var(--sc-tx-3); font-weight: 600; }
+.step .dot {
+  font-family: var(--sc-mono);
+  background: #eef2fa; color: var(--sc-navy-700); border-color: #eef2fa;
+}
+.step:not(:first-child)::before { background: var(--sc-line); }
+.step.done .dot { background: var(--sc-navy-700); color: #fff; border-color: var(--sc-navy-700); }
+.step.done:not(:first-child)::before,
+.step.active:not(:first-child)::before { background: var(--sc-navy-700); }
+.step.active .dot {
+  background: #fff; color: var(--sc-navy-700);
+  border-color: var(--sc-navy-700); box-shadow: 0 0 0 3px #e6edf9;
+}
+.step.active .lbl { color: var(--sc-navy-800); font-weight: 800; }
+
+/* ---------- tarjeta de pantalla ---------- */
+
+.landing {
+  background: var(--sc-card);
+  border: 1px solid var(--sc-line);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* Cabecera con el gradiente de marca, no un azul plano */
+.landing .s-head {
+  background: linear-gradient(115deg, var(--sc-navy-800) 0%, var(--sc-navy-700) 62%, var(--sc-blue-500) 100%);
+  padding: 18px 22px 16px;
+}
+.landing .s-logo { font-size: 22px; }
+.landing .s-name { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; }
+.landing .s-sub  { font-size: 12px; color: rgba(255,255,255,.72); font-weight: 500; }
+
+.landing .s-prog {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: rgba(255,255,255,.8); margin-bottom: 8px;
+}
+.landing .s-prog span:last-child { font-family: var(--sc-mono); letter-spacing: 0; }
+.landing .s-bar { height: 4px; background: rgba(255,255,255,.22); }
+.landing .s-bar > i { background: var(--sc-orange); }
+
+/* ---------- cuerpo ---------- */
+
+.landing .s-body { padding: 24px 24px 26px; }
+
+.landing h1 {
+  font-size: 24px; font-weight: 800; letter-spacing: -0.025em;
+  line-height: 1.25; color: var(--sc-tx); margin: 2px 0 8px;
+}
+.landing h2 {
+  font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--sc-tx-3); margin: 26px 0 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.landing h2::after { content: ''; flex: 1; height: 1px; background: var(--sc-line-2); }
+
+.landing p {
+  font-size: 15px; line-height: 1.65; color: var(--sc-tx-2); margin: 0 0 13px;
+}
+.landing .s-lead { font-size: 16px; color: var(--sc-tx-2); margin-bottom: 20px; }
+.landing b, .landing strong { color: var(--sc-tx); font-weight: 700; }
+
+/* ---------- dato confirmado ---------- */
+
+.landing .s-done {
+  background: var(--sc-pass-bg);
+  border: 1px solid var(--sc-pass-ln);
+  color: var(--sc-pass);
+  font-size: 13px; font-weight: 600;
+  padding: 10px 14px; border-radius: 10px; margin: 0 0 10px;
+}
+
+/* ---------- tarjeta de contenido ---------- */
+
+.landing .s-card {
+  background: #fbfbf9;
+  border: 1px solid var(--sc-line);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin: 0 0 14px;
+}
+
+/* ---------- opciones ---------- */
+
+.landing .s-grid { gap: 10px; margin-bottom: 4px; }
+
+.landing .s-opt {
+  border: 1px solid var(--sc-line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 14.5px; font-weight: 500; color: var(--sc-tx);
+  background: var(--sc-card);
+  align-items: flex-start; gap: 12px;
+  transition: border-color .15s ease, background .15s ease, transform .1s ease;
+}
+.landing .s-opt:hover { background: #f7faff; border-color: var(--sc-blue-500); }
+
+.landing .s-num {
+  width: 26px; height: 26px; flex: none;
+  background: var(--sc-navy-800); color: #fff;
+  font-family: var(--sc-mono); font-size: 12px; font-weight: 700;
+  border-radius: 8px; margin-top: 1px;
+}
+
+/* ---------- listas de datos y filtros ---------- */
+
+.landing .s-list li {
+  font-size: 14.5px; color: var(--sc-tx-2);
+  padding: 11px 0; border-bottom: 1px solid var(--sc-line-2);
+  font-variant-numeric: tabular-nums;
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.landing .s-list li b { color: var(--sc-tx); font-weight: 700; }
+
+/* Los números de un filtro son datos: van en monoespaciada.
+   Se aplica a lo que sigue al <b> del nombre del campo. */
+.landing .s-list li b + * ,
+.landing .s-card .s-list li { font-family: inherit; }
+
+/* ---------- bloque "¿por qué?" ---------- */
+
+.landing .s-why {
+  background: var(--sc-warn-bg);
+  border: 1px solid var(--sc-warn-ln);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin: 0 0 14px;
+}
+.landing .s-why > b:first-child,
+.landing .s-why > strong:first-child {
+  display: block; margin-bottom: 8px;
+  font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--sc-warn);
+}
+.landing .s-why p { color: #6d5a37; font-size: 14.5px; }
+.landing .s-warn { color: var(--sc-fail) !important; font-weight: 600; }
+
+/* ---------- banner de logro ---------- */
+
+.landing .s-win {
+  background: linear-gradient(100deg, rgba(23,132,92,.10), rgba(247,170,46,.10));
+  border: 1px solid var(--sc-pass-ln);
+  color: #14663f;
+  font-size: 14.5px; font-weight: 600; line-height: 1.55;
+  padding: 15px 17px; border-radius: 14px; margin: 0 0 16px;
+}
+
+/* ---------- cierre ---------- */
+
+.landing .s-cta {
+  background: linear-gradient(100deg, rgba(50,113,214,.09), rgba(247,170,46,.11));
+  border: 1px solid var(--sc-line);
+  color: var(--sc-navy-800);
+  font-weight: 700; font-size: 14.5px; text-align: center;
+  padding: 15px 18px; border-radius: 14px; margin-top: 4px;
+}
+
+/* ---------- veredicto en claro (compatibilidad con pantallas viejas) ---------- */
+
+.landing .s-verdict { border-radius: 14px; font-weight: 800; letter-spacing: -0.01em; }
+.landing .s-go   { background: var(--sc-pass-bg); color: var(--sc-pass); border-color: var(--sc-pass-ln); }
+.landing .s-nogo { background: #fdecec; color: var(--sc-fail); border-color: #f3c6c4; }
+.landing .s-maybe{ background: var(--sc-warn-bg); color: var(--sc-warn); border-color: var(--sc-warn-ln); }
+
+.landing .s-score {
+  font-family: var(--sc-mono); font-variant-numeric: tabular-nums;
+  font-weight: 800; color: var(--sc-navy-800); letter-spacing: -0.03em;
+}
+.landing .s-score span { color: var(--sc-tx-3); }
+
+.landing .s-metric { border: 1px solid var(--sc-line); border-radius: 12px; }
+.landing .s-metric span {
+  font-size: 10px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--sc-tx-3);
+}
+.landing .s-metric b {
+  font-family: var(--sc-mono); font-variant-numeric: tabular-nums;
+  font-size: 19px; font-weight: 800; color: var(--sc-tx);
+}
+
+.landing .s-crit li, .landing .s-plan li { font-size: 14.5px; color: var(--sc-tx-2); }
+.landing .s-copy {
+  font-family: var(--sc-mono); font-size: 12.5px;
+  background: #f6f6f2; border: 1px solid var(--sc-line); border-radius: 10px;
+}
+
+/* ---------- botones del expediente ---------- */
+
+.exp-copy-btn {
+  background: var(--sc-orange); color: #241703;
+  font-family: var(--sc-font); font-weight: 800; border-radius: 12px;
+}
+.exp-copy-btn:hover { background: #e0970f; }
+.exp-new-btn {
+  font-family: var(--sc-font); font-weight: 700;
+  color: var(--sc-navy-700); border: 1px solid var(--sc-line); border-radius: 12px;
+}
+.exp-new-btn:hover { background: #f2f5fb; border-color: var(--sc-blue-500); }
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 620px) {
+  .landing { border-radius: 14px; }
+  .landing .s-body { padding: 18px 16px 20px; }
+  .landing h1 { font-size: 21px; }
+  .landing .s-head { padding: 15px 17px 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing *, #send, #calcBtn { transition-duration: .01ms !important; }
+}
