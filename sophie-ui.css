@@ -290,11 +290,15 @@
   animation: s-enter .3s cubic-bezier(.16,1,.3,1) both;
 }
 
+/* Nombre en su línea, cifras en la suya. Los criterios de juicio tienen
+   umbrales que son frases largas ("3+ de los top 5 con listings débiles"),
+   y en una sola fila comprimían el nombre y recortaban el umbral. */
 .s-fila__head {
   display: grid;
-  grid-template-columns: 22px 1fr auto auto;
-  align-items: center;
-  gap: 12px;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 12px;
+  row-gap: 5px;
   padding: 13px 16px;
   width: 100%;
   background: none;
@@ -310,21 +314,33 @@
 
 .s-fila__icono {
   font-size: 14px;
-  line-height: 1;
+  line-height: 1.45;
   text-align: center;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .s-fila[data-estado="pass"]   .s-fila__icono { color: var(--s-pass); }
 .s-fila[data-estado="alerta"] .s-fila__icono { color: var(--s-warn); }
 .s-fila[data-estado="fail"]   .s-fila__icono { color: var(--s-fail); }
 
-.s-fila__criterio { font-size: 14px; font-weight: 600; }
+.s-fila__criterio {
+  font-size: 14px;
+  font-weight: 600;
+  grid-column: 2;
+  grid-row: 1;
+  line-height: 1.45;
+}
 
 .s-fila__cifras {
   font-family: var(--s-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  white-space: nowrap;
+  font-size: 12.5px;
+  line-height: 1.5;
+  grid-column: 2;
+  grid-row: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .s-fila__cifras b { font-weight: 700; }
@@ -336,6 +352,9 @@
 .s-fila__chev {
   color: var(--s-text-3);
   font-size: 11px;
+  line-height: 1.45;
+  grid-column: 3;
+  grid-row: 1;
   transition: transform .22s ease;
 }
 
@@ -346,7 +365,7 @@
 .s-umbral {
   position: relative;
   height: 4px;
-  margin: 0 16px 13px;
+  margin: 2px 16px 13px 50px;
   border-radius: 99px;
   background: rgba(255,255,255,.07);
   overflow: visible;
@@ -677,9 +696,8 @@
   :root { --s-pad: 18px; --s-gap: 14px; }
   .sophie-page { padding: 24px 14px 60px; }
 
-  .s-fila__head { grid-template-columns: 20px 1fr auto; row-gap: 4px; }
-  .s-fila__cifras { grid-column: 2 / -1; }
-  .s-fila__chev { grid-row: 1; grid-column: 3; }
+  .s-fila__head { grid-template-columns: 20px minmax(0,1fr) auto; padding: 12px 13px; }
+  .s-umbral { margin-left: 45px; margin-right: 13px; }
 
   .s-leccion { padding-left: 18px; }
   .s-veredicto__puntaje { margin-left: 0; text-align: left; }
