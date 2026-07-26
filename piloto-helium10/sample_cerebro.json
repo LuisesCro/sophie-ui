@@ -1,0 +1,54 @@
+{
+  "total": 1341,
+  "organic": 123,
+  "top": [
+    {
+      "phrase": "matcha whisk",
+      "sv": 84506,
+      "rank": 36,
+      "cpc": 0.86
+    },
+    {
+      "phrase": "matcha wisk",
+      "sv": 3733,
+      "rank": 40,
+      "cpc": 0.92
+    },
+    {
+      "phrase": "chasen",
+      "sv": 3377,
+      "rank": 33,
+      "cpc": 0.72
+    },
+    {
+      "phrase": "macha whisk set",
+      "sv": 3214,
+      "rank": 24,
+      "cpc": 1.1
+    },
+    {
+      "phrase": "matcha making kit",
+      "sv": 3163,
+      "rank": 38,
+      "cpc": 1.2
+    },
+    {
+      "phrase": "bamboo whisk",
+      "sv": 2893,
+      "rank": 33,
+      "cpc": 0.83
+    },
+    {
+      "phrase": "matcha accessories",
+      "sv": 2875,
+      "rank": 30,
+      "cpc": 1.03
+    },
+    {
+      "phrase": "matcha spoon",
+      "sv": 2558,
+      "rank": 13,
+      "cpc": 0.62
+    }
+  ]
+}
