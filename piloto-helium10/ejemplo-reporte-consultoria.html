@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reporte de consultoría · scalloped basket · Crezcamos Online</title>
+<style>
+  :root{
+    --ink:#16241f; --ink-soft:#3d4f48; --muted:#6b7c74;
+    --paper:#faf9f6; --card:#ffffff; --line:#e4e6df;
+    --teal:#0f8a6d; --teal-deep:#0b6b54; --teal-wash:#eaf4ef;
+    --pass:#2e7d5b; --pass-wash:#e7f3ec;
+    --veto:#b06a12; --veto-wash:#fbf1e2;
+    --pend:#7a7f8a; --pend-wash:#eef0f1;
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.6;font-size:16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sheet{max-width:820px;margin:0 auto;padding:48px 40px 64px;}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+
+  /* ---- brand header ---- */
+  .brand{display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:16px;}
+  .logo{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:9px;
+    background:var(--teal);color:#fff;font-family:var(--serif);font-weight:700;font-size:20px;flex:none;}
+  .brand-name{font-weight:700;letter-spacing:.02em;font-size:15px;}
+  .brand-tag{color:var(--muted);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;}
+  .brand-right{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);line-height:1.5;}
+
+  /* ---- title block ---- */
+  .doc-kicker{color:var(--teal-deep);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;margin:34px 0 8px;}
+  h1{font-family:var(--serif);font-size:40px;line-height:1.08;margin:0;font-weight:700;text-wrap:balance;letter-spacing:-.01em;}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:16px;font-size:13.5px;color:var(--ink-soft);}
+  .meta-row b{color:var(--ink);font-weight:600;}
+
+  /* ---- verdict banner ---- */
+  .verdict{margin:28px 0 8px;border:1px solid var(--line);border-left:5px solid var(--teal);
+    background:var(--teal-wash);border-radius:12px;padding:20px 22px;}
+  .verdict .label{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-deep);font-weight:700;}
+  .verdict .headline{font-family:var(--serif);font-size:24px;font-weight:700;margin:4px 0 6px;line-height:1.2;}
+  .verdict p{margin:8px 0 0;font-size:14.5px;color:var(--ink-soft);}
+
+  h2{font-family:var(--serif);font-size:22px;margin:40px 0 4px;font-weight:700;letter-spacing:-.01em;}
+  h2 + .rule{height:2px;background:var(--ink);width:44px;margin:10px 0 18px;border-radius:2px;}
+  .lead{font-size:15.5px;color:var(--ink-soft);}
+  .lead b{color:var(--ink);}
+
+  /* ---- group label ---- */
+  .grp{display:flex;align-items:baseline;gap:10px;margin:26px 0 10px;}
+  .grp h3{font-size:14px;letter-spacing:.06em;text-transform:uppercase;margin:0;font-weight:700;}
+  .grp .score{margin-left:auto;font-family:var(--mono);font-size:13px;font-weight:600;}
+  .g-pass h3{color:var(--pass)} .g-judge h3{color:var(--ink)} .g-pend h3{color:var(--pend)}
+
+  /* ---- criteria table ---- */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:#f3f4ef;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+  tr:last-child td{border-bottom:none;}
+  td.c-num{font-family:var(--mono);color:var(--muted);width:26px;font-weight:600;}
+  td.c-val{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .veto-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--veto);
+    border:1px solid var(--veto);border-radius:4px;padding:0 4px;margin-left:6px;vertical-align:1px;}
+
+  .pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;padding:2px 9px;border-radius:999px;white-space:nowrap;}
+  .pill.pass{background:var(--pass-wash);color:var(--pass);}
+  .pill.judge{background:var(--teal-wash);color:var(--teal-deep);}
+  .pill.pend{background:var(--pend-wash);color:var(--pend);}
+  .pill.veto{background:var(--veto-wash);color:var(--veto);}
+
+  /* ---- risk / rec ---- */
+  ol.risks{padding-left:0;list-style:none;counter-reset:r;margin:16px 0 0;}
+  ol.risks li{counter-increment:r;position:relative;padding:12px 0 12px 40px;border-bottom:1px solid var(--line);font-size:14.5px;}
+  ol.risks li:last-child{border-bottom:none;}
+  ol.risks li::before{content:counter(r);position:absolute;left:0;top:11px;width:26px;height:26px;border-radius:50%;
+    background:var(--ink);color:#fff;font-family:var(--mono);font-size:13px;font-weight:700;display:grid;place-items:center;}
+  ol.risks b{color:var(--ink);}
+  .rec{border:1px solid var(--line);border-radius:12px;padding:20px 22px;background:var(--card);margin-top:16px;}
+  .rec p{margin:0 0 12px;font-size:14.5px;}
+  .rec p:last-child{margin-bottom:0;}
+  .ask{display:flex;gap:10px;margin-top:10px;}
+  .ask .n{font-family:var(--mono);font-weight:700;color:var(--teal-deep);}
+
+  .foot{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);line-height:1.6;}
+  .foot b{color:var(--ink-soft);}
+
+  @media (max-width:640px){
+    .sheet{padding:28px 18px 44px}
+    h1{font-size:30px}
+    .brand-right{display:none}
+  }
+  @media print{
+    body{background:#fff}
+    .sheet{max-width:none;padding:0}
+    h2{break-after:avoid}
+    .grp,tr,li,.verdict,.rec{break-inside:avoid}
+    .tbl-wrap{border-color:#ccc}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header class="brand">
+    <span class="logo">C</span>
+    <div>
+      <div class="brand-name">Crezcamos Online</div>
+      <div class="brand-tag">Consultoría de producto · Amazon FBA</div>
+    </div>
+    <div class="brand-right">
+      Análisis de validación de nicho<br>
+      Metodología Sophie GO/NO&nbsp;GO v2
+    </div>
+  </header>
+
+  <div class="doc-kicker">Reporte de consultoría</div>
+  <h1>Nicho: “scalloped basket”</h1>
+  <div class="meta-row">
+    <span>Marketplace: <b>Amazon US</b></span>
+    <span>Fecha: <b>26 jul 2026</b></span>
+    <span>Muestra: <b>351 listings → 121 competidores → top 10</b></span>
+    <span>Fuente: <b>Helium&nbsp;10 (Xray · Cerebro · Magnet)</b></span>
+  </div>
+
+  <div class="verdict">
+    <div class="label">Veredicto</div>
+    <div class="headline">🟢 Mercado en luz verde — pendiente de <em>unit economics</em> del cliente</div>
+    <p>El lado de mercado es de los más fuertes que arroja la metodología: <b>6 de 6</b> criterios medibles con datos pasan, varios con amplio margen. El GO/NO&nbsp;GO <b>definitivo</b> no puede firmarse aún: faltan 3 datos que solo el cliente posee, y <b>dos de ellos son criterios de veto</b> (margen y sourcing). Un veredicto de “GO” sin esos números sería irresponsable.</p>
+  </div>
+
+  <h2>Resumen ejecutivo</h2><div class="rule"></div>
+  <p class="lead">
+    <b>scalloped basket</b> es un nicho de <b>decoración de hogar con diseño</b>, no un commodity:
+    precio promedio <b>$54.59</b>, ingreso promedio de <b>$81,597/mes por listing</b> y
+    <b>$816K/mes</b> circulando solo en el top 10. La demanda es profunda —<b>2,202 keywords
+    orgánicas</b>— y el mercado <b>deja entrar</b>: 7 de los 10 mejores se lanzaron en los últimos
+    12 meses. La señal de mercado es excelente. El riesgo real no está en el mercado, sino en si
+    <b>los números del cliente</b> (costo aterrizado, margen, capital) aguantan, y en un
+    <b>incumbente dominante</b> con 950 reseñas y 16,000 ventas al mes.
+  </p>
+
+  <h2>Los 13 criterios</h2><div class="rule"></div>
+
+  <div class="grp g-pass">
+    <h3>Confirmado por datos · mercado</h3>
+    <span class="score num">6 / 6 ✅</span>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Criterio</th><th>Valor medido</th><th>Umbral</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td class="c-num">1</td><td>Volumen de mercado <span class="veto-tag">VETO</span></td><td class="c-val">SV 7,537</td><td class="c-val">≥ 4,500</td><td><span class="pill pass">PASA</span></td></tr>
+        <tr><td class="c-num">2</td><td>Ingresos reales del mercado</td><td class="c-val">$81,597/mes</td><td class="c-val">≥ $4,500</td><td><span class="pill pass">PASA</span></td></tr>
+        <tr><td class="c-num">3</td><td>Distribución de ingresos</td><td class="c-val">top1 = 36.3%</td><td class="c-val">≤ 40%</td><td><span class="pill pass">PASA</span></td></tr>
+        <tr><td class="c-num">4</td><td>Reseñas de la competencia</td><td class="c-val">promedio 200</td><td class="c-val">≤ 300</td><td><span class="pill pass">PASA</span></td></tr>
+        <tr><td class="c-num">5</td><td>Precio promedio de venta</td><td class="c-val">$54.59</td><td class="c-val">≥ $20 · ideal $25</td><td><span class="pill pass">PASA</span></td></tr>
+        <tr><td class="c-num">7</td><td>Demanda en profundidad (Cerebro) <span class="veto-tag">VETO</span></td><td class="c-val">2,202 orgánicas</td><td class="c-val">≥ 30</td><td><span class="pill pass">PASA</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grp g-judge">
+    <h3>Juicio del consultor · observación</h3>
+    <span class="score num">2 favorables · 2 por observar</span>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Criterio</th><th>Lectura</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td class="c-num">6</td><td>Calidad de listings</td><td>El líder (4.9★, 950 rvw) tiene un listing fuerte; abrir el top 5 y contar fotos / A+ / título débiles.</td><td><span class="pill pend">OBSERVAR</span></td></tr>
+        <tr><td class="c-num">9</td><td>Intención no satisfecha (COSMO)</td><td>Leer reseñas de 1–2★ del top 5 para hallar la queja resoluble = propuesta de valor.</td><td><span class="pill pend">OBSERVAR</span></td></tr>
+        <tr><td class="c-num">12</td><td>Resistencia a genéricos chinos</td><td>Favorable. Nicho de diseño/estética ($13–$90), no un mar de genéricos de $8–15. Manda la marca.</td><td><span class="pill judge">FAVORABLE</span></td></tr>
+        <tr><td class="c-num">13</td><td>Barreras de entrada <span class="veto-tag">VETO</span></td><td>Favorable: 7/10 lanzados este año, líder de 16 meses. Verificar en Seller Central que no esté <em>gated</em> ni patentado.</td><td><span class="pill judge">FAVORABLE</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grp g-pend">
+    <h3>Define el veredicto final · datos del cliente</h3>
+    <span class="score num">3 pendientes · 2 veto</span>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Criterio</th><th>Lo que el cliente debe confirmar</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td class="c-num">8</td><td>Margen y ROI <span class="veto-tag">VETO</span></td><td>Margen ≥ 30% antes de PPC · ROI ≥ 100%. Requiere COGS + costo aterrizado.</td><td><span class="pill veto">PENDIENTE</span></td></tr>
+        <tr><td class="c-num">10</td><td>Sourcing y aranceles <span class="veto-tag">VETO</span></td><td>MOQ ≤ 300 · costo aterrizado ≤ 30% del precio. Requiere cotización de proveedor.</td><td><span class="pill veto">PENDIENTE</span></td></tr>
+        <tr><td class="c-num">11</td><td>Capital estructurado</td><td>Alcanza para 150+ unidades + reserva de PPC (60% inventario / 40% PPC). Requiere capital disponible.</td><td><span class="pill pend">PENDIENTE</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Lo que puede matar el negocio</h2><div class="rule"></div>
+  <ol class="risks">
+    <li><b>Un incumbente dominante.</b> El #1 (ASIN B0F18FPMVK, $18.99) hace <b>$296K/mes con 16,068 ventas</b> y <b>950 reseñas</b>: una máquina de volumen a precio bajo. El promedio de $54 engaña. Competir <em>por precio</em> choca con este muro; la jugada correcta es diferenciar por diseño en el rango premium ($45–$75), donde el mercado sí está distribuido.</li>
+    <li><b>Veto de margen sin resolver (criterio 8).</b> Con los aranceles de 2026, una canasta decorativa importada puede llegar con costo aterrizado alto. Hasta ver el COGS del cliente, no hay GO posible.</li>
+    <li><b>Tendencia por verificar (criterio 1, veto).</b> El volumen pasa, pero la curva de tendencia no vino en esta consulta. Confirmar en H10 Trendster que el interés esté estable o al alza antes de firmar.</li>
+  </ol>
+
+  <h2>Recomendación</h2><div class="rule"></div>
+  <div class="rec">
+    <p><b>El mercado merece avanzar.</b> Para cerrar el veredicto, el cliente debe entregar tres datos; con ellos se resuelven los criterios 8, 10 y 11 y el resultado pasa a GO / GO con ajustes / NO&nbsp;GO definitivo:</p>
+    <div class="ask"><span class="n">a.</span><span>COGS + costo aterrizado estimado del producto.</span></div>
+    <div class="ask"><span class="n">b.</span><span>Una cotización de proveedor con MOQ.</span></div>
+    <div class="ask"><span class="n">c.</span><span>El capital disponible para el primer pedido.</span></div>
+    <p style="margin-top:14px"><b>Ángulo estratégico sugerido:</b> entrar en el segmento <b>premium de diseño ($45–$75)</b>, evitando la guerra de volumen del líder de $18.99, y apalancar las reseñas negativas del top 5 (criterio 9) para construir la propuesta de valor.</p>
+  </div>
+
+  <div class="foot">
+    <p><b>Metodología.</b> Análisis basado en el currículum Sophie GO/NO&nbsp;GO v2 (13 criterios · 5 vetos). Regla de veto: un incumplimiento en los criterios 1, 7, 8, 10 o 13 limita el veredicto a “Riesgo moderado” como máximo, sin importar el puntaje total. Datos de mercado obtenidos de Helium&nbsp;10 (Xray, Cerebro, Magnet) el 26 jul 2026 y limpiados (deduplicación por ASIN padre, conversión a dólares, top 10 por revenue). Las estimaciones de revenue y ventas son aproximaciones de Helium&nbsp;10, no cifras oficiales de Amazon.</p>
+    <p><b>Confidencial.</b> Preparado por Crezcamos Online para uso del cliente. © 2026 Crezcamos Online · ui.crezcamosonline.com</p>
+  </div>
+
+</div>
+</body>
+</html>
