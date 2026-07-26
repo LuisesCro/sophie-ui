@@ -10,6 +10,16 @@
    ===================================================================== */
 (function () {
   try {
+    // Registro de progreso: cada módulo llama window.crezProgreso("<id>") al
+    // COMPLETAR su paso. El lanzador de la suite lo lee de localStorage (mismo
+    // origen bajo la suite) y marca el paso como hecho. Inofensivo standalone.
+    window.crezProgreso = function (id) {
+      try {
+        var a = JSON.parse(localStorage.getItem("crez_progreso")) || [];
+        if (a.indexOf(id) === -1) { a.push(id); localStorage.setItem("crez_progreso", JSON.stringify(a)); }
+      } catch (e) {}
+    };
+
     // Mismas subrutas que el proxy de la suite (netlify.toml).
     var PREFIJOS = ["/producto", "/proveedores", "/listado", "/ppc", "/lanzamiento"];
     var p = location.pathname;
