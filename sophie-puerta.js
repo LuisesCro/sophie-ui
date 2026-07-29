@@ -28,13 +28,17 @@
 
   var API = 'https://sophie.crezcamosonline.com/api/expediente';
 
+  // URLs = rutas de la app unificada (app.crezcamosonline.com), que el netlify.toml
+  // proxea a cada sitio. Fuente única: así los enlaces entre módulos mantienen al
+  // estudiante dentro de la app (misma sesión, misma barra) y no dependen de
+  // subdominios sueltos que pueden estar mal escritos.
   var MODULOS = {
-    proveedores: { nombre: 'Sophie Proveedores', url: 'https://proveedores.crezcamosonline.com' },
-    listing:     { nombre: 'Sophie Listing',     url: 'https://sophie-listing.crezcamosonline.com' },
-    ads:         { nombre: 'Sophie Ads',         url: 'https://ads.crezcamosonline.com' },
-    lanzamiento: { nombre: 'Sophie Lanzamiento',  url: 'https://lanzamiento.crezcamosonline.com' },
-    rescate:     { nombre: 'Sophie Rescate',      url: 'https://rescate.crezcamosonline.com' },
-    producto:    { nombre: 'Sophie Producto',     url: 'https://sophie.crezcamosonline.com' }
+    proveedores: { nombre: 'Sophie Proveedores', url: 'https://app.crezcamosonline.com/proveedores/' },
+    listing:     { nombre: 'Sophie Listing',     url: 'https://app.crezcamosonline.com/listado/' },
+    ads:         { nombre: 'Sophie Ads',         url: 'https://app.crezcamosonline.com/ppc/' },
+    lanzamiento: { nombre: 'Sophie Lanzamiento',  url: 'https://app.crezcamosonline.com/lanzamiento/' },
+    rescate:     { nombre: 'Sophie Rescate',      url: 'https://app.crezcamosonline.com/rescate/' },
+    producto:    { nombre: 'Sophie Producto',     url: 'https://app.crezcamosonline.com/producto/' }
   };
 
   function norm(v) {

@@ -21,7 +21,7 @@
     };
 
     // Mismas subrutas que el proxy de la suite (netlify.toml).
-    var PREFIJOS = ["/producto", "/proveedores", "/listado", "/ppc", "/lanzamiento"];
+    var PREFIJOS = ["/producto", "/proveedores", "/listado", "/ppc", "/lanzamiento", "/rescate"];
     var p = location.pathname;
     var enSuite = PREFIJOS.some(function (x) {
       return p === x || p.indexOf(x + "/") === 0;
