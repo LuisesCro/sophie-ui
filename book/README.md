@@ -39,6 +39,7 @@ See `08-design-and-upload-spec.md` for the complete upload walkthrough.
 
 ## 📗 Companion book — see the `companion/` folder
 *100 Questions About Mormonism* — a standalone Q&A companion (~32,600 words, 100 answers) built to own the question-keyword cluster and cross-promote this book. Includes its own manuscript, print interior, series covers, and KDP kit. Start with `companion/README.md`.
+The companion also has a full **Spanish edition** in `companion/es/` (*100 preguntas sobre el mormonismo*, ~37,900 words).
 
 ## 🌎 Spanish edition — see the `es/` folder
 A complete twin edition, *Mormones: Los Santos de los Últimos Días, Explicados*:
