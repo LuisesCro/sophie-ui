@@ -17,6 +17,15 @@
       try {
         var a = JSON.parse(localStorage.getItem("crez_progreso")) || [];
         if (a.indexOf(id) === -1) { a.push(id); localStorage.setItem("crez_progreso", JSON.stringify(a)); }
+        // Sincroniza a la cuenta (multi-dispositivo). Si hay sesión, guarda en el
+        // backend; fire-and-forget, nunca rompe la página si falla o va standalone.
+        var ses = JSON.parse(localStorage.getItem("crezcamos_sso") || "null");
+        if (ses && ses.email && ses.token) {
+          fetch("https://sophie.crezcamosonline.com/api/cuenta", {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "guardar_progreso", email: ses.email, token: ses.token, progreso: a })
+          }).catch(function () {});
+        }
       } catch (e) {}
     };
 
