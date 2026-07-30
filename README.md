@@ -42,3 +42,24 @@ encuentra, avisa en vez de dar un falso OK.
 
 **Flujo para cambiar un umbral:** edita `sophie-criterios.js` → actualiza la
 prosa en `chat.js` y `sophie-pasos.js` → corre la guarda hasta que dé OK → despliega.
+
+## Contrato del router de modelo
+
+Los 6 chat.js son edge functions que se despliegan por separado, así que **no**
+comparten un import en tiempo de ejecución (acoplar los 6 builds a un módulo
+remoto agrega un punto de falla y no se puede probar el bundle fuera de Netlify).
+En su lugar, **`tools/verificar-router.mjs`** define un solo contrato del router
+y confirma que los 6 lo cumplen:
+
+- solo se usan los IDs de modelo oficiales (`claude-sonnet-4-6`, `claude-haiku-4-5-…`);
+- cada módulo mantiene su regla de blindaje (default Sonnet, o Sonnet fijo en Ads,
+  o la red server-side de veredicto en Rescate);
+- la red `isDataHeavy` conserva sus umbrales oficiales.
+
+```bash
+node tools/verificar-router.mjs
+```
+
+Si migras a un modelo nuevo (p.ej. `claude-sonnet-5`): cambia `MODELOS` en la
+guarda, cámbialo en los 6 chat.js y corre la guarda hasta OK. Si dejas un módulo
+atrás, falla y te dice cuál — en vez de que corra callado con el modelo viejo.
