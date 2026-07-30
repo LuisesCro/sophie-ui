@@ -91,8 +91,14 @@ A partir de ahí, cada `git push` corre las dos guardas y los tests de parsers, 
 localmente se omiten (no bloquean); para exigir todos, corre las guardas con
 `--strict` (útil si algún día se lleva a CI).
 
-**Cobertura:** el hook vive en `sophie-ui` (donde viven las guardas y la fuente
-única). Cubre de inmediato los cambios a la metodología y al motor. Un cambio de
-prompt hecho y pusheado *solo* en un repo de módulo no dispara este hook; se
-valida la próxima vez que se pushee `sophie-ui`. Si quieres cobertura inmediata
-también ahí, se puede instalar el mismo hook en cada repo de módulo.
+**Cobertura:** el hook está instalado en `sophie-ui` **y en los 6 repos de
+módulos**. El de cada módulo localiza `sophie-ui` como repo hermano y corre las
+mismas guardas + tests desde allí, validando el cambio del módulo contra la
+fuente única antes de pushear. Así, edites donde edites (la metodología en
+`sophie-ui` o un prompt en un módulo), la verificación corre en ese push.
+
+En cada clon nuevo hay que activarlo una vez con
+`git config core.hooksPath tools/hooks` (en `sophie-ui` y en cada módulo). Si un
+módulo no encuentra `sophie-ui` cerca (`../sophie-ui`, `/workspace/sophie-ui`,
+`/home/user/sophie-ui`, `$HOME/sophie-ui`) o falta `node`, el hook se omite sin
+bloquear el push.
