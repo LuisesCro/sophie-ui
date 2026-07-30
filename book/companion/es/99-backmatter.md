@@ -23,3 +23,20 @@ Este libro es una síntesis de información pública ampliamente disponible: las
 Si estas respuestas hicieron el tema más claro, lo más amable que puedes hacer es dejar una reseña honesta para que el próximo lector curioso pueda encontrar el libro. Con una o dos frases basta, y hace una verdadera diferencia.
 
 *Una guía educativa independiente. No afiliada a La Iglesia de Jesucristo de los Santos de los Últimos Días ni respaldada por ella.*
+
+---
+
+## Otros libros de Sophie E T
+
+Si estas respuestas te resultaron útiles, quizá te gusten los demás libros de la serie:
+
+**Mormones: Los Santos de los Últimos Días, Explicados**
+La guía narrativa completa: toda la historia, desde un muchacho en una arboleda de Nueva York hasta la Iglesia global de hoy, en un solo libro claro y ecuánime. *Disponible en Amazon.*
+
+**100 Questions About Mormonism**
+Este mismo libro de preguntas y respuestas, en inglés. *Available on Amazon.*
+
+**Mormons: The Latter-day Saints Explained**
+La guía narrativa completa, en inglés. *Available on Amazon.*
+
+Gracias por leer, y por tu curiosidad.

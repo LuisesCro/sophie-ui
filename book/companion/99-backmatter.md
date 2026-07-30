@@ -23,3 +23,20 @@ This book is a synthesis of widely available public information: the church's ow
 If these answers made the subject clearer, the kindest thing you can do is leave an honest review so the next curious reader can find the book. A sentence or two is enough — and it makes a real difference.
 
 *An independent educational guide. Not affiliated with or endorsed by The Church of Jesus Christ of Latter-day Saints.*
+
+---
+
+## Also by Sophie E T
+
+If you found these answers useful, you may enjoy the rest of the series:
+
+**Mormons: The Latter-day Saints Explained**
+The full narrative guide — the whole story, from a boy in a New York grove to the global church of today, in one clear, fair, and genuinely interesting book. *Available on Amazon.*
+
+**100 preguntas sobre el mormonismo**
+This same Q&A book, in Spanish. *Disponible en Amazon.*
+
+**Mormones: Los Santos de los Últimos Días, Explicados**
+The full narrative guide, in Spanish. *Disponible en Amazon.*
+
+Thank you for reading — and for your curiosity.

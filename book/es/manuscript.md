@@ -791,3 +791,20 @@ Gracias por leer. Ve y sé un buen prójimo.
 *Los Santos de los Últimos Días, explicados* es una obra independiente de educación general y periodismo, escrita para el curioso de fuera que desea una comprensión precisa, justa y amena de una de las comunidades religiosas más singulares del mundo moderno. No está afiliada ni respaldada por La Iglesia de Jesucristo de los Santos de los Últimos Días ni por ninguna otra organización, y no defiende postura alguna sobre la verdad de las afirmaciones de ninguna religión. Su único objetivo es la comprensión.
 
 Si este libro te ayudó a ver con claridad, lo más amable que puedes hacer es dejar una reseña honesta para que el próximo lector curioso pueda encontrarlo.
+
+---
+
+## Otros libros de Sophie E T
+
+Si *Mormones: Los Santos de los Últimos Días, Explicados* te resultó útil, quizá te gusten los demás libros de la serie:
+
+**100 preguntas sobre el mormonismo**
+La guía complementaria de preguntas y respuestas: las cien preguntas que la gente más hace sobre los Santos de los Últimos Días, cada una respondida en una página o dos. Ideal para consultar rápido. *Disponible en Amazon.*
+
+**Mormons: The Latter-day Saints Explained**
+Este mismo libro, en inglés. *Available on Amazon.*
+
+**100 Questions About Mormonism**
+La versión complementaria en inglés. *Available on Amazon.*
+
+Gracias por leer, y por tu curiosidad.

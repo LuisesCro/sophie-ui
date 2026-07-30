@@ -789,3 +789,20 @@ Thank you for reading. Go be a good neighbor.
 *The Latter-day Saints, Explained* is an independent work of general education and journalism, written for the curious outsider who wants an accurate, fair, and readable understanding of one of the modern world's most distinctive religious communities. It is not affiliated with or endorsed by The Church of Jesus Christ of Latter-day Saints or any other organization, and it advances no position on the truth of any religion's claims. Its only aim is understanding.
 
 If this book helped you see clearly, the kindest thing you can do is leave an honest review so the next curious reader can find it.
+
+---
+
+## Also by Sophie E T
+
+If *Mormons: The Latter-day Saints Explained* was useful, you may enjoy the rest of the series:
+
+**100 Questions About Mormonism**
+The companion Q&A guide — the one hundred questions people most often ask about the Latter-day Saints, each answered in a clear page or two. Perfect for looking something up fast or settling a dinner-table debate. *Available on Amazon.*
+
+**Mormones: Los Santos de los Últimos Días, Explicados**
+This same book, in Spanish. *Disponible en Amazon.*
+
+**100 preguntas sobre el mormonismo**
+The Spanish-language companion Q&A. *Disponible en Amazon.*
+
+Thank you for reading — and for your curiosity.
