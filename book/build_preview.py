@@ -136,7 +136,7 @@ ol.steps li::before{{counter-increment:s;content:counter(s);position:absolute;le
         <div>
           <h3 style="margin-bottom:2px;">Mormons: The Latter-day Saints Explained</h3>
           <p style="margin:0 0 6px;color:var(--muted);font-size:14px;">A Clear, Fair Guide to Mormon Beliefs, History, and Everyday Life</p>
-          <p style="margin:0 0 8px;font-size:13px;">by <b>J. R. Hale</b></p>
+          <p style="margin:0 0 8px;font-size:13px;">by <b>Sophie E T</b></p>
           <p style="margin:0 0 10px;"><span class="stars">★★★★★</span> <span class="rank">(honest reviews from launch week)</span></p>
           <p class="price">$6.99 <small>Kindle</small> &nbsp;·&nbsp; <small>$14.99 Paperback</small></p>
           <p class="rank" style="margin-top:10px;">Target: <b>#1 New Release</b> in Books › Religion › Mormonism</p>

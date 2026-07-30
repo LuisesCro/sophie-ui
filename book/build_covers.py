@@ -97,7 +97,7 @@ center_text(d, cx, 1935, hook[1], F(SERIF_R, 40), CREAM)
 
 # bottom rule + author
 d.line([(cx-260, 2360),(cx+260,2360)], fill=GOLD, width=3)
-center_text(d, cx, 2400, "J. R. HALE", F(SANS_B, 52), CREAM, tracking=10)
+center_text(d, cx, 2400, "SOPHIE E T", F(SANS_B, 52), CREAM, tracking=10)
 
 img.save(f"{BOOK}/ebook-cover-1600x2560.jpg", "JPEG", quality=92)
 print("saved ebook-cover-1600x2560.jpg")
@@ -169,7 +169,7 @@ ctext(cx_front, midY-1.7*inch, "A Clear, Fair Guide to Mormon Beliefs,", "SerifI
 ctext(cx_front, midY-1.95*inch, "History, and Everyday Life", "SerifI", 15, MUTED)
 ctext(cx_front, bleed+1.15*inch, "Are Mormons Christian?  What do they really believe?", "SerifR", 12.5, CREAM)
 c.line(cx_front-1.4*inch, bleed+0.85*inch, cx_front+1.4*inch, bleed+0.85*inch)
-ctext(cx_front, bleed+0.55*inch, "J. R. HALE", "SansB", 15, CREAM)
+ctext(cx_front, bleed+0.55*inch, "SOPHIE E T", "SansB", 15, CREAM)
 
 # ---- SPINE ---- (KDP allows spine text at >=100 pages)
 if spine >= 0.35*inch:
@@ -181,7 +181,7 @@ if spine >= 0.35*inch:
     c.setFont("SerifR", 11); c.setFillColorRGB(*rgb(CREAM))
     c.drawCentredString(-1.2*inch, -4, "The Latter-day Saints Explained")
     c.setFont("SansB", 10); c.setFillColorRGB(*rgb(CREAM))
-    c.drawCentredString(-3.2*inch, -4, "J. R. HALE")
+    c.drawCentredString(-3.2*inch, -4, "SOPHIE E T")
     c.restoreState()
 
 # ---- BACK PANEL ----

@@ -124,7 +124,11 @@ r = p.add_run("The Latter-day Saints, Explained"); r.bold = True; r.font.size = 
 doc.add_paragraph()
 p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 r = p.add_run("A Clear, Fair Guide to Mormon Beliefs, History,\nand Everyday Life"); r.italic = True; r.font.size = Pt(13)
-for _ in range(6):
+doc.add_paragraph()
+p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+r = p.add_run("SOPHIE E T"); r.font.size = Pt(15); r.font.name='Georgia'
+p.paragraph_format.space_before = Pt(6)
+for _ in range(4):
     doc.add_paragraph()
 p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 r = p.add_run("An independent educational guide"); r.font.size = Pt(11); r.italic=True

@@ -19,7 +19,7 @@
 - [ ] **Language:** English
 - [ ] **Title:** `Mormons: The Latter-day Saints Explained`
 - [ ] **Subtitle:** `A Clear, Fair Guide to Mormon Beliefs, History, and Everyday Life — Are Mormons Christian, Who They Really Are, and What They Believe`
-- [ ] **Author (pen name):** e.g. `J. R. Hale` (use the same name every time)
+- [ ] **Author (pen name):** e.g. `Sophie E T` (use the same name every time)
 - [ ] **Description:** paste the HTML block from `07-KDP-publishing-kit.md` §5
 - [ ] **Publishing rights:** "I own the copyright…"
 - [ ] **Keywords (7):** paste the 7 phrases from kit §3

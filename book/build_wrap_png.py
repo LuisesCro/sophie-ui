@@ -45,14 +45,14 @@ ctr(cf,midy+int(1.15*S),"A Clear, Fair Guide to Mormon Beliefs,",F(SI,23),MUTED)
 ctr(cf,midy+int(1.45*S),"History, and Everyday Life",F(SI,23),MUTED)
 ctr(cf,topb+th-int(1.1*S),"Are Mormons Christian?  What do they really believe?",F(SR,19),CREAM)
 d.line([(cf-int(1.3*S),topb+th-int(0.75*S)),(cf+int(1.3*S),topb+th-int(0.75*S))],fill=GOLD,width=2)
-ctr(cf,topb+th-int(0.55*S),"J. R. HALE",F(NB,24),CREAM,track=4)
+ctr(cf,topb+th-int(0.55*S),"SOPHIE E T",F(NB,24),CREAM,track=4)
 # ---- SPINE ----
 sp_w=fx-spx
 if sp_w>int(0.34*S):
     spimg=Image.new("RGBA",(th,sp_w),(0,0,0,0)); sd=ImageDraw.Draw(spimg)
     tt=sd.textlength("MORMONS",font=F(SB,26)); sd.text(((th)*0.72-tt/2,sp_w/2-16),"MORMONS",font=F(SB,26),fill=GOLD_LT)
     t2="The Latter-day Saints Explained"; w2=sd.textlength(t2,font=F(SR,18)); sd.text((th*0.42-w2/2,sp_w/2-12),t2,font=F(SR,18),fill=CREAM)
-    t3="J. R. HALE"; w3=sd.textlength(t3,font=F(NB,16)); sd.text((th*0.12-w3/2,sp_w/2-10),t3,font=F(NB,16),fill=CREAM)
+    t3="SOPHIE E T"; w3=sd.textlength(t3,font=F(NB,16)); sd.text((th*0.12-w3/2,sp_w/2-10),t3,font=F(NB,16),fill=CREAM)
     spimg=spimg.rotate(90,expand=True); img.paste(spimg,(spx,topb),spimg)
 # ---- BACK ----
 cb=bx+tw//2; bxl=bx+int(0.55*S); bw=tw-int(1.1*S)
