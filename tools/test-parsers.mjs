@@ -36,7 +36,9 @@ cargar("sophie-analisis.js");    // define win.SophieAnalisis (parser <!--SOPHIE
 cargar("sophie-guia.js");        // define win.SophieGuia (parser <!--PASO:-->)
 cargar("sophie-proveedores.js"); // define win.SophieProveedores (CANDIDATOS/COTIZACIONES/PROVEEDOR)
 cargar("sophie-listing.js");     // define win.SophieListing (parser <!--LISTING:-->)
-const { SophieAnalisis, SophieMotor, SophieGuia, SophieProveedores, SophieListing } = win;
+cargar("sophie-rescate.js");     // define win.SophieRescate (motor de diagnóstico)
+cargar("sophie-ppc.js");         // define win.SophiePPC (motor de Cosecha y Poda / Ads)
+const { SophieAnalisis, SophieMotor, SophieGuia, SophieProveedores, SophieListing, SophieRescate, SophiePPC } = win;
 
 /* ---------- arnés mínimo de aserciones ---------- */
 
@@ -218,12 +220,91 @@ t("limpiar quita LISTING + M", () => {
   eq(SophieListing.limpiar('Listo <!--LISTING:{"bullets":5}--><!--M:S-->'), "Listo");
 });
 
+/* ---------- 7 · SophieRescate.diagnosticar (motor de diagnóstico) ---------- */
+
+grupo("SophieRescate.diagnosticar — gates, veredicto y escalado");
+
+const RESC_SANO = { precio: 30, cogs: 6, flete: 1.5, fbaFee: 5,
+  unidadesFBA: 300, pedidosMes: 60, edadInventarioDias: 60, rating: 4.5, resenas: 40, indexacion: "si" };
+
+t("economía y nicho sanos → RESCATAR, sin escalar", () => {
+  const r = SophieRescate.diagnosticar(RESC_SANO);
+  eq(r.veredicto, "RESCATAR", "veredicto");
+  eq(r.gates.economia.estado, "verde", "economía");
+  eq(r.gates.nicho.estado, "verde", "nicho");
+  eq(r.escalaMentoria, false, "no debe escalar");
+});
+
+t("margen negativo + cobertura alta → LIQUIDAR y escala a mentoría", () => {
+  const r = SophieRescate.diagnosticar({ precio: 18, cogs: 10, flete: 3, fbaFee: 5,
+    unidadesFBA: 400, pedidosMes: 10, edadInventarioDias: 200, rating: 4.5, resenas: 40 });
+  eq(r.veredicto, "LIQUIDAR", "veredicto");
+  eq(r.gates.economia.estado, "rojo", "economía");
+  ok(r.gates.economia.margenNegativo, "margen debe ser negativo");
+  eq(r.escalaMentoria, true, "debe escalar");
+});
+
+t("defecto de producto → CONGELAR (anula la tabla de decisión)", () => {
+  const r = SophieRescate.diagnosticar({ ...RESC_SANO, defectoProducto: true });
+  eq(r.veredicto, "CONGELAR", "veredicto");
+  ok(r.modos.reputacion.defecto, "reputación debe marcar el defecto");
+});
+
+t("sin indexación congela la lectura de visibilidad", () => {
+  const r = SophieRescate.diagnosticar({ ...RESC_SANO, indexacion: "no", pujaActual: 0.5, pujaSugerida: 1.0 });
+  eq(r.modos.indexacion.estado, "rojo", "indexación");
+  ok(r.modos.visibilidad.congelado, "visibilidad debe quedar congelada");
+});
+
+t("texto(r) trae el bloque que la red server-side busca", () => {
+  const s = SophieRescate.texto(SophieRescate.diagnosticar(RESC_SANO));
+  ok(s.includes("MOTOR RESCATE"), "debe contener 'MOTOR RESCATE'");
+  ok(s.includes("RESCATAR"), "debe incluir el veredicto");
+});
+
+/* ---------- 8 · SophiePPC.clasificar (motor de Cosecha y Poda / Ads) ---------- */
+
+grupo("SophiePPC.clasificar — decisiones de PPC");
+
+const PPC_CTX = { precio: 30, breakEvenACOS: 33 };
+
+t("sin precio/break-even → ok:false con error", () => {
+  const r = SophiePPC.clasificar([], {});
+  eq(r.ok, false, "debe fallar");
+  ok(r.error, "debe explicar qué falta");
+});
+
+t("gastó el CPA de equilibrio sin ventas → NEGAR", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "cheap gadget", imp: 500, clk: 12, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }],
+    PPC_CTX);
+  eq(r.ok, true, "ok");
+  eq(r.decisiones[0].accion, "NEGAR", "acción");
+});
+
+t("convierte rentable y no está en exacta → COSECHAR", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "garlic press", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
+    PPC_CTX);
+  eq(r.decisiones[0].accion, "COSECHAR", "acción");
+});
+
+t("término de marca de competidor → REVISAR_MARCA (economía aparte)", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "yeti tumbler", imp: 800, clk: 15, spd: 20, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 20, ord: 0 } } }],
+    { ...PPC_CTX, marcasCompetidores: ["yeti"] });
+  eq(r.decisiones[0].accion, "REVISAR_MARCA", "acción");
+});
+
+t("texto(res) trae el bloque MOTOR PPC", () => {
+  const r = SophiePPC.clasificar([{ term: "x", imp: 10, clk: 1, spd: 1, sal: 0, ord: 0, src: {} }], PPC_CTX);
+  ok(SophiePPC.texto(r).includes("MOTOR PPC"), "debe contener 'MOTOR PPC'");
+});
+
 /* ---------- reporte ---------- */
 
-console.log("TESTS DE PARSERS · Sophie (Producto · Guía · Proveedores · Listing)");
-console.log("motores: SophieAnalisis v" + SophieAnalisis.version + " · SophieMotor v" + SophieMotor.version +
-            " · SophieGuia v" + SophieGuia.version + " · SophieProveedores v" + SophieProveedores.version +
-            " · SophieListing v" + SophieListing.version);
+console.log("TESTS DE PARSERS Y MOTORES · Sophie (Producto · Guía · Proveedores · Listing · Rescate · PPC)");
+console.log("parsers: Analisis · Guia · Proveedores · Listing   |   motores: Motor(13 criterios) · Rescate · PPC");
 console.log(salida.join("\n"));
 console.log("");
 console.log("RESULTADO: " + pasan + " pasan · " + fallan + " fallan");
