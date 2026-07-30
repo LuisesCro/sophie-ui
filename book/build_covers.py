@@ -197,7 +197,7 @@ def wrap_draw(x_left, y_top, width, lines_spec):
                 line=test
             else:
                 c.drawString(x_left, y, line); y-=size*1.35; line=w
-        if line: c.drawString(x_left, y, line)
+        if line: c.drawString(x_left, y, line); y -= size*1.35
         y -= gap
     return y
 
