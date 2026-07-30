@@ -35,6 +35,7 @@ See `08-design-and-upload-spec.md` for the complete upload walkthrough.
 - `09-launch-checklist.md` — printable step-by-step KDP launch checklist (eBook-first)
 - `10-ARC-reader-template.md` — advance-reader recruitment + review-request emails (EN/ES)
 - `11-amazon-ads.md` — Amazon Ads campaign plan, keywords, bids, budgets, negatives (EN + ES)
+- `12-publication-sequence.md` — the order to launch all four books for maximum momentum (ES)
 - `design-preview.html` — visual design & launch preview page
 
 ## 📗 Companion book — see the `companion/` folder
