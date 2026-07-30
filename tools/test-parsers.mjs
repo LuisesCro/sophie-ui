@@ -32,8 +32,11 @@ function cargar(archivo) {
 }
 cargar("sophie-criterios.js");   // define win.SophieCriterios
 cargar("sophie-motor.js");       // define win.SophieMotor (lee SophieCriterios)
-cargar("sophie-analisis.js");    // define win.SophieAnalisis
-const { SophieAnalisis, SophieMotor } = win;
+cargar("sophie-analisis.js");    // define win.SophieAnalisis (parser <!--SOPHIE:-->)
+cargar("sophie-guia.js");        // define win.SophieGuia (parser <!--PASO:-->)
+cargar("sophie-proveedores.js"); // define win.SophieProveedores (CANDIDATOS/COTIZACIONES/PROVEEDOR)
+cargar("sophie-listing.js");     // define win.SophieListing (parser <!--LISTING:-->)
+const { SophieAnalisis, SophieMotor, SophieGuia, SophieProveedores, SophieListing } = win;
 
 /* ---------- arnés mínimo de aserciones ---------- */
 
@@ -150,9 +153,77 @@ t("round-trip real: marcador → detectar → evaluar", () => {
   eq(r.estado, "go", "veredicto coherente con los datos");
 });
 
+/* ---------- 4 · SophieGuia.detectar (marcador <!--PASO:-->) ---------- */
+
+grupo("SophieGuia.detectar — pantallas guiadas de Producto");
+
+t("marcador PASO bien formado → objeto con paso", () => {
+  const p = SophieGuia.detectar('<!--PASO:{"paso":3,"reaccion":"ok","vars":{"categoria":"Home & Kitchen"}}--><!--P:3--><!--M:S-->');
+  ok(p, "no devolvió objeto");
+  eq(p.paso, 3, "paso");
+  eq(p.vars.categoria, "Home & Kitchen", "vars.categoria");
+});
+
+t("marcador sin campo 'paso' → null (no es una pantalla válida)", () => {
+  eq(SophieGuia.detectar('<!--PASO:{"reaccion":"sin paso"}-->'), null);
+});
+
+t("JSON roto o sin marcador → null", () => {
+  eq(SophieGuia.detectar('<!--PASO:{"paso":3,'), null);
+  eq(SophieGuia.detectar("texto normal"), null);
+});
+
+t("limpiar quita PASO + P/M", () => {
+  eq(SophieGuia.limpiar('Hola <!--PASO:{"paso":1}--><!--P:1--><!--M:H-->'), "Hola");
+});
+
+/* ---------- 5 · SophieProveedores.detectar (3 marcadores) ---------- */
+
+grupo("SophieProveedores.detectar — CANDIDATOS / COTIZACIONES / PROVEEDOR");
+
+t("CANDIDATOS → {tipo:'candidatos', datos}", () => {
+  const r = SophieProveedores.detectar('<!--CANDIDATOS:{"lista":[{"nombre":"Prov A"}]}-->');
+  ok(r, "no detectó");
+  eq(r.tipo, "candidatos", "tipo");
+  eq(r.datos.lista[0].nombre, "Prov A", "datos");
+});
+
+t("COTIZACIONES y PROVEEDOR se distinguen por tipo", () => {
+  eq(SophieProveedores.detectar('<!--COTIZACIONES:{"a":1}-->').tipo, "cotizaciones");
+  eq(SophieProveedores.detectar('<!--PROVEEDOR:{"score":80}-->').tipo, "proveedor");
+});
+
+t("JSON roto → null; sin marcador → null", () => {
+  eq(SophieProveedores.detectar('<!--PROVEEDOR:{"score":}-->'), null);
+  eq(SophieProveedores.detectar("una cotización en prosa"), null);
+});
+
+/* ---------- 6 · SophieListing.detectarListing (marcador <!--LISTING:-->) ---------- */
+
+grupo("SophieListing.detectarListing — medidas del listing");
+
+t("LISTING bien formado → objeto", () => {
+  const d = SophieListing.detectarListing('<!--LISTING:{"titulo":{"chars":180},"bullets":5}-->');
+  ok(d, "no devolvió objeto");
+  eq(d.titulo.chars, 180, "titulo.chars");
+  eq(d.bullets, 5, "bullets");
+});
+
+t("JSON roto o sin marcador → null", () => {
+  eq(SophieListing.detectarListing('<!--LISTING:{"titulo":'), null);
+  eq(SophieListing.detectarListing("un título en prosa"), null);
+});
+
+t("limpiar quita LISTING + M", () => {
+  eq(SophieListing.limpiar('Listo <!--LISTING:{"bullets":5}--><!--M:S-->'), "Listo");
+});
+
 /* ---------- reporte ---------- */
 
-console.log("TESTS DE PARSERS · Sophie Producto (SophieAnalisis v" + SophieAnalisis.version + " · SophieMotor v" + SophieMotor.version + ")");
+console.log("TESTS DE PARSERS · Sophie (Producto · Guía · Proveedores · Listing)");
+console.log("motores: SophieAnalisis v" + SophieAnalisis.version + " · SophieMotor v" + SophieMotor.version +
+            " · SophieGuia v" + SophieGuia.version + " · SophieProveedores v" + SophieProveedores.version +
+            " · SophieListing v" + SophieListing.version);
 console.log(salida.join("\n"));
 console.log("");
 console.log("RESULTADO: " + pasan + " pasan · " + fallan + " fallan");
