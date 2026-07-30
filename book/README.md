@@ -31,5 +31,15 @@ A clear, fair, myth-busting explainer for curious outsiders, riding the 2020s "M
 
 See `08-design-and-upload-spec.md` for the complete upload walkthrough.
 
+## Launch & marketing
+- `09-launch-checklist.md` — printable step-by-step KDP launch checklist (eBook-first)
+- `10-ARC-reader-template.md` — advance-reader recruitment + review-request emails (EN/ES)
+- `11-amazon-ads.md` — Amazon Ads campaign plan, keywords, bids, budgets, negatives (EN + ES)
+- `design-preview.html` — visual design & launch preview page
+
+## 🌎 Spanish edition — see the `es/` folder
+A complete twin edition, *Mormones: Los Santos de los Últimos Días, Explicados*:
+- `es/manuscript.md` (~45,600 words), `es/KDP-interior-6x9.docx`, `es/ebook-cover-1600x2560.jpg`, `es/paperback-cover-wrap-190pg.pdf`, and `es/07-kit-publicacion-KDP.md` (Spanish keywords/description for Amazon.es, .com.mx, .com). Start with `es/README.md`.
+
 ---
 *An independent educational guide. Not affiliated with or endorsed by The Church of Jesus Christ of Latter-day Saints.*
