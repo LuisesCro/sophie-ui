@@ -104,14 +104,19 @@ def new_page():
     doc.add_page_break()
 
 def toc_h(level, text):
-    """Add a paragraph that is a real heading (so TOC/Kindle nav picks it up)."""
-    style = 'ChapHead' if level == 2 else 'PartHead'
+    """Heading using Word's built-in Heading styles so KDP builds a Kindle TOC."""
+    style = 'Heading 2' if level == 2 else 'Heading 1'
     p = doc.add_paragraph(style=style)
     add_inline(p, text)
-    # tag with outline level for TOC
-    pPr = p._p.get_or_add_pPr()
-    ol = OxmlElement('w:outlineLvl'); ol.set(qn('w:val'), str(level-1))
-    pPr.append(ol)
+    pf = p.paragraph_format
+    pf.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pf.space_before = Pt(30 if level == 2 else 36)
+    pf.space_after = Pt(16 if level == 2 else 18)
+    pf.keep_with_next = True
+    for r in p.runs:
+        r.font.name = 'Georgia'; r.font.bold = True
+        r.font.size = Pt(17 if level == 2 else 24)
+        r.font.color.rgb = RGBColor(0x1a, 0x1a, 0x1a)
     return p
 
 # ---------- TITLE PAGE ----------

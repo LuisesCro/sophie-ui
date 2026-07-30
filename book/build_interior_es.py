@@ -47,8 +47,11 @@ fp=sec.footer.paragraphs[0]; fp.alignment=WD_ALIGN_PARAGRAPH.CENTER; add_field(f
 
 def new_page(): doc.add_page_break()
 def toc_h(level,text):
-    p=doc.add_paragraph(style=('ChapHead' if level==2 else 'PartHead')); add_inline(p,text)
-    ol=OxmlElement('w:outlineLvl'); ol.set(qn('w:val'),str(level-1)); p._p.get_or_add_pPr().append(ol)
+    p=doc.add_paragraph(style=('Heading 2' if level==2 else 'Heading 1')); add_inline(p,text)
+    pf=p.paragraph_format; pf.alignment=WD_ALIGN_PARAGRAPH.CENTER; pf.keep_with_next=True
+    pf.space_before=Pt(30 if level==2 else 36); pf.space_after=Pt(16 if level==2 else 18)
+    for r in p.runs:
+        r.font.name='Georgia'; r.font.bold=True; r.font.size=Pt(17 if level==2 else 24); r.font.color.rgb=RGBColor(0x1a,0x1a,0x1a)
 
 # TITLE PAGE
 for _ in range(3): doc.add_paragraph()
