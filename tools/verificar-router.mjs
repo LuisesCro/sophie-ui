@@ -73,17 +73,21 @@ function rutaChat(m) {
 // tanto MODELS.x como el string literal, y tolera saltos de línea.
 const RE_DEFAULT_SONNET = /\?\s*(MODELS\.haiku|"claude-haiku-4-5-20251001")\s*:\s*(MODELS\.sonnet|"claude-sonnet-4-6")/;
 
+const ESTRICTO = process.argv.includes("--strict");
 let fallos = 0;
 const lineas = [];
 function ok(msg) { lineas.push("  ✓ " + msg); }
 function fail(msg) { lineas.push("  ✗ " + msg); fallos++; }
+// Repo no montado localmente: no bloquea (el hook corre en checkouts parciales);
+// con --strict (CI, todos los repos presentes) sí cuenta como falla.
+function aviso(msg) { lineas.push("  ⚠ " + msg + (ESTRICTO ? " [--strict → falla]" : " [omitido]")); if (ESTRICTO) fallos++; }
 
 /* ---------- verificación por módulo ---------- */
 
 for (const [m, c] of Object.entries(CONTRATO)) {
   lineas.push("\n" + m.toUpperCase() + " — regla: " + c.regla);
   const ruta = rutaChat(m);
-  if (!ruta) { fail("no encuentro el chat.js (repo no montado)"); continue; }
+  if (!ruta) { aviso("no encuentro el chat.js (repo no montado)"); continue; }
   const src = readFileSync(ruta, "utf8");
 
   // 1) allowlist de IDs de modelo: ninguno fuera del set oficial.

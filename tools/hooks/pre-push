@@ -1,0 +1,44 @@
+#!/bin/sh
+# ============================================================
+# Pre-push · guardas de la suite Sophie
+# Crezcamos Online
+#
+# Corre las guardas ANTES de cada push. Si detectan drift real
+# (umbral de metodología o contrato del router desincronizado),
+# aborta el push con un mensaje claro.
+#
+# Los repos de módulos que no estén montados localmente se
+# OMITEN (no bloquean el push); solo se validan los que estén
+# presentes. Para exigir todos, corre con --strict a mano o en CI.
+#
+# Activar en tu clon (una sola vez):
+#   git config core.hooksPath tools/hooks
+# ============================================================
+set -e
+
+DIR="$(git rev-parse --show-toplevel)"
+cd "$DIR"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "⚠ node no está disponible; me salto las guardas Sophie."
+  exit 0
+fi
+
+echo "▶ Guardas Sophie (pre-push)…"
+
+node tools/verificar-metodologia.mjs || {
+  echo "✗ Metodología desincronizada. Corrige la prosa o corre 'node tools/verificar-metodologia.mjs'. Push abortado."
+  exit 1
+}
+
+node tools/verificar-router.mjs || {
+  echo "✗ Contrato del router incumplido. Corre 'node tools/verificar-router.mjs' para ver cuál módulo. Push abortado."
+  exit 1
+}
+
+node tools/test-parsers.mjs || {
+  echo "✗ Tests de parsers fallando. Corre 'node tools/test-parsers.mjs'. Push abortado."
+  exit 1
+}
+
+echo "✓ Guardas + tests OK — push permitido."

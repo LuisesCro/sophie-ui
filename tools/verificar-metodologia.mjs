@@ -42,10 +42,14 @@ function numRe(n) {
   return new RegExp("\\b" + conSep + "\\b");
 }
 
+const ESTRICTO = process.argv.includes("--strict");
 let fallos = 0;
 const lineas = [];
 function ok(msg) { lineas.push("  ✓ " + msg); }
 function fail(msg) { lineas.push("  ✗ " + msg); fallos++; }
+// Repo no montado localmente: no bloquea (el hook corre en checkouts parciales);
+// con --strict (CI, todos los repos presentes) sí cuenta como falla.
+function aviso(msg) { lineas.push("  ⚠ " + msg + (ESTRICTO ? " [--strict → falla]" : " [omitido]")); if (ESTRICTO) fallos++; }
 function seccion(t) { lineas.push("\n" + t); }
 
 /* ---------- 1. cargar la fuente única ---------- */
@@ -75,7 +79,7 @@ const chatPath = candidatosChat.find(existsSync);
 
 seccion("PROMPT DEL MODELO (sophie-producto/chat.js · SYSTEM_PROMPT_V2)");
 if (!chatPath) {
-  fail("No encuentro el chat.js de sophie-producto (repo no montado). Revisado: " + candidatosChat.join(" | "));
+  aviso("No encuentro el chat.js de sophie-producto (repo no montado). Revisado: " + candidatosChat.join(" | "));
 } else {
   const chat = readFileSync(chatPath, "utf8");
   // El prompt activo empieza en SYSTEM_PROMPT_V2 (el SYSTEM_PROMPT viejo

@@ -63,3 +63,36 @@ node tools/verificar-router.mjs
 Si migras a un modelo nuevo (p.ej. `claude-sonnet-5`): cambia `MODELOS` en la
 guarda, cámbialo en los 6 chat.js y corre la guarda hasta OK. Si dejas un módulo
 atrás, falla y te dice cuál — en vez de que corra callado con el modelo viejo.
+
+## Tests de parsers
+
+Los parsers convierten los marcadores del modelo (`<!--SOPHIE:{…}-->`, etc.) en
+pantallas y puntaje. `tools/test-parsers.mjs` fija su contrato: extracción del
+marcador, degradado con gracia ante JSON roto o truncado, y el pipeline completo
+`marcador → detectar → SophieMotor.evaluar → veredicto` (incluidos vetos y alias
+de campos de Helium 10).
+
+```bash
+node tools/test-parsers.mjs
+```
+
+## Hook de pre-push (recomendado)
+
+En vez de un GitHub Action (que necesitaría clonar los 6 repos con un token), la
+verificación se corre localmente antes de cada push. Actívalo en tu clon **una
+sola vez**:
+
+```bash
+git config core.hooksPath tools/hooks
+```
+
+A partir de ahí, cada `git push` corre las dos guardas y los tests de parsers, y
+**aborta el push** si algo falla. Los repos de módulos que no tengas montados
+localmente se omiten (no bloquean); para exigir todos, corre las guardas con
+`--strict` (útil si algún día se lleva a CI).
+
+**Cobertura:** el hook vive en `sophie-ui` (donde viven las guardas y la fuente
+única). Cubre de inmediato los cambios a la metodología y al motor. Un cambio de
+prompt hecho y pusheado *solo* en un repo de módulo no dispara este hook; se
+valida la próxima vez que se pushee `sophie-ui`. Si quieres cobertura inmediata
+también ahí, se puede instalar el mismo hook en cada repo de módulo.
