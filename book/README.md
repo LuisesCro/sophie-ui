@@ -37,6 +37,9 @@ See `08-design-and-upload-spec.md` for the complete upload walkthrough.
 - `11-amazon-ads.md` — Amazon Ads campaign plan, keywords, bids, budgets, negatives (EN + ES)
 - `design-preview.html` — visual design & launch preview page
 
+## 📗 Companion book — see the `companion/` folder
+*100 Questions About Mormonism* — a standalone Q&A companion (~32,600 words, 100 answers) built to own the question-keyword cluster and cross-promote this book. Includes its own manuscript, print interior, series covers, and KDP kit. Start with `companion/README.md`.
+
 ## 🌎 Spanish edition — see the `es/` folder
 A complete twin edition, *Mormones: Los Santos de los Últimos Días, Explicados*:
 - `es/manuscript.md` (~45,600 words), `es/KDP-interior-6x9.docx`, `es/ebook-cover-1600x2560.jpg`, `es/paperback-cover-wrap-190pg.pdf`, and `es/07-kit-publicacion-KDP.md` (Spanish keywords/description for Amazon.es, .com.mx, .com). Start with `es/README.md`.
