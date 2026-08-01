@@ -3,9 +3,14 @@
    Crezcamos Online — ui.crezcamosonline.com/sophie-ppc.js
 
    Clasifica cada término del Search Term Report contra los
-   números REALES del estudiante. No usa constantes prestadas
-   de ningún gurú: todo se deriva de su precio y su break-even
-   ACOS, que ya calcula la pestaña COGS de la aplicación.
+   números REALES del estudiante. La METODOLOGÍA —qué es
+   desperdicio, cuándo cosechar a exacta, cuándo negar en
+   origen— es la del curso Amazon PPC Manager Mastery. Lo que
+   NO se copia son las constantes: cada umbral en dólares se
+   deriva del precio y del break-even ACOS del estudiante, que
+   ya calcula la pestaña COGS. Así la estrategia es la del curso
+   pero calibrada a la economía real de cada producto, no a un
+   número fijo que sirve para unas cuentas y arruina otras.
 
    Entrada: el array de términos que arma pivotSearchTerms()
             { term, imp, clk, spd, sal, ord, src, ctr, cpc, cvr }
@@ -17,6 +22,28 @@
 
 (function (global) {
   'use strict';
+
+  /* ============================================================
+     MAPA METODOLÓGICO · curso Amazon PPC Manager Mastery
+     Cada acción de este motor es una jugada nombrada del curso,
+     calibrada al break-even del estudiante y no a un número fijo:
+
+     - DESPERDICIO vs. SEÑAL. El curso maneja dos umbrales de clics
+       sin venta: ~5 clics / ~$10 es la primera bandera de desperdicio;
+       ~10 clics / ~$20 es la significancia para actuar. La suite unifica
+       en el más conservador (10 clics = PISO_CLICS) para no podar por
+       mala suerte, pero la compuerta que REALMENTE decide es el gasto
+       contra el CPA de equilibrio (beCPA), no el conteo de clics.
+     - COSECHA (harvest). Término que convierte en Auto/Broad/Phrase y
+       NO vive en exacta -> se promueve a su exacta (COSECHAR) y se niega
+       en exacto en la de origen para que no compitan. Señal del curso:
+       CPA bajo + CVR alto -> exacta aislada (ISO).
+     - NEGAR_EN_ORIGEN. Ya tiene su exacta pero sigue corriendo en otra:
+       solo falta la negación (mata la autocompetencia que infla el CPC).
+     - TIPO DE NEGACIÓN (phrase/exact/marca/ASIN) y RELEVANCIA los decide
+       el modelo, no el motor: ningún precio salva a un término irrelevante,
+       pero negar uno relevante y caro mata ranking -> ahí se baja la puja.
+     ============================================================ */
 
   /* ============================================================
      UMBRALES · el único lugar donde se tocan
