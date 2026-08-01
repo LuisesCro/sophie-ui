@@ -1,0 +1,347 @@
+/* ============================================================
+   SOPHIE · PPC v1.0  —  Motor de Cosecha y Poda
+   Crezcamos Online — ui.crezcamosonline.com/sophie-ppc.js
+
+   Clasifica cada término del Search Term Report contra los
+   números REALES del estudiante. No usa constantes prestadas
+   de ningún gurú: todo se deriva de su precio y su break-even
+   ACOS, que ya calcula la pestaña COGS de la aplicación.
+
+   Entrada: el array de términos que arma pivotSearchTerms()
+            { term, imp, clk, spd, sal, ord, src, ctr, cpc, cvr }
+   Salida:  una decisión por término + un resumen de cuenta.
+
+   El modelo NO recalcula nada de esto. Interpreta, nombra la
+   campaña, explica el porqué y escribe el bloque de negaciones.
+   ============================================================ */
+
+(function (global) {
+  'use strict';
+
+  /* ============================================================
+     UMBRALES · el único lugar donde se tocan
+     ============================================================ */
+  var CONFIG = {
+    // Piso estadístico para negar. Por debajo de esto no hay señal,
+    // solo mala suerte. La industria profesional usa 15-20, pero eso
+    // asume cuentas con volumen: un estudiante a 12 USD/día tardaría
+    // semanas en llegar. Como el gasto es la SEGUNDA compuerta y casi
+    // siempre es la que manda, este piso solo protege del clic caro
+    // aislado. Subirlo a 12-15 hace el motor más conservador.
+    // UNIFICADO con el Optimizador (decisión de Luis, metodología híbrida):
+    // el piso de clics oficial de la suite es 10. La compuerta de gasto sigue
+    // siendo la que decide; este piso solo exige evidencia mínima.
+    PISO_CLICS: 10,
+
+    // Cosecha: órdenes mínimas para promover a exacta.
+    MIN_ORDENES_COSECHA: 2,
+
+    // Margen que se le exige a las PUJAS por encima del equilibrio.
+    // Operar exactamente en break-even es operar en cero: el techo de
+    // puja se calcula contra un CPA objetivo 20% por debajo.
+    // Ojo: esto aplica SOLO a pujas. Negar y cosechar usan el
+    // break-even puro, para no podar de más ni cosechar de menos.
+    MARGEN_OBJETIVO: 0.20,
+
+    // Banda muerta de pujas: no se sugiere subir hasta estar 20% por
+    // debajo del techo. Evita recomendar movimientos de dos centavos.
+    HOLGURA_SUBIR: 0.80,
+
+    // CTR de cementerio: muchas impresiones, nadie hace clic.
+    // Señal de imagen principal o de relevancia, no de puja.
+    MIN_IMP_CTR: 1000,
+    CTR_MINIMO: 0.30
+  };
+
+  /* ============================================================
+     Utilidades
+     ============================================================ */
+  function n(v, d) { v = parseFloat(v); return isFinite(v) ? v : (d || 0); }
+  function r2(v) { return Math.round(v * 100) / 100; }
+
+  // ¿El término ya vive en una campaña exacta? Se lee de las claves
+  // de src, que vienen como "Nombre de campaña [match type]".
+  function enExacta(src) {
+    if (!src) return false;
+    for (var k in src) {
+      if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+      if (/\[(.*\b(exact|exacta|exacto)\b.*)\]/i.test(k)) return true;
+    }
+    return false;
+  }
+
+  // ¿Y además aparece FUERA de la exacta? Sin esto no hay campaña de
+  // origen que negar: un término que solo vive en su exacta no está
+  // compitiendo consigo mismo, está trabajando bien.
+  function enNoExacta(src) {
+    if (!src) return false;
+    for (var k in src) {
+      if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+      if (!/\[(.*\b(exact|exacta|exacto)\b.*)\]/i.test(k)) return true;
+    }
+    return false;
+  }
+
+  // Campaña donde el término gastó más: es donde hay que actuar.
+  function campanaPrincipal(src) {
+    var mejor = '', max = -1;
+    for (var k in src) {
+      if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+      if (src[k].spd > max) { max = src[k].spd; mejor = k; }
+    }
+    return mejor;
+  }
+
+  function listaCampanas(src) {
+    var out = [];
+    for (var k in src) {
+      if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+      out.push({ origen: k, gasto: r2(src[k].spd), ordenes: src[k].ord });
+    }
+    return out.sort(function (a, b) { return b.gasto - a.gasto; });
+  }
+
+  // Marcas de competidores: economía de conversión distinta, no se
+  // pueden juzgar con los umbrales normales.
+  function esMarcaExcluida(term, marcas) {
+    if (!marcas || !marcas.length) return false;
+    var t = String(term).toLowerCase();
+    for (var i = 0; i < marcas.length; i++) {
+      var m = String(marcas[i]).toLowerCase().trim();
+      if (m && t.indexOf(m) !== -1) return true;
+    }
+    return false;
+  }
+
+  /* ============================================================
+     CLASIFICADOR
+     ============================================================ */
+  function clasificar(terminos, ctx, opciones) {
+    ctx = ctx || {};
+    var C = Object.assign({}, CONFIG, opciones || {});
+
+    var precio = n(ctx.precio);
+    var beACOS = n(ctx.breakEvenACOS);          // en porcentaje: 32 = 32%
+    var marcas = ctx.marcasCompetidores || [];
+    var dias = n(ctx.diasReporte, 0);
+
+    if (precio <= 0 || beACOS <= 0) {
+      return {
+        ok: false,
+        error: 'Faltan el precio de venta o el break-even ACOS. Sin esos dos números no hay contra qué medir: el estudiante los obtiene en la pestaña COGS.'
+      };
+    }
+
+    // Los dos números de los que cuelga todo lo demás.
+    var beCPA = precio * (beACOS / 100);                       // equilibrio
+    var targetACOS = beACOS * (1 - C.MARGEN_OBJETIVO);
+    var targetCPA = precio * (targetACOS / 100);               // con margen
+
+    var lista = Array.isArray(terminos) ? terminos : [];
+
+    // Clics por orden de la CUENTA: sirve de referencia cuando un
+    // término convierte pero tiene muy poca data propia.
+    var totClk = 0, totOrd = 0, totSpd = 0, totSal = 0;
+    lista.forEach(function (t) {
+      totClk += n(t.clk); totOrd += n(t.ord); totSpd += n(t.spd); totSal += n(t.sal);
+    });
+    var cpoCuenta = totOrd > 0 ? (totClk / totOrd) : 0;
+
+    var decisiones = lista.map(function (t) {
+      var clk = n(t.clk), ord = n(t.ord), spd = n(t.spd), sal = n(t.sal), imp = n(t.imp);
+      var cpc = clk > 0 ? spd / clk : 0;
+      var cvr = clk > 0 ? (ord / clk * 100) : 0;
+      var acos = sal > 0 ? (spd / sal * 100) : null;
+      var cpo = ord > 0 ? (clk / ord) : 0;          // clics por orden del término
+
+      // Techo de puja: lo que puedes pagar por clic y aún llegar al
+      // CPA objetivo, dado cuántos clics te cuesta una orden.
+      var maxCPC = null;
+      if (cpo > 0) maxCPC = targetCPA / cpo;
+      else if (cpoCuenta > 0) maxCPC = targetCPA / cpoCuenta;   // referencia
+
+      var d = {
+        termino: t.term,
+        clics: clk, ordenes: ord,
+        gasto: r2(spd), ventas: r2(sal),
+        cpc: r2(cpc), cvr: r2(cvr),
+        acos: acos === null ? null : r2(acos),
+        clicsPorOrden: cpo ? r2(cpo) : null,
+        maxCPC: maxCPC === null ? null : r2(maxCPC),
+        maxCPCEsReferencia: ord === 0,
+        campanas: listaCampanas(t.src),
+        campanaPrincipal: campanaPrincipal(t.src),
+        yaEnExacta: enExacta(t.src),
+        tambienFueraDeExacta: enNoExacta(t.src),
+        accion: 'MANTENER',
+        motivo: '',
+        requiereJuicio: false
+      };
+
+      /* --- Marca de competidor: fuera de los umbrales normales --- */
+      if (esMarcaExcluida(t.term, marcas)) {
+        d.accion = 'REVISAR_MARCA';
+        d.motivo = 'Término de marca de competidor. Se evalúa aparte: la conquista tiene economía distinta y puede justificar un ACOS alto a propósito.';
+        d.requiereJuicio = true;
+        return d;
+      }
+
+      /* --- Sin órdenes --- */
+      if (ord === 0) {
+        var pasaGasto = spd >= beCPA;
+        var pasaClics = clk >= C.PISO_CLICS;
+
+        if (pasaGasto && pasaClics) {
+          d.accion = 'NEGAR';
+          d.motivo = 'Gastó $' + r2(spd) + ' sin una sola venta. Tu CPA de equilibrio es $' + r2(beCPA) +
+                     ': ya consumió lo que habría dejado una venta rentable, con ' + clk + ' clics de evidencia.';
+          d.requiereJuicio = true;  // el modelo decide negar vs. bajar puja según relevancia
+        } else if (pasaGasto && !pasaClics) {
+          d.accion = 'VIGILAR';
+          d.motivo = 'Ya pasó el gasto de equilibrio ($' + r2(spd) + ' contra $' + r2(beCPA) +
+                     ') pero solo con ' + clk + ' clics. Muy poca evidencia para negar: puede ser un clic caro, no un mal término.';
+        } else if (imp >= C.MIN_IMP_CTR && (imp > 0 ? (clk / imp * 100) : 0) < C.CTR_MINIMO) {
+          d.accion = 'REVISAR_LISTING';
+          d.motivo = imp + ' impresiones y CTR de ' + r2(clk / imp * 100) + '%. La gente ve el anuncio y sigue de largo: eso es imagen principal, precio o relevancia, no puja.';
+          d.requiereJuicio = true;
+        } else {
+          d.accion = 'MANTENER';
+          d.motivo = 'Todavía sin datos suficientes para decidir.';
+        }
+        return d;
+      }
+
+      /* --- Con órdenes --- */
+      var rentable = acos !== null && acos <= beACOS;
+
+      if (ord >= C.MIN_ORDENES_COSECHA && rentable && !d.yaEnExacta) {
+        d.accion = 'COSECHAR';
+        d.motivo = ord + ' órdenes con ACOS de ' + r2(acos) + '%, por debajo de tu equilibrio de ' + r2(beACOS) +
+                   '%. Va a campaña exacta propia, y se niega en exacto en la campaña de origen para que no compitan.';
+        return d;
+      }
+
+      // Solo si ADEMÁS sigue corriendo fuera de la exacta: ahí es donde
+      // el estudiante está pujando contra sí mismo. Si solo vive en su
+      // exacta, no hay nada que negar y pasa a evaluación de puja.
+      if (ord >= C.MIN_ORDENES_COSECHA && rentable && d.yaEnExacta && d.tambienFueraDeExacta) {
+        d.accion = 'NEGAR_EN_ORIGEN';
+        d.motivo = 'Ya existe en una campaña exacta pero sigue corriendo en otra: están compitiendo por el mismo comprador e inflando tu CPC. Solo falta negarlo en exacto en la campaña de origen.';
+        return d;
+      }
+
+      if (maxCPC !== null && cpc > maxCPC) {
+        d.accion = 'BAJAR_PUJA';
+        d.motivo = 'Convierte cada ' + r2(cpo) + ' clics. A tu CPA objetivo de $' + r2(targetCPA) +
+                   ' puedes pagar hasta $' + r2(maxCPC) + ' por clic, y estás pagando $' + r2(cpc) + '.';
+        d.pujaSugerida = r2(maxCPC);
+        return d;
+      }
+
+      if (maxCPC !== null && cpc < maxCPC * C.HOLGURA_SUBIR) {
+        d.accion = 'SUBIR_PUJA';
+        d.motivo = 'Convierte cada ' + r2(cpo) + ' clics y pagas $' + r2(cpc) + ' por clic, con techo en $' + r2(maxCPC) +
+                   '. Hay espacio para ganar más impresiones sin salir de rentabilidad.';
+        d.pujaSugerida = r2(Math.min(maxCPC, cpc * 1.10));  // pasos de 10%, nunca saltos
+        return d;
+      }
+
+      d.accion = 'MANTENER';
+      d.motivo = 'Dentro de la banda rentable. No lo toques esta semana.';
+      return d;
+    });
+
+    /* ---------- Resumen de cuenta ---------- */
+    var por = {};
+    decisiones.forEach(function (d) { por[d.accion] = (por[d.accion] || 0) + 1; });
+
+    var gastoANegar = decisiones
+      .filter(function (d) { return d.accion === 'NEGAR'; })
+      .reduce(function (s, d) { return s + d.gasto; }, 0);
+
+    var desperdicio = decisiones
+      .filter(function (d) { return d.ordenes === 0; })
+      .reduce(function (s, d) { return s + d.gasto; }, 0);
+
+    var resumen = {
+      terminos: decisiones.length,
+      porAccion: por,
+      gasto: r2(totSpd),
+      ventas: r2(totSal),
+      ordenes: totOrd,
+      acosCuenta: totSal > 0 ? r2(totSpd / totSal * 100) : null,
+      clicsPorOrdenCuenta: cpoCuenta ? r2(cpoCuenta) : null,
+      gastoDesperdiciado: r2(desperdicio),
+      pctDesperdiciado: totSpd > 0 ? r2(desperdicio / totSpd * 100) : 0,
+      gastoRecuperableAhora: r2(gastoANegar)
+    };
+    if (dias > 0 && gastoANegar > 0) {
+      resumen.proyeccionMensual = r2(gastoANegar / dias * 30);
+    }
+
+    return {
+      ok: true,
+      economia: {
+        precio: r2(precio),
+        breakEvenACOS: r2(beACOS),
+        breakEvenCPA: r2(beCPA),
+        targetACOS: r2(targetACOS),
+        targetCPA: r2(targetCPA),
+        pisoClics: C.PISO_CLICS
+      },
+      resumen: resumen,
+      decisiones: decisiones
+    };
+  }
+
+  /* ============================================================
+     TEXTO PARA EL MODELO
+     Compacto a propósito: el modelo no necesita las 300 filas,
+     necesita las decisiones y los números que las sostienen.
+     ============================================================ */
+  function texto(res, limite) {
+    if (!res || !res.ok) return 'MOTOR PPC: ' + ((res && res.error) || 'sin resultado');
+    limite = limite || 25;
+    var e = res.economia, s = res.resumen;
+    var out = 'MOTOR PPC — DECISIONES YA CALCULADAS POR LA APLICACION\n';
+    out += 'Economia del estudiante: precio $' + e.precio + ' | break-even ACOS ' + e.breakEvenACOS +
+           '% | CPA de equilibrio $' + e.breakEvenCPA + ' | CPA objetivo $' + e.targetCPA +
+           ' (ACOS objetivo ' + e.targetACOS + '%)\n';
+    out += 'Cuenta: gasto $' + s.gasto + ' | ventas $' + s.ventas + ' | ordenes ' + s.ordenes +
+           ' | ACOS ' + (s.acosCuenta === null ? 'n/d' : s.acosCuenta + '%') +
+           ' | clics por orden ' + (s.clicsPorOrdenCuenta || 'n/d') + '\n';
+    out += 'Desperdicio: $' + s.gastoDesperdiciado + ' (' + s.pctDesperdiciado + '% del gasto). ' +
+           'Recuperable negando ya: $' + s.gastoRecuperableAhora +
+           (s.proyeccionMensual ? ' (~$' + s.proyeccionMensual + '/mes al ritmo actual)' : '') + '\n\n';
+
+    var orden = ['NEGAR', 'COSECHAR', 'NEGAR_EN_ORIGEN', 'BAJAR_PUJA', 'SUBIR_PUJA', 'REVISAR_LISTING', 'REVISAR_MARCA', 'VIGILAR'];
+    orden.forEach(function (acc) {
+      var g = res.decisiones.filter(function (d) { return d.accion === acc; });
+      if (!g.length) return;
+      out += acc + ' (' + g.length + '):\n';
+      g.slice(0, limite).forEach(function (d) {
+        out += '- "' + d.termino + '" | ' + d.clics + ' clics, ' + d.ordenes + ' ord, $' + d.gasto +
+               (d.acos !== null ? ', ACOS ' + d.acos + '%' : '') +
+               ', CPC $' + d.cpc +
+               (d.pujaSugerida ? ' -> puja sugerida $' + d.pujaSugerida : '') +
+               ' | en: ' + d.campanaPrincipal + '\n';
+      });
+      if (g.length > limite) out += '  (y ' + (g.length - limite) + ' mas del mismo tipo)\n';
+      out += '\n';
+    });
+
+    out += 'INSTRUCCION: estas decisiones ya estan calculadas y NO se recalculan. Tu trabajo es explicar ' +
+           'las de mayor impacto, nombrar la campaña exacta donde se ejecuta cada una, y escribir el bloque ' +
+           'de negaciones para copiar. En NEGAR y REVISAR_LISTING usa tu juicio de RELEVANCIA: si el termino ' +
+           'es irrelevante al producto se niega; si es relevante pero caro, se baja la puja en vez de negarlo.';
+    return out;
+  }
+
+  global.SophiePPC = {
+    version: '1.0',
+    config: CONFIG,
+    clasificar: clasificar,
+    texto: texto
+  };
+
+})(typeof window !== 'undefined' ? window : this);

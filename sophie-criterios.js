@@ -9,6 +9,13 @@
    Para mejorar la metodología: se edita este archivo y se
    despliega. Cambia para todos los módulos a la vez.
 
+   OJO — dos copias en PROSA repiten estos números a mano (un
+   build step no las genera): el prompt del modelo en
+   sophie-producto/chat.js y las pantallas del alumno en
+   sophie-pasos.js. Tras cambiar un umbral aquí, actualiza esas
+   copias y corre `node tools/verificar-metodologia.mjs`, que
+   falla si algo quedó desincronizado.
+
    ESTRUCTURA de cada criterio:
      id           número del criterio (1–13)
      fase         1 = validación inicial · 2 = validación avanzada
