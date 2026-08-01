@@ -34,11 +34,13 @@ cargar("sophie-criterios.js");   // define win.SophieCriterios
 cargar("sophie-motor.js");       // define win.SophieMotor (lee SophieCriterios)
 cargar("sophie-analisis.js");    // define win.SophieAnalisis (parser <!--SOPHIE:-->)
 cargar("sophie-guia.js");        // define win.SophieGuia (parser <!--PASO:-->)
+cargar("sophie-pasos.js");       // define win.SophiePasos (cabecera para SophieCandidatos)
+cargar("sophie-candidatos.js");  // define win.SophieCandidatos (parser <!--CANDIDATOS_PRODUCTO:-->)
 cargar("sophie-proveedores.js"); // define win.SophieProveedores (CANDIDATOS/COTIZACIONES/PROVEEDOR)
 cargar("sophie-listing.js");     // define win.SophieListing (parser <!--LISTING:-->)
 cargar("sophie-rescate.js");     // define win.SophieRescate (motor de diagnóstico)
 cargar("sophie-ppc.js");         // define win.SophiePPC (motor de Cosecha y Poda / Ads)
-const { SophieAnalisis, SophieMotor, SophieGuia, SophieProveedores, SophieListing, SophieRescate, SophiePPC } = win;
+const { SophieAnalisis, SophieMotor, SophieGuia, SophieProveedores, SophieListing, SophieRescate, SophiePPC, SophieCandidatos } = win;
 
 /* ---------- arnés mínimo de aserciones ---------- */
 
@@ -179,6 +181,55 @@ t("limpiar quita PASO + P/M", () => {
   eq(SophieGuia.limpiar('Hola <!--PASO:{"paso":1}--><!--P:1--><!--M:H-->'), "Hola");
 });
 
+/* ---------- 4b · SophieCandidatos.detectar (marcador <!--CANDIDATOS_PRODUCTO:-->) ---------- */
+
+grupo("SophieCandidatos.detectar — pantalla de evaluación de candidatos");
+
+const CAND_MARCA = '<!--CANDIDATOS_PRODUCTO:' + JSON.stringify({
+  paso: 3,
+  candidatos: [
+    { nombre: "Dog Scratch Pad for Nails", veredicto: "precaucion",
+      etiquetas: ["Físico simple", "Sin marca"], nota: "Revisa reseñas y gating.",
+      conclusion: "Candidato viable, con precaución." },
+    { nombre: "Stair Basket", veredicto: "descartado", conclusion: "No recomendado como primer producto." }
+  ],
+  recomendacion: "El Dog Scratch Pad es el que vale la pena explorar."
+}) + '-->';
+
+t("marcador bien formado → objeto con lista de candidatos", () => {
+  const p = SophieCandidatos.detectar(CAND_MARCA);
+  ok(p, "no devolvió objeto");
+  eq(p.candidatos.length, 2, "nº de candidatos");
+  eq(p.candidatos[0].veredicto, "precaucion", "veredicto[0]");
+});
+
+t("marcador sin candidatos (o lista vacía) → null", () => {
+  eq(SophieCandidatos.detectar('<!--CANDIDATOS_PRODUCTO:{"titulo":"sin lista"}-->'), null);
+  eq(SophieCandidatos.detectar('<!--CANDIDATOS_PRODUCTO:{"candidatos":[]}-->'), null);
+});
+
+t("JSON roto o truncado en streaming → null, no lanza", () => {
+  eq(SophieCandidatos.detectar('<!--CANDIDATOS_PRODUCTO:{"candidatos":[{,,}]-->'), null);
+  eq(SophieCandidatos.detectar('<!--CANDIDATOS_PRODUCTO:{"candidatos":[{"nombre":"A"'), null);
+  eq(SophieCandidatos.detectar("una evaluación en prosa"), null);
+});
+
+t("limpiar quita CANDIDATOS + P/M", () => {
+  eq(SophieCandidatos.limpiar('Listo ' + CAND_MARCA + '<!--M:S-->'), "Listo");
+});
+
+t("html arma las tarjetas y escapa el texto del modelo (sin inyección)", () => {
+  const p = SophieCandidatos.detectar(CAND_MARCA);
+  const h = SophieCandidatos.html(p);
+  ok(h.includes("s-cand"), "debe traer tarjetas");
+  ok(h.includes("Dog Scratch Pad for Nails"), "debe traer el nombre");
+  ok(h.includes("s-cand-verdict"), "debe traer el chip de veredicto");
+  // inyección: un nombre con HTML se escapa, no se ejecuta
+  const inj = SophieCandidatos.html({ candidatos: [{ nombre: "<img src=x onerror=alert(1)>", veredicto: "viable" }] });
+  ok(!inj.includes("<img"), "el HTML del modelo debe quedar escapado");
+  ok(inj.includes("&lt;img"), "debe aparecer escapado");
+});
+
 /* ---------- 5 · SophieProveedores.detectar (3 marcadores) ---------- */
 
 grupo("SophieProveedores.detectar — CANDIDATOS / COTIZACIONES / PROVEEDOR");
@@ -303,8 +354,8 @@ t("texto(res) trae el bloque MOTOR PPC", () => {
 
 /* ---------- reporte ---------- */
 
-console.log("TESTS DE PARSERS Y MOTORES · Sophie (Producto · Guía · Proveedores · Listing · Rescate · PPC)");
-console.log("parsers: Analisis · Guia · Proveedores · Listing   |   motores: Motor(13 criterios) · Rescate · PPC");
+console.log("TESTS DE PARSERS Y MOTORES · Sophie (Producto · Guía · Candidatos · Proveedores · Listing · Rescate · PPC)");
+console.log("parsers: Analisis · Guia · Candidatos · Proveedores · Listing   |   motores: Motor(13 criterios) · Rescate · PPC");
 console.log(salida.join("\n"));
 console.log("");
 console.log("RESULTADO: " + pasan + " pasan · " + fallan + " fallan");
