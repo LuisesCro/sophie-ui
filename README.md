@@ -101,6 +101,19 @@ npm install        # una vez, trae jsdom (devDependency)
 npm run test:e2e   # corre el recorrido
 ```
 
+Para un **reporte visual** (útil si no estás en la terminal), genera un HTML
+con el resultado de la última corrida:
+
+```bash
+npm run test:e2e:html   # escribe recorrido-e2e-reporte.html (ignorado por git)
+```
+
+Cubre cuatro arquetipos (ESTRELLA, MARGINAL, MEDIO, DESCARTAR) y, entre otros,
+el **viaje de ciclo de vida** (un producto que entra GO y meses después cae a
+Rescate), el **candado de calidad transversal** (Lanzamiento y Rescate congelan
+igual ante un problema de calidad) y los veredictos **PIVOTAR/CONGELAR** de
+Rescate.
+
 ## Hook de pre-push (recomendado)
 
 En vez de un GitHub Action (que necesitaría clonar los 6 repos con un token), la

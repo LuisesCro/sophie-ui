@@ -26,7 +26,7 @@
    Sale con código 1 si algún paso del recorrido falla.
    ============================================================ */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { JSDOM } from "jsdom";
@@ -90,10 +90,11 @@ const {
 
 let pasan = 0, fallan = 0;
 const salida = [];
-function grupo(t) { salida.push("\n" + t); }
+const registro = [];   // estructura para el reporte HTML (--html)
+function grupo(t) { salida.push("\n" + t); registro.push({ tipo: "grupo", texto: t }); }
 function t(nombre, fn) {
-  try { fn(); pasan++; salida.push("  ✓ " + nombre); }
-  catch (e) { fallan++; salida.push("  ✗ " + nombre + " — " + e.message); }
+  try { fn(); pasan++; salida.push("  ✓ " + nombre); registro.push({ tipo: "test", nombre: nombre, ok: true }); }
+  catch (e) { fallan++; salida.push("  ✗ " + nombre + " — " + e.message); registro.push({ tipo: "test", nombre: nombre, ok: false, error: e.message }); }
 }
 function ok(cond, msg) { if (!cond) throw new Error(msg || "esperaba verdadero"); }
 function eq(a, b, msg) {
@@ -152,6 +153,13 @@ const DESCARTAR = {
   juicios: { 6: { estado: "fail" }, 9: { estado: "fail" }, 12: { estado: "fail" }, 13: { estado: "fail" } },
 };
 
+// D · MEDIO — buen mercado pero con una grieta no fatal (distribución
+//     concentrada): baja de ESTRELLA a GO CON AJUSTES sin activar veto.
+const MEDIO = {
+  datos: { ...ESTRELLA.datos, concentracionTop1: 80 },
+  juicios: ESTRELLA.juicios,
+};
+
 // Listing completo y bien formado (se reusa en el score y en los renders).
 const LISTING_BUENO = {
   keywordP1: "bamboo cutting board",
@@ -201,6 +209,13 @@ t("MARGINAL → RIESGO MODERADO por veto en C8 (margen)", () => {
   ok(r.vetos.some((v) => v.id === 8), "el veto debe ser C8");
 });
 
+t("MEDIO → GO CON AJUSTES (nivel intermedio, sin veto)", () => {
+  const r = SophieMotor.evaluar(MEDIO.datos, MEDIO.juicios);
+  eq(r.veredicto, "GO CON AJUSTES", "veredicto");
+  eq(r.estado, "go", "estado");
+  eq(r.limitadoPorVeto, false, "una grieta no fatal no debe activar veto");
+});
+
 t("DESCARTAR → NO GO (estado nogo, pocos aprobados)", () => {
   const r = SophieMotor.evaluar(DESCARTAR.datos, DESCARTAR.juicios);
   eq(r.veredicto, "NO GO", "veredicto");
@@ -229,6 +244,10 @@ t("ESTRELLA abre la Puerta (permitido)", () => {
 
 t("MARGINAL pasa la Puerta con advertencia", () => {
   eq(accesoDe(MARGINAL).puerta.acceso, "advertencia");
+});
+
+t("MEDIO (GO CON AJUSTES) abre la Puerta (permitido)", () => {
+  eq(accesoDe(MEDIO).puerta.acceso, "permitido");
 });
 
 t("DESCARTAR queda BLOQUEADO en la Puerta (no se construye sobre un NO GO)", () => {
@@ -322,6 +341,13 @@ t("comparar rankea y evita la trampa del precio de lista", () => {
   eq(cmp.recomendada.proveedor, "Alpha Manufacturing", "el sano debe rankear primero");
 });
 
+t("proveedor sano pero sin empaque personalizado → NEGOCIAR (alerta, no crítico)", () => {
+  const a = SophieCotizaciones.aterrizar({ ...PROV_SANO, personalizacion: false }, PROV_CTX);
+  const e = SophieCotizaciones.evaluar(a);
+  eq(e.veredicto, "NEGOCIAR", "veredicto");
+  eq(e.criticos, 0, "sin hallazgos críticos, solo alertas");
+});
+
 /* ============================================================
    5 · VEREDICTO POR MÓDULO — Lanzamiento (semáforo + reorden)
    ============================================================ */
@@ -357,6 +383,15 @@ t("inventario por debajo del punto de reorden → 'ordenar_ya'", () => {
   eq(reo.estado, "ordenar_ya", "con 40 unidades y 6/día debería urgir ordenar");
 });
 
+t("dos o más rojos (sin rojo de calidad) → protocolo de 'rescate'", () => {
+  const sem = SophieLanzamiento.semaforo({
+    semana: 3, unidadesVendidas: 30, metaUnidades: 100, posicion: 60, posicionAnterior: 40,
+    cayoSemanaAnterior: true, sesiones: 900, cvr: 2, acos: 20, reviewsTotal: 18, metaReviews: 10, reviewsNegativas: 0,
+  }, LANZ_CTX);
+  ok(sem.cuenta.rojo >= 2, "el fixture debe tener 2+ rojos (dio " + sem.cuenta.rojo + ")");
+  eq(sem.combinacion, "rescate", "dos o más rojos activan el protocolo de rescate");
+});
+
 /* ============================================================
    6 · VEREDICTO POR MÓDULO — PPC (Cosecha y Poda)
    ============================================================ */
@@ -380,6 +415,22 @@ t("término rentable fuera de exacta → COSECHAR", () => {
   eq(r.decisiones[0].accion, "COSECHAR", "acción");
 });
 
+t("gastó el equilibrio pero con muy pocos clics → VIGILAR (poca evidencia para negar)", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "niche term", imp: 300, clk: 2, spd: 14, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 14, ord: 0 } } }],
+    PPC_CTX);
+  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+});
+
+t("muchas impresiones y CTR bajísimo sin gastar el equilibrio → REVISAR_LISTING (no es puja)", () => {
+  // Coherente con el gate '¿pujas o listing?' del Optimizador: cuando la gente
+  // ve el anuncio y sigue de largo, el cuello de botella es imagen/precio, no puja.
+  const r = SophiePPC.clasificar(
+    [{ term: "relevant term", imp: 8000, clk: 12, spd: 4, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 4, ord: 0 } } }],
+    PPC_CTX);
+  eq(r.decisiones[0].accion, "REVISAR_LISTING", "acción");
+});
+
 /* ============================================================
    7 · VEREDICTO POR MÓDULO — Rescate (diagnóstico) + contratos
    ============================================================ */
@@ -399,6 +450,25 @@ t("defecto de producto → CONGELAR (contrato de congelado)", () => {
   const r = SophieRescate.diagnosticar({ ...RESC_SANO, defectoProducto: true });
   eq(r.veredicto, "CONGELAR", "veredicto");
   ok(r.modos.reputacion.defecto, "reputación debe marcar el defecto");
+});
+
+t("economía roja + nicho vivo → PIVOTAR (ningún ajuste de pujas salva un margen así)", () => {
+  // El test PIVOTAR que se formalizó en el prompt, verificado en el motor:
+  // problema ESTRUCTURAL de economía, no ejecutivo.
+  const r = SophieRescate.diagnosticar({
+    precio: 18, cogs: 10, flete: 3, fbaFee: 5,
+    unidadesFBA: 120, pedidosMes: 60, edadInventarioDias: 40, rating: 4.5, resenas: 40, indexacion: "si",
+  });
+  eq(r.gates.economia.estado, "rojo", "economía");
+  ok(r.gates.nicho.estado === "verde" || r.gates.nicho.estado === "ambar", "el nicho debe seguir vivo");
+  eq(r.veredicto, "PIVOTAR", "veredicto");
+  eq(r.escalaMentoria, true, "PIVOTAR escala a mentoría");
+});
+
+t("economía viva + nicho migrado → PIVOTAR (el mercado se movió)", () => {
+  const r = SophieRescate.diagnosticar({ ...RESC_SANO, nichoMigrado: true });
+  eq(r.gates.nicho.estado, "rojo", "nicho migrado → rojo");
+  eq(r.veredicto, "PIVOTAR", "veredicto");
 });
 
 /* ============================================================
@@ -436,6 +506,38 @@ t("PPC 'sangra sin vender' es coherente con un diagnóstico de conversión, no d
      "no debe recomendar SUBIR_PUJA sobre algo que sangra sin vender (dio " + d.accion + ")");
 });
 
+t("un rojo de CALIDAD congela el escalado en Lanzamiento igual que un defecto lo congela en Rescate", () => {
+  // Coherencia transversal: la calidad manda sobre el ranking y sobre las pujas
+  // en AMBOS módulos. Si uno congelara y el otro dejara escalar, la suite se
+  // contradiría en el peor momento (un producto con problema de calidad).
+  const lanz = SophieLanzamiento.semaforo({
+    semana: 3, unidadesVendidas: 120, metaUnidades: 100, posicion: 12, posicionAnterior: 30,
+    sesiones: 900, cvr: 13, acos: 20, reviewsTotal: 18, metaReviews: 10, reviewsNegativas: 5,
+  }, LANZ_CTX);
+  const resc = SophieRescate.diagnosticar({ ...RESC_SANO, defectoProducto: true });
+  eq(lanz.combinacion, "calidad", "Lanzamiento congela el escalado por calidad");
+  incluye(lanz.instruccion, "CONGELA", "la instrucción de Lanzamiento debe congelar");
+  eq(resc.veredicto, "CONGELAR", "Rescate congela por defecto de producto");
+});
+
+t("VIAJE DE CICLO DE VIDA: un producto que entró ESTRELLA puede caer a Rescate, y la costura aguanta", () => {
+  // 1) Entra sano: Producto ESTRELLA → Puerta permitido.
+  const entrada = accesoDe(ESTRELLA);
+  eq(entrada.r.veredicto, "PRODUCTO ESTRELLA", "entra como estrella");
+  eq(entrada.puerta.acceso, "permitido", "la puerta lo deja construir");
+  // 2) Consigue proveedor viable y un listing evaluable (sin romperse).
+  eq(SophieCotizaciones.evaluar(SophieCotizaciones.aterrizar(PROV_SANO, PROV_CTX)).veredicto, "VIABLE", "proveedor viable");
+  ok(["EXCELENTE", "BUENO", "MEJORABLE", "REHACER"].includes(SophieKeywords.score(LISTING_BUENO).veredicto), "listing evaluable");
+  // 3) Meses después la economía se degrada (reprecio del nicho, márgenes): Rescate.
+  const rescate = SophieRescate.diagnosticar({
+    precio: 18, cogs: 10, flete: 3, fbaFee: 5,
+    unidadesFBA: 120, pedidosMes: 60, edadInventarioDias: 40, rating: 4.4, resenas: 60, indexacion: "si",
+  });
+  // El mismo producto que fue GO ahora NO es RESCATAR ingenuo: el motor escala.
+  ok(rescate.veredicto === "PIVOTAR" || rescate.veredicto === "LIQUIDAR", "un GO puede degradarse a PIVOTAR/LIQUIDAR (dio " + rescate.veredicto + ")");
+  eq(rescate.escalaMentoria, true, "un veredicto que no es RESCATAR siempre escala a mentoría");
+});
+
 /* ============================================================
    9 · RENDER SIN ROMPERSE — cada pantalla se pinta en el DOM real
    ============================================================ */
@@ -469,8 +571,12 @@ pinta("Proveedores: pinta el score de un proveedor", (sel) => {
   SophieProveedores.pintar(sel, { tipo: "cotizaciones", datos: { lista: [PROV_SANO, PROV_MALO], ctx: PROV_CTX } });
 });
 
-pinta("Rescate: pinta el diagnóstico", (sel) => {
+pinta("Rescate: pinta el diagnóstico (RESCATAR)", (sel) => {
   SophieRescate.pintar(sel, SophieRescate.diagnosticar(RESC_SANO));
+});
+
+pinta("Rescate: pinta un veredicto PIVOTAR (ruta distinta a RESCATAR)", (sel) => {
+  SophieRescate.pintar(sel, SophieRescate.diagnosticar({ ...RESC_SANO, nichoMigrado: true }));
 });
 
 pinta("Lanzamiento: pinta el semáforo + reorden", (sel) => {
@@ -498,12 +604,87 @@ pinta("Puerta: pinta la advertencia de un RIESGO MODERADO", (sel) => {
   SophiePuerta.pintar(sel, r, { modulo: "proveedores" });
 });
 
-/* ---------- reporte ---------- */
+/* ---------- reporte de texto ---------- */
 
 console.log("RECORRIDO E2E · el camino de un producto por las Sophies");
-console.log("productos sintéticos: ESTRELLA · MARGINAL · DESCARTAR   |   " +
+console.log("productos sintéticos: ESTRELLA · MARGINAL · MEDIO · DESCARTAR   |   " +
             "valida: veredicto por módulo · coherencia entre módulos · render sin romperse");
 console.log(salida.join("\n"));
 console.log("");
 console.log("RESULTADO: " + pasan + " pasan · " + fallan + " fallan");
+
+/* ---------- reporte HTML opcional (node tools/recorrido-e2e.mjs --html ruta) --
+   Un reporte visual del recorrido, para ver "qué hizo el bot" sin la terminal.
+   Se genera SIEMPRE desde una corrida real, así que nunca miente.            */
+
+function reporteHTML() {
+  const i = process.argv.indexOf("--html");
+  if (i === -1) return;
+  const ruta = process.argv[i + 1] || resolve(raiz, "recorrido-e2e-reporte.html");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const totalOK = fallan === 0;
+
+  let cuerpo = "";
+  registro.forEach((e) => {
+    if (e.tipo === "grupo") {
+      cuerpo += '<h2>' + esc(e.texto.trim()) + '</h2>\n';
+    } else {
+      cuerpo += '<div class="t ' + (e.ok ? "ok" : "no") + '">' +
+        '<span class="ic">' + (e.ok ? "✓" : "✗") + '</span>' +
+        '<span class="nm">' + esc(e.nombre) + '</span>' +
+        (e.ok ? "" : '<span class="er">' + esc(e.error) + '</span>') +
+        '</div>\n';
+    }
+  });
+
+  const html =
+'<!doctype html><html lang="es"><head><meta charset="utf-8">' +
+'<meta name="viewport" content="width=device-width,initial-scale=1">' +
+'<title>Recorrido E2E · Sophie</title><style>' +
+':root{--bg:#0f1115;--card:#171a21;--tx:#e7e9ee;--mut:#9aa1ad;--ok:#3fb98a;--no:#e5484d;--bd:#262b35;--ac:#f7aa2e}' +
+'@media(prefers-color-scheme:light){:root{--bg:#f6f7f9;--card:#fff;--tx:#1a1d23;--mut:#5b626d;--bd:#e4e7ec}}' +
+'*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);' +
+'font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:28px 18px}' +
+'.wrap{max-width:820px;margin:0 auto}h1{font-size:22px;margin:0 0 4px}' +
+'.sub{color:var(--mut);font-size:13.5px;margin-bottom:20px}' +
+'.hero{display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--bd);' +
+'border-radius:14px;padding:18px 20px;margin-bottom:8px}' +
+'.big{font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;' +
+'color:' + (totalOK ? 'var(--ok)' : 'var(--no)') + '}' +
+'.hero .d{font-size:13.5px;color:var(--mut)}.hero .d b{color:var(--tx);font-size:15px}' +
+'.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;' +
+'background:' + (totalOK ? 'rgba(63,185,138,.16)' : 'rgba(229,72,77,.16)') + ';' +
+'color:' + (totalOK ? 'var(--ok)' : 'var(--no)') + '}' +
+'.pilares{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px}' +
+'.pilares span{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;font-size:12.5px;color:var(--mut)}' +
+'.pilares b{color:var(--ac)}' +
+'h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);' +
+'margin:22px 0 8px;font-weight:700}' +
+'.t{display:flex;align-items:baseline;gap:10px;padding:9px 12px;border:1px solid var(--bd);' +
+'border-radius:10px;margin-bottom:6px;background:var(--card)}' +
+'.t .ic{font-weight:800}.t.ok .ic{color:var(--ok)}.t.no .ic{color:var(--no)}' +
+'.t .nm{flex:1}.t .er{color:var(--no);font-size:12.5px;font-family:ui-monospace,monospace}' +
+'.foot{color:var(--mut);font-size:12px;margin-top:24px;text-align:center}' +
+'</style></head><body><div class="wrap">' +
+'<h1>Recorrido E2E — el camino de un producto por las Sophies</h1>' +
+'<div class="sub">Productos sintéticos ESTRELLA · MARGINAL · MEDIO · DESCARTAR recorriendo toda la suite.</div>' +
+'<div class="hero"><div class="big">' + pasan + '/' + (pasan + fallan) + '</div>' +
+'<div class="d"><div><b>' + (totalOK ? "Todo verde" : fallan + " fallando") + '</b> ' +
+'<span class="pill">' + (totalOK ? "OK" : "REVISAR") + '</span></div>' +
+'<div>' + pasan + ' aserciones pasan · ' + fallan + ' fallan</div></div></div>' +
+'<div class="pilares"><span><b>1</b> Veredicto por módulo</span>' +
+'<span><b>2</b> Coherencia entre módulos</span><span><b>3</b> Render sin romperse (jsdom)</span></div>' +
+cuerpo +
+'<div class="foot">Generado por <code>tools/recorrido-e2e.mjs --html</code> · Crezcamos Online · Sophie Suite</div>' +
+'</div></body></html>';
+
+  try {
+    writeFileSync(ruta, html, "utf8");
+    console.log("\nReporte HTML escrito en: " + ruta);
+  } catch (e) {
+    console.error("No se pudo escribir el reporte HTML: " + e.message);
+  }
+}
+reporteHTML();
+
 process.exit(fallan ? 1 : 0);

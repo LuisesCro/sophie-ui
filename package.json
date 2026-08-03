@@ -7,6 +7,7 @@
     "test": "node tools/test-parsers.mjs",
     "guardas": "node tools/verificar-metodologia.mjs && node tools/verificar-router.mjs",
     "test:e2e": "node tools/recorrido-e2e.mjs",
+    "test:e2e:html": "node tools/recorrido-e2e.mjs --html recorrido-e2e-reporte.html",
     "test:all": "npm run test && npm run test:e2e"
   },
   "devDependencies": {
