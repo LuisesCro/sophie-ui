@@ -5,12 +5,12 @@
    Clasifica cada término del Search Term Report contra los
    números REALES del estudiante. La METODOLOGÍA —qué es
    desperdicio, cuándo cosechar a exacta, cuándo negar en
-   origen— es la del curso Amazon PPC Manager Mastery. Lo que
-   NO se copia son las constantes: cada umbral en dólares se
-   deriva del precio y del break-even ACOS del estudiante, que
-   ya calcula la pestaña COGS. Así la estrategia es la del curso
-   pero calibrada a la economía real de cada producto, no a un
-   número fijo que sirve para unas cuentas y arruina otras.
+   origen— es la estrategia de optimización de Crezcamos Online
+   (Cosecha y Poda). Lo que NO se copia son las constantes: cada
+   umbral en dólares se deriva del precio y del break-even ACOS
+   del estudiante, que ya calcula la pestaña COGS. Así la
+   estrategia está calibrada a la economía real de cada producto,
+   no a un número fijo que sirve para unas cuentas y arruina otras.
 
    Entrada: el array de términos que arma pivotSearchTerms()
             { term, imp, clk, spd, sal, ord, src, ctr, cpc, cvr }
@@ -24,11 +24,11 @@
   'use strict';
 
   /* ============================================================
-     MAPA METODOLÓGICO · curso Amazon PPC Manager Mastery
-     Cada acción de este motor es una jugada nombrada del curso,
+     MAPA METODOLÓGICO · Cosecha y Poda
+     Cada acción de este motor es una jugada de la metodología,
      calibrada al break-even del estudiante y no a un número fijo:
 
-     - DESPERDICIO vs. SEÑAL. El curso maneja dos umbrales de clics
+     - DESPERDICIO vs. SEÑAL. La metodología maneja dos umbrales de clics
        sin venta: ~5 clics / ~$10 es la primera bandera de desperdicio;
        ~10 clics / ~$20 es la significancia para actuar. La suite unifica
        en el más conservador (10 clics = PISO_CLICS) para no podar por
@@ -36,7 +36,7 @@
        contra el CPA de equilibrio (beCPA), no el conteo de clics.
      - COSECHA (harvest). Término que convierte en Auto/Broad/Phrase y
        NO vive en exacta -> se promueve a su exacta (COSECHAR) y se niega
-       en exacto en la de origen para que no compitan. Señal del curso:
+       en exacto en la de origen para que no compitan. Señal:
        CPA bajo + CVR alto -> exacta aislada (ISO).
      - NEGAR_EN_ORIGEN. Ya tiene su exacta pero sigue corriendo en otra:
        solo falta la negación (mata la autocompetencia que infla el CPC).
