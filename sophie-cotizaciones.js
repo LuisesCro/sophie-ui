@@ -50,6 +50,15 @@
     'EXW': { flete: true,  arancel: true,  nota: 'Sale de la fábrica. Tú pagas absolutamente todo el traslado.' }
   };
 
+  // Estimados de flete puerta a puerta por kg (China→EE.UU.), MUY volátiles.
+  // Se usan SOLO cuando el estudiante no declara su flete. El real lo cotiza un
+  // agente de carga y depende de peso, volumen (CBM) y temporada.
+  var FLETE = {
+    porKg:         { mar: 1.20, aire: 6.50 }, // marítimo LCL vs aéreo, por kg
+    minUnidad:     0.30,   // piso por unidad: un producto muy liviano igual paga manejo
+    defaultUnidad: 1.60    // último recurso: ni flete ni peso declarados
+  };
+
   function num(v) {
     if (typeof v === 'number') return isFinite(v) ? v : NaN;
     if (v === null || v === undefined || v === '') return NaN;
@@ -70,6 +79,12 @@
     return INCOTERM[k] ? { clave: k, reglas: INCOTERM[k] } : { clave: 'FOB', reglas: INCOTERM.FOB };
   }
 
+  // 'aire' si el estudiante indica aéreo/air/avión; en cualquier otro caso, marítimo.
+  function modoDe(v) {
+    var k = String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return (k.indexOf('air') > -1 || k.indexOf('aer') > -1 || k.indexOf('avi') > -1) ? 'aire' : 'mar';
+  }
+
   /* ---------- costo aterrizado de una cotización ---------- */
 
   // c: { proveedor, precioUnidad, moq, incoterm, paisOrigen, leadTimeDias,
@@ -88,7 +103,26 @@
                    : (est.min + est.max) / 2;
     var arancelEstimado = isNaN(num(c.arancelPct)) && isNaN(num(ctx.arancelPct));
 
-    var flete   = inc.reglas.flete   ? n0(c.fleteUnidad, n0(ctx.fleteUnidad, 1.60)) : 0;
+    // Flete — prioridad: lo declarado por el estudiante manda; si no, se estima
+    // por el peso del producto; y si tampoco hay peso, cae a un default plano.
+    // Todo estimado se marca (fleteEstimado) para que el estudiante lo confirme
+    // con su agente de carga, que es quien conoce peso, volumen (CBM) y temporada.
+    var pesoKg    = !isNaN(num(c.pesoUnidadKg)) ? num(c.pesoUnidadKg)
+                  : !isNaN(num(ctx.pesoUnidadKg)) ? num(ctx.pesoUnidadKg) : NaN;
+    var modoEnvio = modoDe(c.modoEnvio || ctx.modoEnvio);
+    var flete = 0, fleteEstimado = false, fleteBase = 'incluido';
+    if (inc.reglas.flete) {
+      var fleteDecl = !isNaN(num(c.fleteUnidad)) ? num(c.fleteUnidad)
+                    : !isNaN(num(ctx.fleteUnidad)) ? num(ctx.fleteUnidad) : NaN;
+      if (!isNaN(fleteDecl)) {
+        flete = fleteDecl; fleteBase = 'declarado';
+      } else if (!isNaN(pesoKg) && pesoKg > 0) {
+        flete = Math.max(FLETE.minUnidad, r2(pesoKg * (FLETE.porKg[modoEnvio] || FLETE.porKg.mar)));
+        fleteEstimado = true; fleteBase = 'peso';
+      } else {
+        flete = FLETE.defaultUnidad; fleteEstimado = true; fleteBase = 'default';
+      }
+    }
     var arancel = inc.reglas.arancel ? producto * arancelPct / 100 : 0;
 
     var placement  = n0(ctx.inboundPlacement, 0.35);
@@ -130,6 +164,10 @@
       desglose: {
         producto: r2(producto),
         flete: r2(flete),
+        fleteEstimado: fleteEstimado,
+        fleteBase: fleteBase,
+        pesoUnidadKg: isNaN(pesoKg) ? null : r2(pesoKg),
+        modoEnvio: modoEnvio,
         arancel: r2(arancel),
         arancelPct: r2(arancelPct),
         arancelEstimado: arancelEstimado,
@@ -188,6 +226,16 @@
     if (a.desglose.arancelEstimado && a.desglose.arancel > 0)
       f.push({ e: 'alerta', t: 'El arancel del ' + a.desglose.arancelPct + '% es un estimado, no un dato. ' +
         'Confírmalo con el proveedor o un agente de carga antes de pagar: depende del código HTS del producto.' });
+
+    if (a.desglose.fleteEstimado && a.desglose.flete > 0) {
+      var comoFlete = a.desglose.fleteBase === 'peso'
+        ? 'un estimado por el peso (' + a.desglose.pesoUnidadKg + ' kg × tarifa ' +
+          (a.desglose.modoEnvio === 'aire' ? 'aérea' : 'marítima') + ')'
+        : 'un valor por defecto, porque no diste flete ni peso del producto';
+      f.push({ e: 'alerta', t: 'El flete de $' + a.desglose.flete + '/unidad es ' + comoFlete +
+        ', no un dato. El flete real lo cotiza tu agente de carga y depende de peso, volumen (CBM) y temporada. ' +
+        'Confírmalo antes de pedir.' });
+    }
 
     if (!a.personalizacion)
       f.push({ e: 'alerta', t: 'No confirmaste que acepte empaque personalizado. Sin marca en la caja, tu diferenciación se queda en el listing.' });

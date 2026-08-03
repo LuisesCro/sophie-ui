@@ -146,7 +146,10 @@
           '<ul class="s-list" style="margin:0">' +
             '<li><b>Producto</b> $' + d2(lider.desglose.producto) + '</li>' +
             '<li><b>Flete</b> $' + d2(lider.desglose.flete) +
-              (lider.desglose.flete === 0 ? ' — incluido en el incoterm ' + lider.incoterm : '') + '</li>' +
+              (lider.desglose.flete === 0 ? ' — incluido en el incoterm ' + lider.incoterm
+                : lider.desglose.fleteBase === 'peso' ? ' — estimado por peso (' + lider.desglose.pesoUnidadKg + ' kg, ' + (lider.desglose.modoEnvio === 'aire' ? 'aéreo' : 'marítimo') + '), confírmalo con tu agente'
+                : lider.desglose.fleteEstimado ? ' — estimado, confírmalo con tu agente de carga'
+                : '') + '</li>' +
             '<li><b>Arancel</b> $' + d2(lider.desglose.arancel) + ' (' + d2(lider.desglose.arancelPct) + '%)' +
               (lider.desglose.arancelEstimado ? ' — estimado, confirma con el código HTS antes de pagar' : '') + '</li>' +
             '<li><b>Colocación inbound</b> $' + d2(lider.desglose.placement) + '</li>' +
