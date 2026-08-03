@@ -65,7 +65,10 @@
     keyword:  [/keyword\s*phrase/i, /^keyword$/i, /^frase/i],
     sv:       [/search\s*volume/i, /^sv$/i, /volumen/i],
     iq:       [/cerebro\s*iq/i, /^iq\s*score/i, /^iq$/i],
-    rank:     [/competitor\s*rank/i, /organic\s*rank\s*average/i, /rank\s*\(avg\)/i, /^rank$/i],
+    // "organic rank" cubre tanto el export de un solo ASIN (columna "Organic
+    // Rank") como el multi-ASIN ("Organic Rank Average"); "sponsored rank" NO
+    // matchea aquí a propósito (clasificamos por rank orgánico).
+    rank:     [/competitor\s*rank/i, /organic\s*rank/i, /rank\s*\(avg\)/i, /^rank$/i],
     count:    [/ranking\s*competitors/i, /competitors\s*\(count\)/i, /^competidores/i],
     productos:[/competing\s*products/i, /^productos/i]
   };

@@ -37,10 +37,11 @@ cargar("sophie-guia.js");        // define win.SophieGuia (parser <!--PASO:-->)
 cargar("sophie-pasos.js");       // define win.SophiePasos (cabecera para SophieCandidatos)
 cargar("sophie-candidatos.js");  // define win.SophieCandidatos (parser <!--CANDIDATOS_PRODUCTO:-->)
 cargar("sophie-proveedores.js"); // define win.SophieProveedores (CANDIDATOS/COTIZACIONES/PROVEEDOR)
+cargar("sophie-keywords.js");    // define win.SophieKeywords (parser MKL + clasificador)
 cargar("sophie-listing.js");     // define win.SophieListing (parser <!--LISTING:-->)
 cargar("sophie-rescate.js");     // define win.SophieRescate (motor de diagnóstico)
 cargar("sophie-ppc.js");         // define win.SophiePPC (motor de Cosecha y Poda / Ads)
-const { SophieAnalisis, SophieMotor, SophieGuia, SophieProveedores, SophieListing, SophieRescate, SophiePPC, SophieCandidatos } = win;
+const { SophieAnalisis, SophieMotor, SophieGuia, SophieProveedores, SophieKeywords, SophieListing, SophieRescate, SophiePPC, SophieCandidatos } = win;
 
 /* ---------- arnés mínimo de aserciones ---------- */
 
@@ -350,6 +351,36 @@ t("término de marca de competidor → REVISAR_MARCA (economía aparte)", () => 
 t("texto(res) trae el bloque MOTOR PPC", () => {
   const r = SophiePPC.clasificar([{ term: "x", imp: 10, clk: 1, spd: 1, sal: 0, ord: 0, src: {} }], PPC_CTX);
   ok(SophiePPC.texto(r).includes("MOTOR PPC"), "debe contener 'MOTOR PPC'");
+});
+
+/* ---------- 9 · SophieKeywords.parsear — encabezados de rank de Cerebro ---------- */
+
+grupo("SophieKeywords — reconoce los encabezados de rank de Cerebro");
+
+// Cerebro de un solo ASIN exporta la columna "Organic Rank". Antes solo se
+// reconocía "Competitor Rank" / "Organic Rank Average", así que un pegado real
+// dejaba el rank vacío y mandaba TODO a descarte. Este test fija que ambos
+// encabezados leen el rank y clasifican igual.
+const MKL_HEADER = "Keyword Phrase\tSearch Volume\tCerebro IQ Score\t{RANK}\tCompeting Products";
+const MKL_ROW = "offset extension wrench\t15720\t24036\t6\t654"; // sv≥5000, rank≤15, iq≥15 → P1
+
+t("encabezado 'Organic Rank' (Cerebro de un ASIN) lee el rank y da P1", () => {
+  const c = SophieKeywords.clasificar(MKL_HEADER.replace("{RANK}", "Organic Rank") + "\n" + MKL_ROW);
+  eq(c.P1.length, 1, "debe haber 1 P1");
+  eq(c.P1[0].keyword, "offset extension wrench", "la keyword P1");
+  eq(c.descarte.length, 0, "no debe caer a descarte por rank sin leer");
+});
+
+t("'Competitor Rank' (multi-ASIN) sigue funcionando igual", () => {
+  const c = SophieKeywords.clasificar(MKL_HEADER.replace("{RANK}", "Competitor Rank") + "\n" + MKL_ROW);
+  eq(c.P1.length, 1, "mismo resultado con el encabezado multi-ASIN");
+});
+
+t("sin leer el rank, un P1 legítimo caería a descarte (prueba de que el rank importa)", () => {
+  // Con un encabezado de rank NO reconocido, el rank queda en Infinity y el
+  // P1 se pierde: exactamente el bug que arreglamos. Lo verificamos al revés.
+  const c = SophieKeywords.clasificar(MKL_HEADER.replace("{RANK}", "Sponsored Rank") + "\n" + MKL_ROW);
+  eq(c.P1.length, 0, "sin rank orgánico legible, no puede ser P1");
 });
 
 /* ---------- reporte ---------- */
