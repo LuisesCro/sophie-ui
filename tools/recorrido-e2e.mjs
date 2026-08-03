@@ -26,7 +26,7 @@
    Sale con código 1 si algún paso del recorrido falla.
    ============================================================ */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { JSDOM } from "jsdom";
@@ -430,6 +430,98 @@ t("muchas impresiones y CTR bajísimo sin gastar el equilibrio → REVISAR_LISTI
     PPC_CTX);
   eq(r.decisiones[0].accion, "REVISAR_LISTING", "acción");
 });
+
+/* ============================================================
+   6b · OPTIMIZADOR (repo hermano sophie-optiads) — gate "¿pujas o listing?"
+   El gate NO vive en sophie-ui: es lógica a nivel de cuenta del Optimizador,
+   en sophie-optiads/index.html. Cargamos ese index.html real en su propio DOM
+   y ejercitamos el gate por unidad (la lógica) y por flujo completo (analizar).
+   Si el repo no está montado como hermano, se OMITE con aviso (misma convención
+   que las guardas del router: /workspace/sophie-*, ../sophie-*).
+   ============================================================ */
+
+grupo("Optimizador · gate '¿pujas o listing?' (sophie-optiads, repo hermano)");
+
+const rutaOptiads = [
+  "/workspace/sophie-optiads/index.html",
+  resolve(raiz, "../sophie-optiads/index.html"),
+  "/home/user/sophie-optiads/index.html",
+].find((p) => existsSync(p));
+
+if (!rutaOptiads) {
+  salida.push("  ⚠ sophie-optiads no está montado como repo hermano — sección omitida (no bloquea)");
+  registro.push({ tipo: "test", nombre: "Optimizador: sophie-optiads no montado — omitido (no bloquea)", ok: true });
+} else {
+  // El index.html del Optimizador con sus scripts, en su propio DOM.
+  const domOpt = new JSDOM(readFileSync(rutaOptiads, "utf8"), {
+    url: "https://optimizador.crezcamosonline.com/",
+    runScripts: "dangerously",
+  });
+  const w = domOpt.window;
+  w.HTMLElement.prototype.scrollIntoView = function () {}; // jsdom no lo implementa
+
+  t("el Optimizador expone su gate y su flujo (evaluarGateListing / renderGateListing / analizar)", () => {
+    ok(typeof w.evaluarGateListing === "function", "falta evaluarGateListing (¿cargó el index.html?)");
+    ok(typeof w.renderGateListing === "function", "falta renderGateListing");
+    ok(typeof w.analizar === "function", "falta analizar");
+  });
+
+  /* --- Unidad: la lógica del gate --- */
+  t("con <100 clics no opina (datos insuficientes → null)", () => {
+    eq(w.evaluarGateListing(50, 0, 0, 0), null);
+  });
+  t("relevante pero no convierte (cvr<8% con datos suficientes) → dispara el gate", () => {
+    const g = w.evaluarGateListing(200, 2, 0, 1000);
+    ok(g, "debió disparar");
+    ok(g.cvr < 8, "reporta una conversión baja (cvr " + g.cvr + "%)");
+  });
+  t("40%+ del gasto sangrando en clics sin venta → dispara el gate aunque el cvr no sea bajo", () => {
+    const g = w.evaluarGateListing(200, 30, 500, 1000); // cvr 15% pero 50% de sangrado
+    ok(g, "debió disparar por sangrado");
+    ok(g.pctSangrado >= 40, "reporta el sangrado (" + g.pctSangrado + "%)");
+  });
+  t("cuenta sana (buena conversión, poco sangrado) → no dispara (null)", () => {
+    eq(w.evaluarGateListing(200, 40, 100, 1000), null);
+  });
+
+  /* --- Integración: el FLUJO completo analizar() con el gate --- */
+  const H = "Customer Search Term\tClicks\tSpend\t7 Day Total Orders\t7 Day Total Sales";
+  function correr(reporte, be, precio) {
+    if (typeof w.setMode === "function") w.setMode("auto");
+    w.document.getElementById("breakeven").value = String(be || 32);
+    w.document.getElementById("precioVenta").value = String(precio || 34.95);
+    w.document.getElementById("dataInput").value = reporte;
+    w.analizar();
+    return w.document.getElementById("gateListing");
+  }
+
+  t("FLUJO: tráfico relevante que no convierte → el gate se muestra y deriva a Sophie Listing", () => {
+    const box = correr([H,
+      "bamboo cutting board\t120\t180.00\t1\t34.95",
+      "wood chopping board\t90\t120.00\t1\t34.95",
+      "kitchen board large\t40\t60.00\t0\t0",
+    ].join("\n"));
+    eq(box.style.display, "block", "el gate debe hacerse visible");
+    incluye(box.innerHTML, "pujas o de listing", "el mensaje del gate");
+    incluye(box.innerHTML, "Sophie Listing", "debe derivar a Sophie Listing");
+  });
+
+  t("FLUJO: cuenta sana (buena conversión) → el gate queda oculto", () => {
+    const box = correr([H,
+      "bamboo cutting board\t120\t100.00\t20\t700.00",
+      "wood chopping board\t90\t80.00\t16\t560.00",
+    ].join("\n"));
+    eq(box.style.display, "none", "sin problema de conversión, el gate no aparece");
+  });
+
+  t("FLUJO: <100 clics → el gate se calla (no opina sin datos)", () => {
+    const box = correr([H,
+      "bamboo cutting board\t40\t60.00\t0\t0",
+      "wood chopping board\t30\t40.00\t0\t0",
+    ].join("\n"));
+    eq(box.style.display, "none", "por debajo de 100 clics no debe opinar");
+  });
+}
 
 /* ============================================================
    7 · VEREDICTO POR MÓDULO — Rescate (diagnóstico) + contratos

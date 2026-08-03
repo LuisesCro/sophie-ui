@@ -114,6 +114,13 @@ Rescate), el **candado de calidad transversal** (Lanzamiento y Rescate congelan
 igual ante un problema de calidad) y los veredictos **PIVOTAR/CONGELAR** de
 Rescate.
 
+También ejercita el **gate "¿pujas o listing?" del Optimizador**, que vive en el
+repo hermano `sophie-optiads`: si ese repo está montado al lado
+(`/workspace/sophie-optiads`, `../sophie-optiads`), el bot carga su `index.html`
+real en jsdom y prueba el gate por unidad y por el flujo completo `analizar()`;
+si no está montado, esa sección **se omite sin bloquear** (misma convención que
+las guardas del router).
+
 ## Hook de pre-push (recomendado)
 
 En vez de un GitHub Action (que necesitaría clonar los 6 repos con un token), la
