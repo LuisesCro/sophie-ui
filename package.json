@@ -1,0 +1,15 @@
+{
+  "name": "sophie-ui",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Front-end de la suite Sophie · Crezcamos Online",
+  "scripts": {
+    "test": "node tools/test-parsers.mjs",
+    "guardas": "node tools/verificar-metodologia.mjs && node tools/verificar-router.mjs",
+    "test:e2e": "node tools/recorrido-e2e.mjs",
+    "test:all": "npm run test && npm run test:e2e"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}

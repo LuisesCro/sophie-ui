@@ -76,6 +76,31 @@ de campos de Helium 10).
 node tools/test-parsers.mjs
 ```
 
+## Recorrido E2E — el camino de un producto por las Sophies
+
+`tools/recorrido-e2e.mjs` toma **productos sintéticos** (ESTRELLA, MARGINAL,
+DESCARTAR) y los pasa por el camino completo de la suite, afirmando tres cosas
+que ningún test aislado cubre:
+
+1. **Veredicto por módulo** — cada Sophie (Producto, Listing, Proveedores,
+   Lanzamiento, Ads/PPC, Rescate) devuelve el veredicto correcto para cada
+   producto.
+2. **Coherencia entre módulos** — la salida de un módulo encaja con la entrada
+   del siguiente: la costura `Producto → expediente → Puerta → resto` (un NO GO
+   cierra la puerta a comprar inventario), el candado de tracción y el contrato
+   de congelado de Rescate.
+3. **Render sin romperse** — cada pantalla se pinta en un DOM real (jsdom) sin
+   lanzar y deja contenido.
+
+A diferencia de las guardas y los tests de parsers, este bot necesita `jsdom`,
+así que corre **a mano** (no en el pre-push, que debe funcionar en un checkout
+sin `node_modules`):
+
+```bash
+npm install        # una vez, trae jsdom (devDependency)
+npm run test:e2e   # corre el recorrido
+```
+
 ## Hook de pre-push (recomendado)
 
 En vez de un GitHub Action (que necesitaría clonar los 6 repos con un token), la
