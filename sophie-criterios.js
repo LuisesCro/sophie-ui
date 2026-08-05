@@ -222,6 +222,68 @@
     ]
   };
 
+  /* ============================================================
+     CAPA 2 · CRITERIOS SEMÁNTICOS (Selección Intent-First 3.0)
+     ------------------------------------------------------------
+     Van SEPARADOS de CRITERIOS (léxico 1–13) a propósito: el
+     puntaje y el veredicto léxico NO cambian. Estos alimentan el
+     VEREDICTO COMPUESTO (matriz léxico × semántico) y los pinta
+     el motor sophie-intencion.js. fase 3 = capa de intención.
+     ============================================================ */
+
+  var SEMANTICOS = [
+    {
+      id: 14, fase: 3, capa: 2, veto: false, criterio: 'Brecha de intención',
+      umbral: '≥ 2 clusters huérfanos (SV ≥ 2% del nicho o ≥ 5,000, sin dueño en top 5)',
+      direccion: 'juicio',
+      go_num: 2, alerta_num: 1,
+      por_que: 'Amazon ya no solo empareja palabras: COSMO interpreta la intención detrás de cada búsqueda. Cuando un cluster de intención tiene demanda real pero ningún competidor top lo dice explícitamente en su título, bullets o A+, ese hueco es tuyo — entrar por ahí es más barato que pelear por los head terms y está alineado con hacia dónde migra el descubrimiento (Rufus, Alexa).',
+      leccion: 'El nuevo moat no es una mejor keyword: es una intención con demanda que nadie está sirviendo.',
+      error_comun: 'Validar solo por volumen total y entrar con el mismo ángulo genérico que ya tienen los líderes.',
+      glosario: ['COSMO', 'cluster de intención', 'discovery attributes']
+    },
+    {
+      id: 15, fase: 3, capa: 2, veto: false, alerta_num: 15,
+      criterio: 'Long-tail conversacional',
+      umbral: '≥ 30% de las keywords (por conteo) tienen 4+ palabras',
+      campo: 'longTailPct', direccion: 'min', umbral_num: 30,
+      por_que: 'Las keywords de 4+ palabras son compradores que "hablan" con el buscador ("matcha starter kit with bowl"). Ese lenguaje descriptivo es justo lo que Rufus y Alexa interceptan. Un nicho con mucha cola larga es un nicho donde el canal conversacional ya captura demanda que no ves en los head terms.',
+      leccion: 'La cola larga no es ruido: es la demanda conversacional que tus reportes de volumen no miden.',
+      error_comun: 'Descartar keywords de baja búsqueda individual sin ver que en conjunto revelan intenciones completas.',
+      glosario: ['long-tail', 'Rufus', 'Alexa for Shopping']
+    }
+  ];
+
+  /* ---------- Taxonomía de los 6 clusters de intención (criterio 14) ----------
+     La clasificación es DETERMINISTA: cada keyword cae en el PRIMER cluster
+     (en el orden de esta lista) cuyo marcador aparezca como palabra. El orden
+     va de intención específica (ocasión, audiencia…) a componente genérico
+     (formato), para que "ceremonial matcha kit" cuente como Uso, no como Formato.
+     Sin marcador => 'generico' (head term). Editar marcadores aquí recalibra
+     todos los módulos a la vez. */
+
+  var CLUSTERS = [
+    { id: 'ocasion', nombre: 'Ocasión / Regalo', captura: 'Compra para un evento o un tercero',
+      marcadores: ['gift', 'gifts', 'birthday', "mother's day", 'mothers day', 'fathers day', 'wedding', 'christmas', 'xmas', 'anniversary', 'valentine', 'valentines', 'present', 'holiday', 'graduation'] },
+    { id: 'audiencia', nombre: 'Audiencia', captura: 'Para quién es',
+      marcadores: ['beginner', 'beginners', 'starter', 'kids', 'kid', 'children', 'child', 'toddler', 'baby', 'women', 'woman', 'womens', 'men', 'mens', 'girls', 'boys', 'seniors', 'elderly', 'lovers', 'professional', 'pro'] },
+    { id: 'uso', nombre: 'Uso / Ritual', captura: 'Contexto o modo de uso',
+      marcadores: ['ceremonial', 'traditional', 'japanese', 'travel', 'camping', 'office', 'outdoor', 'indoor', 'gym', 'party', 'wall', 'car', 'desk', 'bedroom', 'bathroom'] },
+    { id: 'modernidad', nombre: 'Modernidad / Conveniencia', captura: 'Reinvención del formato tradicional',
+      marcadores: ['electric', 'shaker', 'machine', 'portable', 'usb', 'rechargeable', 'automatic', 'smart', 'digital', 'wireless', 'maker', 'motorized', 'foldable', 'collapsible'] },
+    { id: 'problema', nombre: 'Problema / Atributo', captura: 'Dolor resuelto o material exigido',
+      marcadores: ['non-slip', 'non slip', 'nonslip', 'leak proof', 'leakproof', 'bamboo', 'ceramic', 'organic', 'bpa free', 'bpa-free', 'waterproof', 'stainless', 'silicone', 'adjustable', 'heavy duty', 'heavy-duty', 'reinforced', 'insulated', 'washable'] },
+    { id: 'formato', nombre: 'Formato / Componente', captura: 'Variante física o pieza del sistema',
+      marcadores: ['set', 'kit', 'bowl', 'whisk', 'holder', 'refill', 'pack', '2 pack', '2-pack', '3 pack', 'bundle', 'replacement', 'accessories', 'accessory', 'stand', 'case', 'with', 'and'] }
+  ];
+
+  // Umbrales del cluster huérfano (criterio 14): demanda mínima para que valga
+  // la pena. El "sin dueño" (que ningún top-5 lo cubra) lo confirma el juicio.
+  var CLUSTER_HUERFANO = { svPctNicho: 2, svAbsoluto: 5000 };
+
+  // Criterio 15: una keyword es "long-tail conversacional" con 4+ palabras.
+  var LONG_TAIL_PALABRAS = 4;
+
   /* ---------- Escala de veredictos ---------- */
 
   var ESCALA = [
@@ -236,14 +298,23 @@
   var VETOS = CRITERIOS.filter(function (c) { return c.veto; }).map(function (c) { return c.id; });
 
   global.SophieCriterios = {
-    version: '2.0',
+    version: '2.1',
     lista: CRITERIOS,
     escala: ESCALA,
     filtros: FILTROS,
     vetos: VETOS,
-    fase: function (n) { return CRITERIOS.filter(function (c) { return c.fase === n; }); },
+    // Capa 2 · Intent-First (criterios 14–15, clusters y umbrales).
+    semanticos: SEMANTICOS,
+    clusters: CLUSTERS,
+    clusterHuerfano: CLUSTER_HUERFANO,
+    longTailPalabras: LONG_TAIL_PALABRAS,
+    fase: function (n) {
+      var todos = CRITERIOS.concat(SEMANTICOS);
+      return todos.filter(function (c) { return c.fase === n; });
+    },
     porId: function (id) {
-      for (var i = 0; i < CRITERIOS.length; i++) if (CRITERIOS[i].id === id) return CRITERIOS[i];
+      var todos = CRITERIOS.concat(SEMANTICOS);
+      for (var i = 0; i < todos.length; i++) if (todos[i].id === id) return todos[i];
       return null;
     },
     // Los que el motor calcula solo, sin pedirle nada al modelo.
