@@ -25,7 +25,8 @@ function cargar(archivo) {
 cargar("cz-intent-core.js");     // define win.CzIntentCore (taxonomía + clasificador compartido)
 cargar("sophie-criterios.js");   // define win.SophieCriterios (criterios 14-18 + matriz; reexpone el core)
 cargar("sophie-intencion.js");   // define win.SophieIntencion (clasificador de capa 2)
-const { CzIntentCore, SophieCriterios, SophieIntencion } = win;
+cargar("sophie-motor.js");       // define win.SophieMotor (léxico + expediente)
+const { CzIntentCore, SophieCriterios, SophieIntencion, SophieMotor } = win;
 
 let pasan = 0, fallan = 0;
 const salida = [];
@@ -227,6 +228,50 @@ t("pintarVeredicto llena el contenedor con el veredicto y la matriz", () => {
   ok(okp && c.innerHTML.indexOf("GO PREMIUM") !== -1, "pinta GO PREMIUM");
   ok(c.innerHTML.indexOf("Explicabilidad por voz") !== -1, "lista el criterio 18");
   ok(c.innerHTML.indexOf("Entra como starter kit") !== -1, "muestra la nota");
+});
+
+grupo("El ángulo viaja al expediente — anguloExpediente()");
+const ANG = SophieIntencion.clasificar({ nicho: "matcha", keywords: KW, cubiertos: ["formato"] });
+t("sin veredicto del modelo, toma los huérfanos que el análisis ya calculó", () => {
+  const a = SophieIntencion.anguloExpediente(ANG);
+  ok(a.clustersElegidos.indexOf("audiencia") !== -1, "audiencia en el ángulo");
+  ok(a.clustersElegidos.indexOf("modernidad") !== -1, "modernidad en el ángulo");
+  ok(a.clustersElegidos.indexOf("formato") === -1, "formato cubierto, no entra");
+  ok(a.clustersNombres.indexOf("Audiencia") !== -1, "trae los nombres legibles");
+});
+t("si el modelo confirmó clusters en el veredicto, esos mandan", () => {
+  const ver = SophieIntencion.veredictoSemantico({
+    lexico: "go", c14_huerfanos: 2, c15_pct: 33, c16_huecos: 2, c17_dolores: 3, c18_si: 3,
+    clustersElegidos: ["audiencia", "uso"], dolores: ["se derrama al preparar", "no sé cuánto polvo usar"]
+  });
+  eq(ver.clustersElegidos.length, 2, "el veredicto pasa el ángulo confirmado");
+  const a = SophieIntencion.anguloExpediente(ANG, ver);
+  eq(JSON.stringify(a.clustersElegidos), JSON.stringify(["audiencia", "uso"]), "confirmados > huérfanos");
+  eq(a.doloresC17.length, 2, "arrastra los dolores del C17");
+});
+t("ids basura en el marcador se descartan (solo taxonomía válida)", () => {
+  const a = SophieIntencion.anguloExpediente(ANG, { clustersElegidos: ["audiencia", "xyz", "AUDIENCIA"] });
+  eq(JSON.stringify(a.clustersElegidos), JSON.stringify(["audiencia"]), "valida y deduplica");
+});
+
+grupo("SophieMotor.aExpediente guarda el ángulo");
+t("aExpediente persiste clustersElegidos y doloresC17 desde extra", () => {
+  const r = SophieMotor.evaluar({});
+  const ang = SophieIntencion.anguloExpediente(ANG, { doloresC17: ["se derrama"] });
+  const exp = SophieMotor.aExpediente(r, {}, {
+    keyword: "matcha set",
+    clustersElegidos: ang.clustersElegidos,
+    doloresC17: ang.doloresC17,
+    recomendacion: "Entrar como starter kit para principiantes."
+  });
+  ok(exp.clustersElegidos.indexOf("audiencia") !== -1, "el ángulo quedó en el expediente");
+  ok(exp.doloresC17.indexOf("se derrama") !== -1, "los dolores C17 quedaron");
+  ok(exp.anguloRecomendacion.indexOf("starter kit") !== -1, "la recomendación quedó");
+});
+t("expediente sin ángulo degrada a listas vacías (compatibilidad)", () => {
+  const exp = SophieMotor.aExpediente(SophieMotor.evaluar({}), {}, { keyword: "x" });
+  eq(JSON.stringify(exp.clustersElegidos), "[]");
+  eq(JSON.stringify(exp.doloresC17), "[]");
 });
 
 /* ---------- reporte ---------- */

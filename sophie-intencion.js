@@ -477,7 +477,10 @@
       semantico: semantico,
       veredicto: celda.clave, etiqueta: celda.etiqueta, estadoVeredicto: celda.estado,
       resumen: celda.resumen,
-      nota: inp.nota ? String(inp.nota) : ''
+      nota: inp.nota ? String(inp.nota) : '',
+      // El ángulo confirmado por el modelo (si lo mandó): viaja al expediente.
+      clustersElegidos: limpiarIds(inp.clustersElegidos),
+      doloresC17: limpiarTextos(inp.doloresC17 || inp.dolores)
     };
   }
 
@@ -538,6 +541,56 @@
     return true;
   }
 
+  /* ============================================================
+     EL ÁNGULO PARA EL EXPEDIENTE — el hilo que viaja por la Ruta
+     ------------------------------------------------------------
+     El estudiante elige su ángulo UNA vez en Producto (los clusters de
+     intención huérfanos + los dolores del C17). Este puente lo empaqueta
+     limpio para que SophieMotor.aExpediente lo guarde y viaje a Listing,
+     Ads y Lanzamiento. No inventa nada: prefiere los clusters que el
+     modelo confirmó en el VEREDICTO_SEMANTICO; si no vinieron, cae a los
+     huérfanos que el análisis ya calculó de forma determinista.
+     ============================================================ */
+
+  function idsValidos() {
+    return taxonomia().map(function (c) { return c.id; });
+  }
+  function nombreDe(id) {
+    var tax = taxonomia();
+    for (var i = 0; i < tax.length; i++) if (tax[i].id === id) return tax[i].nombre;
+    return id;
+  }
+  function limpiarIds(v) {
+    if (!Array.isArray(v)) return [];
+    var validos = idsValidos(), out = [];
+    v.forEach(function (x) {
+      var id = String(x == null ? '' : x).trim().toLowerCase();
+      if (validos.indexOf(id) !== -1 && out.indexOf(id) === -1) out.push(id);
+    });
+    return out;
+  }
+  function limpiarTextos(v) {
+    if (!Array.isArray(v)) return [];
+    return v.map(function (x) { return String(x == null ? '' : x).trim(); })
+            .filter(Boolean).slice(0, 12);
+  }
+
+  // analisis  = resultado de clasificar()  (trae brecha.huerfanos y recomendacion)
+  // veredicto = resultado de veredictoSemantico() o el marcador crudo (opcional)
+  function anguloExpediente(analisis, veredicto) {
+    veredicto = veredicto || {};
+    var confirmados = limpiarIds(veredicto.clustersElegidos);
+    var huerfanos = (analisis && analisis.brecha) ? limpiarIds(analisis.brecha.huerfanos) : [];
+    var ids = confirmados.length ? confirmados : huerfanos;
+    return {
+      clustersElegidos: ids,
+      clustersNombres: ids.map(nombreDe),
+      doloresC17: limpiarTextos(veredicto.doloresC17 || veredicto.dolores),
+      recomendacion: (analisis && analisis.recomendacion) ? String(analisis.recomendacion)
+                    : (veredicto.nota ? String(veredicto.nota) : '')
+    };
+  }
+
   global.SophieIntencion = {
     version: '1.1',
     disponible: disponible,
@@ -546,6 +599,7 @@
     limpiar: limpiar,
     clasificar: clasificar,
     veredictoSemantico: veredictoSemantico,
+    anguloExpediente: anguloExpediente,
     texto: texto,
     textoVeredicto: textoVeredicto,
     html: html,
