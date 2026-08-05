@@ -301,34 +301,11 @@
   };
 
   /* ---------- Taxonomía de los 6 clusters de intención (criterio 14) ----------
-     La clasificación es DETERMINISTA: cada keyword cae en el PRIMER cluster
-     (en el orden de esta lista) cuyo marcador aparezca como palabra. El orden
-     va de intención específica (ocasión, audiencia…) a componente genérico
-     (formato), para que "ceremonial matcha kit" cuente como Uso, no como Formato.
-     Sin marcador => 'generico' (head term). Editar marcadores aquí recalibra
-     todos los módulos a la vez. */
-
-  var CLUSTERS = [
-    { id: 'ocasion', nombre: 'Ocasión / Regalo', captura: 'Compra para un evento o un tercero',
-      marcadores: ['gift', 'gifts', 'birthday', "mother's day", 'mothers day', 'fathers day', 'wedding', 'christmas', 'xmas', 'anniversary', 'valentine', 'valentines', 'present', 'holiday', 'graduation'] },
-    { id: 'audiencia', nombre: 'Audiencia', captura: 'Para quién es',
-      marcadores: ['beginner', 'beginners', 'starter', 'kids', 'kid', 'children', 'child', 'toddler', 'baby', 'women', 'woman', 'womens', 'men', 'mens', 'girls', 'boys', 'seniors', 'elderly', 'lovers', 'professional', 'pro'] },
-    { id: 'uso', nombre: 'Uso / Ritual', captura: 'Contexto o modo de uso',
-      marcadores: ['ceremonial', 'traditional', 'japanese', 'travel', 'camping', 'office', 'outdoor', 'indoor', 'gym', 'party', 'wall', 'car', 'desk', 'bedroom', 'bathroom'] },
-    { id: 'modernidad', nombre: 'Modernidad / Conveniencia', captura: 'Reinvención del formato tradicional',
-      marcadores: ['electric', 'shaker', 'machine', 'portable', 'usb', 'rechargeable', 'automatic', 'smart', 'digital', 'wireless', 'maker', 'motorized', 'foldable', 'collapsible'] },
-    { id: 'problema', nombre: 'Problema / Atributo', captura: 'Dolor resuelto o material exigido',
-      marcadores: ['non-slip', 'non slip', 'nonslip', 'leak proof', 'leakproof', 'bamboo', 'ceramic', 'organic', 'bpa free', 'bpa-free', 'waterproof', 'stainless', 'silicone', 'adjustable', 'heavy duty', 'heavy-duty', 'reinforced', 'insulated', 'washable'] },
-    { id: 'formato', nombre: 'Formato / Componente', captura: 'Variante física o pieza del sistema',
-      marcadores: ['set', 'kit', 'bowl', 'whisk', 'holder', 'refill', 'pack', '2 pack', '2-pack', '3 pack', 'bundle', 'replacement', 'accessories', 'accessory', 'stand', 'case', 'with', 'and'] }
-  ];
-
-  // Umbrales del cluster huérfano (criterio 14): demanda mínima para que valga
-  // la pena. El "sin dueño" (que ningún top-5 lo cubra) lo confirma el juicio.
-  var CLUSTER_HUERFANO = { svPctNicho: 2, svAbsoluto: 5000 };
-
-  // Criterio 15: una keyword es "long-tail conversacional" con 4+ palabras.
-  var LONG_TAIL_PALABRAS = 4;
+     La taxonomía y el clasificador ahora viven en cz-intent-core.js, la
+     infraestructura COMPARTIDA que también usan Listing, Ads y Lanzamiento.
+     SophieCriterios la reexpone (abajo, con getters) leyendo del core, para
+     no tener dos copias que se desincronicen. Editar los marcadores se hace
+     en cz-intent-core.js y recalibra toda la Suite a la vez. */
 
   /* ---------- Escala de veredictos ---------- */
 
@@ -349,11 +326,12 @@
     escala: ESCALA,
     filtros: FILTROS,
     vetos: VETOS,
-    // Capa 2 · Intent-First (criterios 14–18, clusters, umbrales y matriz).
+    // Capa 2 · Intent-First (criterios 14–18 + matriz). La taxonomía de
+    // clusters se reexpone desde cz-intent-core.js (fuente única compartida).
     semanticos: SEMANTICOS,
-    clusters: CLUSTERS,
-    clusterHuerfano: CLUSTER_HUERFANO,
-    longTailPalabras: LONG_TAIL_PALABRAS,
+    get clusters() { return (global.CzIntentCore && global.CzIntentCore.clusters) || []; },
+    get clusterHuerfano() { return (global.CzIntentCore && global.CzIntentCore.clusterHuerfano) || { svPctNicho: 2, svAbsoluto: 5000 }; },
+    get longTailPalabras() { return (global.CzIntentCore && global.CzIntentCore.longTailPalabras) || 4; },
     matrizCompuesta: MATRIZ_COMPUESTA,
     fase: function (n) {
       var todos = CRITERIOS.concat(SEMANTICOS);

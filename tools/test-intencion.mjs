@@ -22,9 +22,10 @@ const win = {};
 function cargar(archivo) {
   new Function("window", "document", readFileSync(resolve(raiz, archivo), "utf8"))(win, undefined);
 }
-cargar("sophie-criterios.js");   // define win.SophieCriterios (taxonomía + umbrales)
+cargar("cz-intent-core.js");     // define win.CzIntentCore (taxonomía + clasificador compartido)
+cargar("sophie-criterios.js");   // define win.SophieCriterios (criterios 14-18 + matriz; reexpone el core)
 cargar("sophie-intencion.js");   // define win.SophieIntencion (clasificador de capa 2)
-const { SophieCriterios, SophieIntencion } = win;
+const { CzIntentCore, SophieCriterios, SophieIntencion } = win;
 
 let pasan = 0, fallan = 0;
 const salida = [];
@@ -51,6 +52,29 @@ const KW = [
   { kw: "bamboo matcha whisk", sv: 1200 },             // problema (bamboo) > formato
   { kw: "organic matcha green tea powder", sv: 900 }   // problema (organic), 5 palabras
 ];
+
+grupo("CzIntentCore — motor de intención compartido");
+t("expone la taxonomía de 6 clusters y los umbrales", () => {
+  eq(CzIntentCore.clusters.length, 6);
+  eq(CzIntentCore.clusterHuerfano.svAbsoluto, 5000);
+  eq(CzIntentCore.longTailPalabras, 4);
+});
+t("clusterDeKeyword clasifica por prioridad de intención", () => {
+  eq(CzIntentCore.clusterDeKeyword("matcha starter kit"), "audiencia");
+  eq(CzIntentCore.clusterDeKeyword("matcha gift set"), "ocasion");
+  eq(CzIntentCore.clusterDeKeyword("matcha set"), "formato");
+  eq(CzIntentCore.clusterDeKeyword("matcha powder"), "generico");
+});
+t("coberturaTexto detecta qué clusters cubre un texto (para Listing)", () => {
+  const cov = CzIntentCore.coberturaTexto("Matcha Starter Kit for Beginners with Bamboo Whisk", ["audiencia", "ocasion", "problema"]);
+  ok(cov.audiencia.presente, "cubre Audiencia (starter/beginners)");
+  ok(cov.problema.presente, "cubre Problema (bamboo)");
+  ok(!cov.ocasion.presente, "NO cubre Ocasión (sin gift/regalo)");
+});
+t("SophieCriterios reexpone la taxonomía del core (misma referencia)", () => {
+  eq(SophieCriterios.clusters.length, 6);
+  eq(SophieCriterios.clusters, CzIntentCore.clusters);
+});
 
 grupo("SophieCriterios — expone la capa 2");
 t("hay 5 criterios semánticos (14 a 18)", () => {

@@ -41,6 +41,7 @@
   /* ---------- fuente de la metodología (con respaldo si no cargó) ---------- */
 
   function criterios() { return global.SophieCriterios || null; }
+  function core() { return global.CzIntentCore || null; }   // motor de intención compartido
 
   var CLUSTERS_FALLBACK = [
     { id: 'ocasion', nombre: 'Ocasión / Regalo', marcadores: ['gift', 'birthday', 'wedding', 'christmas', 'present'] },
@@ -51,17 +52,23 @@
     { id: 'formato', nombre: 'Formato / Componente', marcadores: ['set', 'kit', 'bowl', 'pack', 'with'] }
   ];
 
+  // La taxonomía y los umbrales viven en cz-intent-core.js (fuente única).
+  // Respaldo: SophieCriterios (que también reexpone el core) y, en último caso,
+  // la mini taxonomía local — para no tronar si el core no cargó.
   function taxonomia() {
-    var C = criterios();
-    return (C && C.clusters && C.clusters.length) ? C.clusters : CLUSTERS_FALLBACK;
+    var C = core(); if (C && C.clusters && C.clusters.length) return C.clusters;
+    var K = criterios(); if (K && K.clusters && K.clusters.length) return K.clusters;
+    return CLUSTERS_FALLBACK;
   }
   function umbralHuerfano() {
-    var C = criterios();
-    return (C && C.clusterHuerfano) ? C.clusterHuerfano : { svPctNicho: 2, svAbsoluto: 5000 };
+    var C = core(); if (C && C.clusterHuerfano) return C.clusterHuerfano;
+    var K = criterios(); if (K && K.clusterHuerfano) return K.clusterHuerfano;
+    return { svPctNicho: 2, svAbsoluto: 5000 };
   }
   function palabrasLargas() {
-    var C = criterios();
-    return (C && C.longTailPalabras) ? C.longTailPalabras : 4;
+    var C = core(); if (C && C.longTailPalabras) return C.longTailPalabras;
+    var K = criterios(); if (K && K.longTailPalabras) return K.longTailPalabras;
+    return 4;
   }
 
   /* ---------- detección / limpieza del marcador ---------- */
@@ -134,6 +141,30 @@
   function n(v) { v = parseFloat(v); return isFinite(v) && v > 0 ? v : 0; }
   function r1(v) { return Math.round(v * 10) / 10; }
 
+  // Agrupación cruda por cluster: prefiere el core compartido (cz-intent-core.js);
+  // si no cargó, la calcula aquí con la misma lógica. Salida idéntica en ambos casos.
+  function agrupar(keywords, tax, minP) {
+    var C = core();
+    if (C && C.clasificarLista) return C.clasificarLista(keywords);
+    tax = tax || taxonomia(); minP = minP || palabrasLargas();
+    var por = {}; tax.forEach(function (c) { por[c.id] = { sv: 0, kw: 0, ejemplos: [] }; });
+    var gen = { sv: 0, kw: 0, ejemplos: [] };
+    var totalSV = 0, totalKw = 0, largas = 0;
+    (keywords || []).forEach(function (item) {
+      var kwRaw = item && (item.kw !== undefined ? item.kw : item.keyword);
+      if (kwRaw === undefined || kwRaw === null || String(kwRaw).trim() === '') return;
+      var kwNorm = norm(kwRaw); if (!kwNorm) return;
+      var sv = n(item.sv !== undefined ? item.sv : item.searchVolume);
+      totalKw += 1; totalSV += sv;
+      if (contarPalabras(kwNorm) >= minP) largas += 1;
+      var cid = clusterDe(kwNorm, tax);
+      var a = (cid === 'generico') ? gen : (por[cid] || gen);
+      a.sv += sv; a.kw += 1;
+      if (a.ejemplos.length < 3) a.ejemplos.push(String(kwRaw).trim());
+    });
+    return { totalSV: totalSV, totalKw: totalKw, largas: largas, porCluster: por, generico: gen };
+  }
+
   /* ============================================================
      CLASIFICACIÓN — el cálculo determinista
      entrada: { nicho, keywords:[{kw, sv}], cubiertos:[idCluster] (opcional) }
@@ -146,32 +177,15 @@
 
     var cubiertos = Array.isArray(payload.cubiertos) ? payload.cubiertos.slice() : null;
 
-    // acumuladores por cluster (+ genérico)
-    var acc = {};
-    tax.forEach(function (c) { acc[c.id] = { id: c.id, nombre: c.nombre, sv: 0, kw: 0, ejemplos: [] }; });
-    acc.generico = { id: 'generico', nombre: 'Genérico / Head', sv: 0, kw: 0, ejemplos: [] };
-
-    var totalSV = 0, totalKw = 0, largas = 0;
-
-    (payload.keywords || []).forEach(function (item) {
-      var kwRaw = item && (item.kw !== undefined ? item.kw : item.keyword);
-      if (kwRaw === undefined || kwRaw === null || String(kwRaw).trim() === '') return;
-      var sv = n(item.sv !== undefined ? item.sv : item.searchVolume);
-      var kwNorm = norm(kwRaw);
-      if (!kwNorm) return;
-
-      totalKw += 1; totalSV += sv;
-      if (contarPalabras(kwNorm) >= minPalabras) largas += 1;
-
-      var cid = clusterDe(kwNorm, tax);
-      var a = acc[cid] || acc.generico;
-      a.sv += sv; a.kw += 1;
-      if (a.ejemplos.length < 3) a.ejemplos.push(String(kwRaw).trim());
-    });
+    // Agrupación cruda delegada al core compartido (o respaldo interno).
+    var base = agrupar(payload.keywords || [], tax, minPalabras);
+    var totalSV = base.totalSV, totalKw = base.totalKw, largas = base.largas;
+    var acc = base.porCluster;
+    acc.generico = base.generico;
 
     // arma la lista de clusters (sin el genérico), ordenada por SV desc
     var lista = tax.map(function (c) {
-      var a = acc[c.id];
+      var a = acc[c.id] || { sv: 0, kw: 0, ejemplos: [] };
       var pctSV = totalSV > 0 ? a.sv / totalSV * 100 : 0;
       var demandaOk = (pctSV >= UH.svPctNicho) || (a.sv >= UH.svAbsoluto);
       var cubierto = cubiertos ? (cubiertos.indexOf(c.id) !== -1) : null;
