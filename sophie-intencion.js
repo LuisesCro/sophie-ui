@@ -27,6 +27,7 @@
   'use strict';
 
   var MARCA = /<!--INTENCION:([\s\S]*?)-->/;
+  var MARCA_VER = /<!--VEREDICTO_SEMANTICO:([\s\S]*?)-->/;
 
   function esc(v) {
     if (v === null || v === undefined) return '';
@@ -79,8 +80,20 @@
   function limpiar(texto) {
     return String(texto || '')
       .replace(MARCA, '')
+      .replace(MARCA_VER, '')
       .replace(/<!--[PM]:[^>]*-->/g, '')
       .trim();
+  }
+
+  function detectarVeredicto(texto) {
+    var m = MARCA_VER.exec(texto || '');
+    if (!m) return null;
+    try {
+      var p = JSON.parse(m[1].trim());
+      return (p && typeof p === 'object') ? p : null;
+    } catch (e) {
+      return null; // aún llega incompleto o está roto
+    }
   }
 
   /* ---------- normalización y conteo de palabras ---------- */
@@ -351,7 +364,25 @@
     '.s-int-a-t{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--exito-tx,#1A5E43);margin:0 0 7px}' +
     '.s-int-angulo p:last-child{margin:0;font-size:13px;line-height:1.6;color:var(--texto-2)}' +
     '.s-int-cta{font-size:14px;font-weight:700;color:var(--texto);border:1px dashed var(--borde);border-radius:12px;padding:13px 16px;background:rgba(127,127,127,.03)}' +
-    '@media(max-width:560px){.s-int-row{grid-template-columns:120px 1fr;gap:8px}.s-int-val{grid-column:2;text-align:left}.s-int-cards{grid-template-columns:1fr}}';
+    // --- veredicto compuesto ---
+    '.s-vc-big{display:inline-block;font-size:20px;font-weight:800;letter-spacing:-.01em;padding:8px 16px;border-radius:12px;margin:2px 0 8px}' +
+    '.s-vc-big.s-vc-go,.s-int .s-vc-go{background:var(--exito-bg,#ECFDF3);color:var(--exito-tx,#1A5E43)}' +
+    '.s-vc-big.s-vc-alerta{background:var(--why-bg,#FFF8EC);color:var(--why-tx,#BA7517)}' +
+    '.s-vc-big.s-vc-nogo{background:rgba(217,83,79,.13);color:var(--rojo,#D9534F)}' +
+    '.s-vc-grid{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;margin:0 0 16px}' +
+    '.s-vc-corner{}' +
+    '.s-vc-colh,.s-vc-rowh{font-size:11px;font-weight:800;letter-spacing:.03em;color:var(--texto-2);display:flex;align-items:center}' +
+    '.s-vc-colh{justify-content:center;text-transform:uppercase}' +
+    '.s-vc-cell{border:1px solid var(--borde);border-radius:11px;padding:12px 12px;font-size:12px;color:var(--texto);text-align:center;opacity:.5}' +
+    '.s-vc-cell b{display:block;font-size:12.5px;font-weight:800;letter-spacing:.01em}' +
+    '.s-vc-cell.activa{opacity:1;box-shadow:0 0 0 2px currentColor inset}' +
+    '.s-vc-cell.s-vc-go{background:var(--exito-bg,#ECFDF3);color:var(--exito-tx,#1A5E43)}' +
+    '.s-vc-cell.s-vc-alerta{background:var(--why-bg,#FFF8EC);color:var(--why-tx,#BA7517)}' +
+    '.s-vc-cell.s-vc-nogo{background:rgba(217,83,79,.10);color:var(--rojo,#D9534F)}' +
+    '.s-vc-here{display:block;font-size:9.5px;font-weight:800;letter-spacing:.06em;margin-top:4px;opacity:.85}' +
+    '.s-vc-crits{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 16px}' +
+    '.s-vc-crit{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--borde);border-radius:10px;padding:9px 12px;font-size:12px;color:var(--texto);font-weight:600}' +
+    '@media(max-width:560px){.s-int-row{grid-template-columns:120px 1fr;gap:8px}.s-int-val{grid-column:2;text-align:left}.s-int-cards{grid-template-columns:1fr}.s-vc-crits{grid-template-columns:1fr}.s-vc-grid{font-size:10px}.s-vc-cell{padding:9px 6px}}';
 
   function asegurarEstilo() {
     if (typeof document === 'undefined') return;
@@ -370,15 +401,142 @@
     return true;
   }
 
+  /* ============================================================
+     VEREDICTO COMPUESTO — matriz léxico × semántico (Fase 2)
+     ============================================================ */
+
+  var MATRIZ_FALLBACK = {
+    go_go:        { clave: 'GO_PREMIUM',   etiqueta: 'GO PREMIUM',            estado: 'go',     resumen: 'Entrar con moat de contenido semántico.' },
+    go_nogo:      { clave: 'GO_COMMODITY', etiqueta: 'GO COMMODITY',          estado: 'alerta', resumen: 'Nicho válido pero guerra de precio; entrar solo con ventaja de costos.' },
+    pivotar_go:   { clave: 'VIGILAR',      etiqueta: 'VIGILAR / DIFERENCIAR', estado: 'alerta', resumen: 'Entrar solo con producto diferenciado por la brecha, o vigilar.' },
+    pivotar_nogo: { clave: 'DESCARTE',     etiqueta: 'DESCARTE',              estado: 'nogo',   resumen: 'Sin demanda vencible ni brecha semántica.' }
+  };
+  function matriz() {
+    var C = criterios();
+    return (C && C.matrizCompuesta) ? C.matrizCompuesta : MATRIZ_FALLBACK;
+  }
+
+  // conteo -> semáforo (≥ goMin verde, ≥ alertaMin ámbar, si no rojo)
+  function estadoConteo(v, goMin, alertaMin) {
+    v = parseFloat(v); if (!isFinite(v)) v = 0;
+    return v >= goMin ? 'go' : (v >= alertaMin ? 'alerta' : 'nogo');
+  }
+  // El veredicto léxico cae en una de dos filas de la matriz.
+  function filaLexico(lex) {
+    var s = String(lex || '').toLowerCase();
+    if (s.indexOf('estrella') !== -1 || s.indexOf('ajuste') !== -1) return 'go';
+    if (s.indexOf('pivot') !== -1 || s.indexOf('riesgo') !== -1) return 'pivotar';
+    if (s === 'go') return 'go';
+    if (s.indexOf('no go') !== -1 || s.indexOf('nogo') !== -1 || s === 'no') return 'pivotar';
+    return 'pivotar'; // por defecto, conservador
+  }
+
+  var SEM_IDS = [14, 15, 16, 17, 18];
+  var SEM_NOMBRE = {
+    14: 'Brecha de intención', 15: 'Long-tail conversacional',
+    16: 'Contenido de competidores', 17: 'Dolor sin responder', 18: 'Explicabilidad por voz'
+  };
+
+  function veredictoSemantico(inp) {
+    inp = inp || {};
+    var e = {};
+    e[14] = estadoConteo(inp.c14_huerfanos, 2, 1);
+    e[15] = (inp.c15_pct === undefined || inp.c15_pct === null || inp.c15_pct === '')
+      ? 'pendiente'
+      : (parseFloat(inp.c15_pct) >= 30 ? 'go' : (parseFloat(inp.c15_pct) >= 15 ? 'alerta' : 'nogo'));
+    e[16] = estadoConteo(inp.c16_huecos, 2, 1);
+    e[17] = estadoConteo(inp.c17_dolores, 3, 1);
+    e[18] = estadoConteo(inp.c18_si, 3, 2);
+
+    var gos = SEM_IDS.filter(function (id) { return e[id] === 'go'; }).length;
+    var semantico = (gos >= 3 && e[14] !== 'nogo') ? 'go' : 'nogo';
+    var fila = filaLexico(inp.lexico);
+    var celda = matriz()[fila + '_' + semantico] || MATRIZ_FALLBACK[fila + '_' + semantico];
+
+    return {
+      ok: true,
+      nicho: inp.nicho ? String(inp.nicho) : '',
+      producto: inp.producto ? String(inp.producto) : '',
+      lexico: inp.lexico ? String(inp.lexico) : '',
+      filaLexico: fila,
+      estados: e, gosSemanticos: gos,
+      semantico: semantico,
+      veredicto: celda.clave, etiqueta: celda.etiqueta, estadoVeredicto: celda.estado,
+      resumen: celda.resumen,
+      nota: inp.nota ? String(inp.nota) : ''
+    };
+  }
+
+  function textoVeredicto(r) {
+    if (!r || !r.ok) return 'MOTOR VEREDICTO COMPUESTO: sin resultado.';
+    var o = 'MOTOR VEREDICTO COMPUESTO (Capa 2 Intent-First) — YA CALCULADO POR LA APLICACION\n\n';
+    o += 'VEREDICTO LEXICO (1-13): ' + (r.lexico || '(sin dato)') + '  -> fila ' + r.filaLexico.toUpperCase() + '\n';
+    o += 'CRITERIOS SEMANTICOS (14-18):\n';
+    SEM_IDS.forEach(function (id) {
+      o += '  - ' + id + ' ' + SEM_NOMBRE[id] + ': ' + EMO[r.estados[id]] + ' ' + r.estados[id].toUpperCase() + '\n';
+    });
+    o += '\nVEREDICTO SEMANTICO: ' + EMO[r.semantico] + ' ' + r.semantico.toUpperCase() +
+         ' (' + r.gosSemanticos + '/5 en GO' + (r.estados[14] === 'nogo' ? ', pero el 14 en NO-GO' : '') + ')\n';
+    o += 'VEREDICTO COMPUESTO: ' + r.etiqueta + ' — ' + r.resumen + '\n\n';
+    o += 'INSTRUCCION: estos semáforos y el veredicto compuesto YA se le mostraron al estudiante en pantalla. ' +
+         'NO los recalcules ni cambies el veredicto. Tu trabajo es la TRADUCCION EJECUTIVA: en 3-5 frases, ' +
+         'qué significa este veredicto para SU primer producto, cuál es el ángulo de entrada concreto (o por qué ' +
+         'descartar), y el siguiente paso (Sophie Listing con estrategia cosmo-rufus si entra). Habla con su producto ' +
+         'y sus números, no en abstracto.';
+    return o;
+  }
+
+  /* ---------- pintado del veredicto compuesto ---------- */
+
+  function celdaMatriz(r, fila, col, cel) {
+    var activa = (r.filaLexico === fila && r.semantico === col);
+    return '<div class="s-vc-cell s-vc-' + cel.estado + (activa ? ' activa' : '') + '">' +
+      '<b>' + esc(cel.etiqueta) + '</b>' + (activa ? '<span class="s-vc-here">◄ tu caso</span>' : '') +
+      '</div>';
+  }
+
+  function pintarVeredicto(container, payload) {
+    var r = (payload && payload.ok && payload.estados) ? payload : veredictoSemantico(payload);
+    if (!r || !r.ok || !container) return false;
+    asegurarEstilo();
+    var M = matriz();
+
+    var criteriosChips = SEM_IDS.map(function (id) {
+      return '<div class="s-vc-crit"><span>' + id + ' · ' + esc(SEM_NOMBRE[id]) + '</span>' +
+        chip(r.estados[id], r.estados[id] === 'pendiente' ? 'Pendiente' : r.estados[id].toUpperCase()) + '</div>';
+    }).join('');
+
+    var h = '<div class="s-int s-vc">' +
+      '<div class="s-int-head"><div class="s-int-tag">Veredicto compuesto · léxico × semántico</div>' +
+        '<div class="s-vc-big s-vc-' + r.estadoVeredicto + '">' + EMO[r.estadoVeredicto] + ' ' + esc(r.etiqueta) + '</div>' +
+        '<p class="s-int-lead">' + esc(r.resumen) + '</p></div>' +
+      '<div class="s-vc-grid">' +
+        '<div class="s-vc-corner"></div>' +
+        '<div class="s-vc-colh">Semántico: GO</div><div class="s-vc-colh">Semántico: NO-GO</div>' +
+        '<div class="s-vc-rowh">Léxico: GO</div>' + celdaMatriz(r, 'go', 'go', M.go_go) + celdaMatriz(r, 'go', 'nogo', M.go_nogo) +
+        '<div class="s-vc-rowh">Léxico: PIVOTAR</div>' + celdaMatriz(r, 'pivotar', 'go', M.pivotar_go) + celdaMatriz(r, 'pivotar', 'nogo', M.pivotar_nogo) +
+      '</div>' +
+      '<div class="s-vc-crits">' + criteriosChips + '</div>' +
+      (r.nota ? '<div class="s-int-angulo"><p class="s-int-a-t">★ Qué significa para tu producto</p><p>' + esc(r.nota) + '</p></div>' : '') +
+    '</div>';
+
+    container.innerHTML = h;
+    return true;
+  }
+
   global.SophieIntencion = {
-    version: '1.0',
+    version: '1.1',
     disponible: disponible,
     detectar: detectar,
+    detectarVeredicto: detectarVeredicto,
     limpiar: limpiar,
     clasificar: clasificar,
+    veredictoSemantico: veredictoSemantico,
     texto: texto,
+    textoVeredicto: textoVeredicto,
     html: html,
-    pintar: pintar
+    pintar: pintar,
+    pintarVeredicto: pintarVeredicto
   };
 
 })(typeof window !== 'undefined' ? window : this);

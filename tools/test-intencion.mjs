@@ -53,10 +53,15 @@ const KW = [
 ];
 
 grupo("SophieCriterios — expone la capa 2");
-t("hay 2 criterios semánticos (14 y 15)", () => {
-  eq(SophieCriterios.semanticos.length, 2);
+t("hay 5 criterios semánticos (14 a 18)", () => {
+  eq(SophieCriterios.semanticos.length, 5);
   eq(SophieCriterios.porId(14).criterio, "Brecha de intención");
-  eq(SophieCriterios.porId(15).id, 15);
+  eq(SophieCriterios.porId(16).id, 16);
+  eq(SophieCriterios.porId(18).id, 18);
+});
+t("expone la matriz de veredicto compuesto", () => {
+  eq(SophieCriterios.matrizCompuesta.go_go.clave, "GO_PREMIUM");
+  eq(SophieCriterios.matrizCompuesta.pivotar_nogo.clave, "DESCARTE");
 });
 t("hay 6 clusters de intención", () => eq(SophieCriterios.clusters.length, 6));
 t("los 13 léxicos NO cambian (el veredicto clásico queda intacto)", () => {
@@ -137,6 +142,67 @@ t("texto() para el modelo trae los criterios ya calculados", () => {
 });
 t("html() devuelve null con payload vacío (degradación)", () => {
   eq(SophieIntencion.html({ keywords: [] }), null);
+});
+
+grupo("Veredicto compuesto — matriz léxico × semántico");
+const V = SophieIntencion.veredictoSemantico;
+t("léxico GO + semántico fuerte ⇒ GO PREMIUM", () => {
+  const r = V({ lexico: "GO CON AJUSTES", c14_huerfanos: 3, c15_pct: 33, c16_huecos: 2, c17_dolores: 3, c18_si: 3 });
+  eq(r.semantico, "go"); eq(r.veredicto, "GO_PREMIUM"); eq(r.estadoVeredicto, "go");
+});
+t("léxico GO + semántico débil ⇒ GO COMMODITY", () => {
+  const r = V({ lexico: "go", c14_huerfanos: 0, c15_pct: 10, c16_huecos: 0, c17_dolores: 0, c18_si: 1 });
+  eq(r.semantico, "nogo"); eq(r.veredicto, "GO_COMMODITY");
+});
+t("léxico PIVOTAR/RIESGO + semántico fuerte ⇒ VIGILAR", () => {
+  const r = V({ lexico: "RIESGO MODERADO", c14_huerfanos: 3, c15_pct: 33, c16_huecos: 2, c17_dolores: 3, c18_si: 3 });
+  eq(r.filaLexico, "pivotar"); eq(r.veredicto, "VIGILAR");
+});
+t("léxico NO GO + semántico débil ⇒ DESCARTE", () => {
+  const r = V({ lexico: "NO GO", c14_huerfanos: 0, c15_pct: 5, c16_huecos: 0, c17_dolores: 0, c18_si: 0 });
+  eq(r.veredicto, "DESCARTE"); eq(r.estadoVeredicto, "nogo");
+});
+t("semántico exige ≥3 en GO", () => {
+  const r = V({ lexico: "go", c14_huerfanos: 2, c15_pct: 33, c16_huecos: 0, c17_dolores: 0, c18_si: 0 });
+  eq(r.gosSemanticos, 2); eq(r.semantico, "nogo");
+});
+t("un NO-GO en el criterio 14 tumba el semántico aunque haya 3 GO", () => {
+  // 14 nogo, 15/16/17 go = 3 GO, pero el 14 en NO-GO ⇒ semántico NO-GO
+  const r = V({ lexico: "go", c14_huerfanos: 0, c15_pct: 40, c16_huecos: 3, c17_dolores: 4, c18_si: 1 });
+  eq(r.estados[14], "nogo"); eq(r.gosSemanticos, 3); eq(r.semantico, "nogo");
+});
+t("umbrales de 16/17/18 (conteo → semáforo)", () => {
+  const r = V({ lexico: "go", c14_huerfanos: 1, c15_pct: 20, c16_huecos: 1, c17_dolores: 2, c18_si: 2 });
+  eq(r.estados[16], "alerta"); // 1 hueco
+  eq(r.estados[17], "alerta"); // 2 dolores
+  eq(r.estados[18], "alerta"); // 2/3 voz
+  eq(r.estados[14], "alerta"); // 1 huérfano
+  eq(r.estados[15], "alerta"); // 20% cola larga
+});
+t("sin c15_pct, el criterio 15 queda pendiente (no cuenta como GO)", () => {
+  const r = V({ lexico: "go", c14_huerfanos: 3, c16_huecos: 3, c17_dolores: 3, c18_si: 3 });
+  eq(r.estados[15], "pendiente"); eq(r.gosSemanticos, 4);
+});
+
+grupo("Veredicto — marcador y render");
+t("detectarVeredicto extrae el payload", () => {
+  const p = SophieIntencion.detectarVeredicto('x <!--VEREDICTO_SEMANTICO:{"lexico":"go","c14_huerfanos":2}--><!--M:S-->');
+  ok(p && p.lexico === "go" && p.c14_huerfanos === 2);
+});
+t("detectarVeredicto devuelve null si llega roto", () => {
+  eq(SophieIntencion.detectarVeredicto('<!--VEREDICTO_SEMANTICO:{"lexico"'), null);
+});
+t("textoVeredicto trae los 5 criterios y la traducción ejecutiva", () => {
+  const r = V({ lexico: "go", c14_huerfanos: 2, c15_pct: 33, c16_huecos: 2, c17_dolores: 3, c18_si: 3 });
+  const x = SophieIntencion.textoVeredicto(r);
+  ok(x.indexOf("VEREDICTO COMPUESTO") !== -1 && x.indexOf("TRADUCCION EJECUTIVA") !== -1);
+});
+t("pintarVeredicto llena el contenedor con el veredicto y la matriz", () => {
+  const c = {};
+  const okp = SophieIntencion.pintarVeredicto(c, { lexico: "go", c14_huerfanos: 3, c15_pct: 33, c16_huecos: 2, c17_dolores: 3, c18_si: 3, nota: "Entra como starter kit." });
+  ok(okp && c.innerHTML.indexOf("GO PREMIUM") !== -1, "pinta GO PREMIUM");
+  ok(c.innerHTML.indexOf("Explicabilidad por voz") !== -1, "lista el criterio 18");
+  ok(c.innerHTML.indexOf("Entra como starter kit") !== -1, "muestra la nota");
 });
 
 /* ---------- reporte ---------- */
