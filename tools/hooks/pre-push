@@ -46,4 +46,9 @@ node tools/test-intencion.mjs || {
   exit 1
 }
 
+node tools/test-cobertura.mjs || {
+  echo "✗ Tests de cobertura semántica (Listing) fallando. Corre 'node tools/test-cobertura.mjs'. Push abortado."
+  exit 1
+}
+
 echo "✓ Guardas + tests OK — push permitido."

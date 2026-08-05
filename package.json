@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Front-end de la suite Sophie · Crezcamos Online",
   "scripts": {
-    "test": "node tools/test-parsers.mjs && node tools/test-intencion.mjs",
+    "test": "node tools/test-parsers.mjs && node tools/test-intencion.mjs && node tools/test-cobertura.mjs",
     "guardas": "node tools/verificar-metodologia.mjs && node tools/verificar-router.mjs",
     "test:e2e": "node tools/recorrido-e2e.mjs",
     "test:e2e:html": "node tools/recorrido-e2e.mjs --html recorrido-e2e-reporte.html",
