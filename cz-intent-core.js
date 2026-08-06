@@ -135,6 +135,48 @@
     return res;
   }
 
+  /* ---------- el ángulo dentro de una lista de keywords (para Ads) ----------
+     Sibling de coberturaTexto, pero del lado de las keywords: dada una lista de
+     términos (strings, o {term|kw|keyword}) y los clusters elegidos como ángulo,
+     etiqueta cada término con su cluster y marca cuáles CAEN en el ángulo. Es lo
+     que deja a Ads priorizar cosecha y pujas hacia las intenciones que el
+     estudiante eligió ganar en Producto. Determinista, sin umbrales. */
+  function textoDeItem(item) {
+    if (item === null || item === undefined) return '';
+    if (typeof item === 'object') {
+      var v = item.term !== undefined ? item.term
+            : (item.kw !== undefined ? item.kw
+            : (item.keyword !== undefined ? item.keyword : ''));
+      return String(v == null ? '' : v);
+    }
+    return String(item);
+  }
+  function anguloEnKeywords(keywords, clustersElegidos) {
+    var setAng = {}, ids = [];
+    (clustersElegidos || []).forEach(function (id) {
+      id = String(id == null ? '' : id).trim().toLowerCase();
+      if (POR_ID[id] && !setAng[id]) { setAng[id] = true; ids.push(id); }
+    });
+    var porTermino = [], enAngulo = [], conteo = {};
+    ids.forEach(function (id) { conteo[id] = 0; });
+    (keywords || []).forEach(function (item) {
+      var kw = textoDeItem(item).trim();
+      if (!kw) return;
+      var cid = clusterDeKeyword(kw);
+      var on = !!setAng[cid];
+      porTermino.push({ termino: kw, cluster: cid, enAngulo: on });
+      if (on) { enAngulo.push(kw); conteo[cid] += 1; }
+    });
+    return {
+      dirigido: ids.length > 0,
+      porTermino: porTermino,
+      enAngulo: enAngulo,
+      conteoAngulo: conteo,
+      totalEnAngulo: enAngulo.length,
+      total: porTermino.length
+    };
+  }
+
   global.CzIntentCore = {
     version: '1.0',
     clusters: CLUSTERS,
@@ -146,7 +188,8 @@
     contiene: contiene,
     clusterDeKeyword: clusterDeKeyword,
     clasificarLista: clasificarLista,
-    coberturaTexto: coberturaTexto
+    coberturaTexto: coberturaTexto,
+    anguloEnKeywords: anguloEnKeywords
   };
 
 })(typeof window !== 'undefined' ? window : this);

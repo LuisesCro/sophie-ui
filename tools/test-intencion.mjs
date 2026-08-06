@@ -274,6 +274,36 @@ t("expediente sin ángulo degrada a listas vacías (compatibilidad)", () => {
   eq(JSON.stringify(exp.doloresC17), "[]");
 });
 
+grupo("El ángulo dentro de keywords — CzIntentCore.anguloEnKeywords() (para Ads)");
+const AK = CzIntentCore.anguloEnKeywords;
+t("etiqueta cada término por cluster y marca los del ángulo", () => {
+  const r = AK(["matcha for beginners", "ceremonial matcha set", "electric matcha maker", "matcha gift box"], ["audiencia", "uso"]);
+  eq(r.total, 4); eq(r.dirigido, true);
+  const porT = (kw) => r.porTermino.filter((x) => x.termino === kw)[0];
+  eq(porT("matcha for beginners").cluster, "audiencia"); ok(porT("matcha for beginners").enAngulo);
+  eq(porT("ceremonial matcha set").cluster, "uso"); ok(porT("ceremonial matcha set").enAngulo);
+  ok(!porT("electric matcha maker").enAngulo, "modernidad no está en el ángulo");
+  ok(!porT("matcha gift box").enAngulo, "ocasión no está en el ángulo");
+});
+t("resumen: 2 en el ángulo, con conteo por cluster", () => {
+  const r = AK(["matcha for beginners", "ceremonial matcha set", "electric matcha maker", "matcha gift box"], ["audiencia", "uso"]);
+  eq(r.totalEnAngulo, 2);
+  eq(JSON.stringify(r.enAngulo), JSON.stringify(["matcha for beginners", "ceremonial matcha set"]));
+  eq(r.conteoAngulo.audiencia, 1); eq(r.conteoAngulo.uso, 1);
+});
+t("acepta strings, {term} y {kw} indistintamente", () => {
+  const r = AK([{ term: "matcha for beginners" }, { kw: "ceremonial matcha set" }, "electric maker"], ["audiencia", "uso"]);
+  eq(r.totalEnAngulo, 2);
+});
+t("sin ángulo (lista vacía) ⇒ no dirigido, nada marcado", () => {
+  const r = AK(["matcha for beginners"], []);
+  eq(r.dirigido, false); eq(r.totalEnAngulo, 0);
+});
+t("ignora ids de cluster inválidos en el ángulo", () => {
+  const r = AK(["matcha for beginners"], ["audiencia", "xyz"]);
+  eq(r.dirigido, true); eq(r.totalEnAngulo, 1);
+});
+
 /* ---------- reporte ---------- */
 console.log(salida.join("\n"));
 console.log("\nRESULTADO: " + pasan + " pasan · " + fallan + " fallan");
