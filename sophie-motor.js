@@ -245,6 +245,12 @@
       clienteTarget: extra.clienteTarget || '',
       insightsReviews: extra.insightsReviews || [],
       categoriaSugerida: extra.categoriaSugerida || '',
+      // El ÁNGULO de intención elegido en la Capa 2 (Producto). Es el hilo que
+      // viaja a Listing/Ads/Lanzamiento: allí se audita la cobertura contra él.
+      // Ver SophieIntencion.anguloExpediente().
+      clustersElegidos: Array.isArray(extra.clustersElegidos) ? extra.clustersElegidos : [],
+      anguloRecomendacion: extra.anguloRecomendacion || extra.recomendacion || '',
+      doloresC17: Array.isArray(extra.doloresC17) ? extra.doloresC17 : [],
       // Esto es lo que se acumula y nadie te puede copiar.
       scorecard: r.filas.map(function (f) {
         return { id: f.id, estado: f.estado, valor: f.valor };

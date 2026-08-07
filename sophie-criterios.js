@@ -222,6 +222,91 @@
     ]
   };
 
+  /* ============================================================
+     CAPA 2 · CRITERIOS SEMÁNTICOS (Selección Intent-First 3.0)
+     ------------------------------------------------------------
+     Van SEPARADOS de CRITERIOS (léxico 1–13) a propósito: el
+     puntaje y el veredicto léxico NO cambian. Estos alimentan el
+     VEREDICTO COMPUESTO (matriz léxico × semántico) y los pinta
+     el motor sophie-intencion.js. fase 3 = capa de intención.
+     ============================================================ */
+
+  var SEMANTICOS = [
+    {
+      id: 14, fase: 3, capa: 2, veto: false, criterio: 'Brecha de intención',
+      umbral: '≥ 2 clusters huérfanos (SV ≥ 2% del nicho o ≥ 5,000, sin dueño en top 5)',
+      direccion: 'juicio',
+      go_num: 2, alerta_num: 1,
+      por_que: 'Amazon ya no solo empareja palabras: COSMO interpreta la intención detrás de cada búsqueda. Cuando un cluster de intención tiene demanda real pero ningún competidor top lo dice explícitamente en su título, bullets o A+, ese hueco es tuyo — entrar por ahí es más barato que pelear por los head terms y está alineado con hacia dónde migra el descubrimiento (Rufus, Alexa).',
+      leccion: 'El nuevo moat no es una mejor keyword: es una intención con demanda que nadie está sirviendo.',
+      error_comun: 'Validar solo por volumen total y entrar con el mismo ángulo genérico que ya tienen los líderes.',
+      glosario: ['COSMO', 'cluster de intención', 'discovery attributes']
+    },
+    {
+      id: 15, fase: 3, capa: 2, veto: false, alerta_num: 15,
+      criterio: 'Long-tail conversacional',
+      umbral: '≥ 30% de las keywords (por conteo) tienen 4+ palabras',
+      campo: 'longTailPct', direccion: 'min', umbral_num: 30,
+      por_que: 'Las keywords de 4+ palabras son compradores que "hablan" con el buscador ("matcha starter kit with bowl"). Ese lenguaje descriptivo es justo lo que Rufus y Alexa interceptan. Un nicho con mucha cola larga es un nicho donde el canal conversacional ya captura demanda que no ves en los head terms.',
+      leccion: 'La cola larga no es ruido: es la demanda conversacional que tus reportes de volumen no miden.',
+      error_comun: 'Descartar keywords de baja búsqueda individual sin ver que en conjunto revelan intenciones completas.',
+      glosario: ['long-tail', 'Rufus', 'Alexa for Shopping']
+    },
+    {
+      id: 16, fase: 3, capa: 2, veto: false, alerta_num: 1,
+      criterio: 'Completitud de contenido de competidores',
+      umbral: '≥ 2 de los top-sellers con huecos de contenido (descripción/A+, imagen, video)',
+      campo: 'competidoresConHuecos', direccion: 'min', umbral_num: 2,
+      por_que: 'Cada fallo de contenido de un competidor que vende fuerte es espacio semántico que COSMO no puede leerle — y que tú sí puedes ocupar. Si los que más venden tienen huecos en A+, imagen principal o video, hay lugar para ganar con mejor ejecución, no solo con mejor producto.',
+      leccion: 'La compliance de contenido dejó de predecir el resultado: un LQS perfecto con la intención equivocada pierde contra un LQS mediocre con precio y momentum.',
+      error_comun: 'Ver un LQS alto y dar el nicho por cerrado, sin mirar si los líderes REALES (los que venden) tienen huecos.',
+      glosario: ['LQS', 'A+ content', 'discovery attributes']
+    },
+    {
+      id: 17, fase: 3, capa: 2, veto: false, alerta_num: 1,
+      criterio: 'Dolor sin responder en reseñas/Q&A',
+      umbral: '≥ 3 dolores o preguntas recurrentes sin responder en top 3',
+      campo: 'doloresRecurrentes', direccion: 'min', umbral_num: 3,
+      por_que: 'Rufus lee reseñas y Q&A para recomendar, y penaliza los listings que no responden lo que la gente pregunta. Un dolor recurrente sin responder es a la vez tu ángulo de diferenciación y el contenido que Rufus citará de tu listing.',
+      leccion: 'Las quejas recurrentes de tu competencia son el guion de tu A+ y tu propuesta de valor.',
+      error_comun: 'Quedarse en quejas de precio o de envío: esas no son intención no satisfecha, son ruido.',
+      glosario: ['Rufus', 'Review Insights', 'Q&A']
+    },
+    {
+      id: 18, fase: 3, capa: 2, veto: false, alerta_num: 2,
+      criterio: 'Explicabilidad por voz',
+      umbral: '3/3: recomendable en una frase · no depende de ver · atributos recitables',
+      campo: 'vozSi', direccion: 'min', umbral_num: 3,
+      por_que: 'Alexa recita atributos por voz y Rufus resume en texto. Un producto que se recomienda en una frase y tiene atributos estructurados (medidas, material, cantidad, compatibilidad) gana en el canal conversacional; uno puramente visual o estético pierde porque no se puede narrar.',
+      leccion: 'Si tu producto solo se vende mostrándolo, el canal conversacional no te va a recomendar.',
+      error_comun: 'Elegir un producto puramente decorativo pensando en la foto, sin atributos que una voz pueda recitar.',
+      glosario: ['Alexa for Shopping', 'discovery attributes', 'explicabilidad']
+    }
+  ];
+
+  /* ---------- Matriz de veredicto compuesto (léxico × semántico) ----------
+     El veredicto léxico (1–13) se cruza con el semántico (14–18) para decidir
+     CÓMO se entra, no solo si se entra. Filas: léxico GO vs léxico PIVOTAR/NO-GO.
+     Columnas: semántico GO (≥3 de los 5 en GO y el 14 no en NO-GO) vs NO-GO. */
+
+  var MATRIZ_COMPUESTA = {
+    go_go:        { clave: 'GO_PREMIUM',   etiqueta: 'GO PREMIUM',           estado: 'go',
+                    resumen: 'Entrar con moat de contenido semántico: el nicho es vencible y hay una brecha de intención que nadie sirve.' },
+    go_nogo:      { clave: 'GO_COMMODITY', etiqueta: 'GO COMMODITY',         estado: 'alerta',
+                    resumen: 'Nicho válido pero sin brecha semántica: es guerra de precio. Entrar solo con ventaja de costos real.' },
+    pivotar_go:   { clave: 'VIGILAR',      etiqueta: 'VIGILAR / DIFERENCIAR', estado: 'alerta',
+                    resumen: 'El plano léxico está tomado, pero hay brecha de intención: entrar solo con producto diferenciado por esa brecha, o vigilar con Rank Radar.' },
+    pivotar_nogo: { clave: 'DESCARTE',     etiqueta: 'DESCARTE',             estado: 'nogo',
+                    resumen: 'Sin demanda vencible ni brecha semántica. No hay ángulo de entrada rentable.' }
+  };
+
+  /* ---------- Taxonomía de los 6 clusters de intención (criterio 14) ----------
+     La taxonomía y el clasificador ahora viven en cz-intent-core.js, la
+     infraestructura COMPARTIDA que también usan Listing, Ads y Lanzamiento.
+     SophieCriterios la reexpone (abajo, con getters) leyendo del core, para
+     no tener dos copias que se desincronicen. Editar los marcadores se hace
+     en cz-intent-core.js y recalibra toda la Suite a la vez. */
+
   /* ---------- Escala de veredictos ---------- */
 
   var ESCALA = [
@@ -236,14 +321,25 @@
   var VETOS = CRITERIOS.filter(function (c) { return c.veto; }).map(function (c) { return c.id; });
 
   global.SophieCriterios = {
-    version: '2.0',
+    version: '2.1',
     lista: CRITERIOS,
     escala: ESCALA,
     filtros: FILTROS,
     vetos: VETOS,
-    fase: function (n) { return CRITERIOS.filter(function (c) { return c.fase === n; }); },
+    // Capa 2 · Intent-First (criterios 14–18 + matriz). La taxonomía de
+    // clusters se reexpone desde cz-intent-core.js (fuente única compartida).
+    semanticos: SEMANTICOS,
+    get clusters() { return (global.CzIntentCore && global.CzIntentCore.clusters) || []; },
+    get clusterHuerfano() { return (global.CzIntentCore && global.CzIntentCore.clusterHuerfano) || { svPctNicho: 2, svAbsoluto: 5000 }; },
+    get longTailPalabras() { return (global.CzIntentCore && global.CzIntentCore.longTailPalabras) || 4; },
+    matrizCompuesta: MATRIZ_COMPUESTA,
+    fase: function (n) {
+      var todos = CRITERIOS.concat(SEMANTICOS);
+      return todos.filter(function (c) { return c.fase === n; });
+    },
     porId: function (id) {
-      for (var i = 0; i < CRITERIOS.length; i++) if (CRITERIOS[i].id === id) return CRITERIOS[i];
+      var todos = CRITERIOS.concat(SEMANTICOS);
+      for (var i = 0; i < todos.length; i++) if (todos[i].id === id) return todos[i];
       return null;
     },
     // Los que el motor calcula solo, sin pedirle nada al modelo.
