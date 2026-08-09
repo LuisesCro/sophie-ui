@@ -143,6 +143,26 @@
   /* ============================================================
      CLASIFICADOR
      ============================================================ */
+  // Filas que NO son busquedas de un cliente sino EXPRESIONES DE SEGMENTACION de
+  // Amazon: grupos de la Auto (close/loose-match, substitutes, complements), temas
+  // (keyword-group="..."), o targets de producto/categoria (asin="...", category="...").
+  // Amazon las mete como "termino" cuando el gasto no se atribuye a una query. No se
+  // negativizan como keyword ni se cosechan a exacta: se gestionan a nivel de target.
+  var SEG_LABELS = {
+    'close match': 1, 'loose match': 1, 'substitutes': 1, 'complements': 1,
+    'coincidencia cercana': 1, 'coincidencia lejana': 1, 'concordancia amplia': 1, 'concordancia cercana': 1, 'concordancia lejana': 1,
+    'sustitutos': 1, 'substitutos': 1, 'complementarios': 1, 'complementos': 1,
+    'queryhighrelmatches': 1, 'querybroadrelmatches': 1, 'asinsubstituterelated': 1, 'asinaccessoryrelated': 1
+  };
+  function esSegmentacion(term) {
+    var raw = String(term == null ? '' : term).trim();
+    if (!raw || raw === '*' || raw === '-') return true;
+    if (/=\s*"/.test(raw)) return true;                                  // clave="valor"
+    if (/^(keyword-group|audience|product|category)\b/i.test(raw)) return true;
+    var t = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+    return !!SEG_LABELS[t];
+  }
+
   function clasificar(terminos, ctx, opciones) {
     ctx = ctx || {};
     var C = Object.assign({}, CONFIG, opciones || {});
@@ -204,6 +224,14 @@
         motivo: '',
         requiereJuicio: false
       };
+
+      /* --- Segmentacion (grupo de la Auto, tema o target de producto/categoria): NO es un termino --- */
+      if (esSegmentacion(t.term)) {
+        d.accion = 'SEGMENTACION';
+        d.motivo = 'No es una busqueda de cliente sino una expresion de segmentacion (grupo de la Auto, tema o target de producto/categoria). No se negativiza como keyword ni se cosecha a exacta: se gestiona por puja/pausa, o con negativo de producto/categoria.';
+        d.requiereJuicio = true;
+        return d;
+      }
 
       /* --- Marca de competidor: fuera de los umbrales normales --- */
       if (esMarcaExcluida(t.term, marcas)) {
@@ -341,7 +369,7 @@
            'Recuperable negando ya: $' + s.gastoRecuperableAhora +
            (s.proyeccionMensual ? ' (~$' + s.proyeccionMensual + '/mes al ritmo actual)' : '') + '\n\n';
 
-    var orden = ['NEGAR', 'COSECHAR', 'NEGAR_EN_ORIGEN', 'BAJAR_PUJA', 'SUBIR_PUJA', 'REVISAR_LISTING', 'REVISAR_MARCA', 'VIGILAR'];
+    var orden = ['NEGAR', 'COSECHAR', 'SEGMENTACION', 'NEGAR_EN_ORIGEN', 'BAJAR_PUJA', 'SUBIR_PUJA', 'REVISAR_LISTING', 'REVISAR_MARCA', 'VIGILAR'];
     orden.forEach(function (acc) {
       var g = res.decisiones.filter(function (d) { return d.accion === acc; });
       if (!g.length) return;
@@ -360,7 +388,10 @@
     out += 'INSTRUCCION: estas decisiones ya estan calculadas y NO se recalculan. Tu trabajo es explicar ' +
            'las de mayor impacto, nombrar la campaña exacta donde se ejecuta cada una, y escribir el bloque ' +
            'de negaciones para copiar. En NEGAR y REVISAR_LISTING usa tu juicio de RELEVANCIA: si el termino ' +
-           'es irrelevante al producto se niega; si es relevante pero caro, se baja la puja en vez de negarlo.';
+           'es irrelevante al producto se niega; si es relevante pero caro, se baja la puja en vez de negarlo. ' +
+           'Las filas SEGMENTACION NO son terminos de busqueda (son grupos de la Auto o targets de producto/' +
+           'categoria): NUNCA las metas en el bloque de negaciones ni las mandes a manual exacta; explica que se ' +
+           'gestionan por puja/pausa del grupo, o con negativo de PRODUCTO/CATEGORIA, no de keyword.';
     return out;
   }
 

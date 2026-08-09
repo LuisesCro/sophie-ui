@@ -353,6 +353,23 @@ t("texto(res) trae el bloque MOTOR PPC", () => {
   ok(SophiePPC.texto(r).includes("MOTOR PPC"), "debe contener 'MOTOR PPC'");
 });
 
+t("expresión de segmentación (no es término) → SEGMENTACION, nunca NEGAR/COSECHAR", () => {
+  // Filas que Amazon mete como 'término' pero son grupos/targets, no búsquedas.
+  const casos = [
+    'keyword-group=""Keywords related to your product category""',
+    "substitutes", "complements", "close-match", "loose-match",
+    'asin="B08N5WRWNW"', 'category="12345"', "*"
+  ];
+  casos.forEach((term) => {
+    // aun con gasto y 0 ventas (lo que antes disparaba NEGAR)
+    const r = SophiePPC.clasificar([{ term, imp: 2000, clk: 100, spd: 75, sal: 0, ord: 0, src: { "Auto": { spd: 75, ord: 0 } } }], PPC_CTX);
+    eq(r.decisiones[0].accion, "SEGMENTACION", "«" + term + "» debe ser SEGMENTACION");
+  });
+  // control: una búsqueda real perdedora SIGUE yendo a NEGAR
+  const real = SophiePPC.clasificar([{ term: "cheap shoulder pads", imp: 1000, clk: 34, spd: 52, sal: 0, ord: 0, src: { "Auto": { spd: 52, ord: 0 } } }], PPC_CTX);
+  eq(real.decisiones[0].accion, "NEGAR", "una búsqueda real perdedora sí se niega");
+});
+
 /* ---------- 9 · SophieKeywords.parsear — encabezados de rank de Cerebro ---------- */
 
 grupo("SophieKeywords — reconoce los encabezados de rank de Cerebro");
