@@ -77,7 +77,12 @@
     // CTR de cementerio: muchas impresiones, nadie hace clic.
     // Señal de imagen principal o de relevancia, no de puja.
     MIN_IMP_CTR: 1000,
-    CTR_MINIMO: 0.30
+    CTR_MINIMO: 0.30,
+
+    // Rigor estadístico: z del intervalo de Wilson. 1.28 ≈ 90% de confianza
+    // de un lado. Más alto = más conservador (exige más evidencia antes de
+    // negar o cosechar). Es la palanca de "qué tan seguro antes de actuar".
+    Z_CONFIANZA: 1.28
   };
 
   /* ============================================================
@@ -85,6 +90,42 @@
      ============================================================ */
   function n(v, d) { v = parseFloat(v); return isFinite(v) ? v : (d || 0); }
   function r2(v) { return Math.round(v * 100) / 100; }
+
+  /* ============================================================
+     RIGOR ESTADISTICO · Intervalo de Wilson para una proporcion
+     El CVR (ordenes/clics) es una proporcion medida en una muestra
+     ruidosa. En vez de creerle al punto (3/10 = "30%") comparamos la
+     BANDA de confianza contra el CVR de equilibrio:
+       - negar solo si el TECHO del CVR sigue por debajo del equilibrio
+         (aun en el mejor caso pierde),
+       - cosechar solo si el PISO del CVR ya supera el equilibrio
+         (aun en el peor caso gana).
+     Wilson se porta bien con n chico y cerca de 0/1, donde la
+     aproximacion normal se rompe. z = nivel de confianza (1.28 ~ 90%
+     de un lado): mas alto = mas conservador = mas evidencia exigida.
+     ============================================================ */
+  function wilson(succ, trials, z) {
+    trials = n(trials, 0); succ = n(succ, 0);
+    if (trials <= 0) return { lo: 0, hi: 1 };
+    z = z || 1.28;
+    var p = succ / trials, z2 = z * z;
+    var denom = 1 + z2 / trials;
+    var centro = p + z2 / (2 * trials);
+    var margen = z * Math.sqrt(p * (1 - p) / trials + z2 / (4 * trials * trials));
+    return {
+      lo: Math.max(0, (centro - margen) / denom),
+      hi: Math.min(1, (centro + margen) / denom)
+    };
+  }
+
+  // Clics de 0 ventas necesarios para negar con confianza, dado el CVR de
+  // equilibrio: el techo de Wilson de 0/n es z²/(n+z²); se despeja n para que
+  // caiga por debajo de beCVR. Sirve para decirle al estudiante "faltan ~M clics".
+  function clicsParaNegar(beCVR, z) {
+    z = z || 1.28; var z2 = z * z;
+    if (!(beCVR > 0) || beCVR >= 1) return 0;
+    return Math.max(1, Math.ceil(z2 * (1 - beCVR) / beCVR));
+  }
 
   // ¿El término ya vive en una campaña exacta? Se lee de las claves
   // de src, que vienen como "Nombre de campaña [match type]".
@@ -207,6 +248,13 @@
       var acos = sal > 0 ? (spd / sal * 100) : null;
       var cpo = ord > 0 ? (clk / ord) : 0;          // clics por orden del término
 
+      // Rigor estadístico: banda de confianza del CVR real vs. el CVR de
+      // equilibrio (el CVR que ESTE término necesita para no perder a su CPC).
+      var beCVR = (cpc > 0 && beCPA > 0) ? (cpc / beCPA) : null;   // CVR de equilibrio
+      var ci = wilson(ord, clk, C.Z_CONFIANZA);
+      var confiadoPerdedor = (beCVR !== null) && (ci.hi < beCVR);  // aun en el mejor caso pierde
+      var confiadoGanador  = (beCVR !== null) && (ci.lo >= beCVR); // aun en el peor caso gana
+
       // Techo de puja: lo que puedes pagar por clic y aún llegar al
       // CPA objetivo, dado cuántos clics te cuesta una orden.
       var maxCPC = null;
@@ -222,6 +270,11 @@
         clicsPorOrden: cpo ? r2(cpo) : null,
         maxCPC: maxCPC === null ? null : r2(maxCPC),
         maxCPCEsReferencia: ord === 0,
+        confianza: {
+          cvrLo: r2(ci.lo * 100),
+          cvrHi: r2(ci.hi * 100),
+          beCVR: beCVR === null ? null : r2(beCVR * 100)
+        },
         campanas: listaCampanas(t.src),
         campanaPrincipal: campanaPrincipal(t.src),
         yaEnExacta: enExacta(t.src),
@@ -260,16 +313,26 @@
                      'IRRELEVANTE. Si es relevante puede ser priming/intent mismatch (baja la puja o arregla ' +
                      'el listing), no lo mates.';
           d.requiereJuicio = true;
-        } else if (pasaGasto && pasaClics) {
+        } else if (pasaClics && confiadoPerdedor) {
+          // RIGOR: no basta con haber gastado el equilibrio; el techo del CVR real
+          // ya cayó por debajo del CVR de equilibrio -> aun con suerte pierde.
           d.accion = 'NEGAR';
-          // Intent mismatch (V4): CTR alto + 0 ventas -> hacen clic pero no compran.
           var intent = (ctrTerm !== null && ctrTerm >= 0.40);
-          d.motivo = intent
+          d.motivo = (intent
             ? ('CTR ' + r2(ctrTerm) + '% y 0 ventas tras $' + r2(spd) + '. Hacen clic pero no compran: si el ' +
                'termino es relevante es tu LISTING o PRECIO (intent mismatch); si no, negativo exacto.')
-            : ('Gastó $' + r2(spd) + ' sin una sola venta. Tu CPA de equilibrio es $' + r2(beCPA) +
-               ': ya consumió lo que habría dejado una venta rentable, con ' + clk + ' clics de evidencia.');
+            : ('Gastó $' + r2(spd) + ' sin una sola venta con ' + clk + ' clics.')) +
+            ' Evidencia: aun en el mejor caso su CVR real (≤' + r2(ci.hi * 100) + '%) no llega a tu equilibrio de ' +
+            r2(beCVR * 100) + '%. Negar ya no es adivinar.';
           d.requiereJuicio = true;  // el modelo decide negar vs. bajar puja según relevancia
+        } else if (pasaGasto && pasaClics && !confiadoPerdedor) {
+          // Gastó el equilibrio, pero con estos clics el intervalo aún no descarta
+          // rentabilidad: podría ser mala suerte. Se protege de negar un ganador.
+          d.accion = 'VIGILAR';
+          d.motivo = 'Gastó $' + r2(spd) + ' sin vender, pero con solo ' + clk + ' clics su CVR real todavía ' +
+                     'podría llegar a ' + r2(ci.hi * 100) + '% — cruza tu equilibrio de ' +
+                     (beCVR === null ? 'n/d' : r2(beCVR * 100) + '%') + '. Aún es mala suerte plausible: espera a ~' +
+                     clicsParaNegar(beCVR, C.Z_CONFIANZA) + ' clics antes de negar.';
         } else if (pasaGasto && !pasaClics) {
           d.accion = 'VIGILAR';
           d.motivo = 'Ya pasó el gasto de equilibrio ($' + r2(spd) + ' contra $' + r2(beCPA) +
@@ -307,15 +370,33 @@
         return d;
       }
 
-      // Cosecha: en RANKING no exige rentabilidad (basta que convierta); en
-      // rentabilidad sí exige ACOS <= break-even.
-      if (ord >= C.MIN_ORDENES_COSECHA && !d.yaEnExacta && (objetivo === 'ranking' || rentable)) {
+      // Cosecha en RANKING: no exige rentabilidad (basta que convierta de verdad,
+      // no de chiripa: >= MIN órdenes y >= piso de clics). Aislar para rankear.
+      if (objetivo === 'ranking' && ord >= C.MIN_ORDENES_COSECHA && clk >= C.PISO_CLICS && !d.yaEnExacta) {
         d.accion = 'COSECHAR';
-        d.motivo = objetivo === 'ranking'
-          ? (ord + ' órdenes (CVR ' + r2(cvr) + '%). Aíslalo en campaña exacta + Top-of-Search para rankear, y ' +
-             'niégalo en exacto en la de origen para no competir contra ti mismo.')
-          : (ord + ' órdenes con ACOS de ' + r2(acos) + '%, por debajo de tu equilibrio de ' + r2(beACOS) +
-             '%. Va a campaña exacta propia, y se niega en exacto en la campaña de origen para que no compitan.');
+        d.motivo = ord + ' órdenes (CVR ' + r2(cvr) + '%, IC ' + r2(ci.lo * 100) + '–' + r2(ci.hi * 100) +
+                   '%). Aíslalo en campaña exacta + Top-of-Search para rankear, y niégalo en exacto en la de origen.';
+        return d;
+      }
+
+      // Cosecha en RENTABILIDAD: solo si estamos CONFIADOS de que gana. Con pocas
+      // órdenes el CVR observado puede ser suerte; se exige que el PISO del
+      // intervalo ya supere el equilibrio antes de comprometer una campaña propia.
+      if (objetivo !== 'ranking' && ord >= C.MIN_ORDENES_COSECHA && rentable && !d.yaEnExacta) {
+        if (confiadoGanador) {
+          d.accion = 'COSECHAR';
+          d.motivo = ord + ' órdenes, ACOS ' + r2(acos) + '% y CVR real de al menos ' + r2(ci.lo * 100) +
+                     '% (sobre tu equilibrio de ' + (beCVR === null ? 'n/d' : r2(beCVR * 100) + '%') +
+                     '): es un ganador confirmado, no suerte. A campaña exacta propia, y niégalo en la de origen.';
+          return d;
+        }
+        // Convierte y es rentable, pero la muestra aún es fina: no lo aísles todavía.
+        d.accion = 'VIGILAR';
+        d.motivo = 'Va muy bien (' + ord + ' órdenes, ACOS ' + r2(acos) + '%), pero con esta muestra su CVR real ' +
+                   'aún cruza tu equilibrio (IC ' + r2(ci.lo * 100) + '–' + r2(ci.hi * 100) + '%, equilibrio ' +
+                   (beCVR === null ? 'n/d' : r2(beCVR * 100) + '%') + '). Confírmalo una semana más antes de aislarlo ' +
+                   'a exacta: cosechar en falso te compromete presupuesto en algo que quizá fue suerte.';
+        d.requiereJuicio = true;
         return d;
       }
 
@@ -470,10 +551,12 @@
   }
 
   global.SophiePPC = {
-    version: '1.1',
+    version: '1.2',
     config: CONFIG,
     clasificar: clasificar,
-    texto: texto
+    texto: texto,
+    wilson: wilson,             // intervalo de confianza de una proporción (CVR)
+    clicsParaNegar: clicsParaNegar
   };
 
 })(typeof window !== 'undefined' ? window : this);

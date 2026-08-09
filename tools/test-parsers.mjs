@@ -326,19 +326,19 @@ t("sin precio/break-even → ok:false con error", () => {
   ok(r.error, "debe explicar qué falta");
 });
 
-t("gastó el CPA de equilibrio sin ventas → NEGAR", () => {
+t("evidencia estadística suficiente sin ventas → NEGAR", () => {
   const r = SophiePPC.clasificar(
-    [{ term: "cheap gadget", imp: 500, clk: 12, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }],
+    [{ term: "cheap gadget", imp: 500, clk: 20, spd: 20, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 20, ord: 0 } } }],
     PPC_CTX);
   eq(r.ok, true, "ok");
-  eq(r.decisiones[0].accion, "NEGAR", "acción");
+  eq(r.decisiones[0].accion, "NEGAR", "20 clics / 0 ventas: el techo del CVR ya no llega al equilibrio");
 });
 
-t("convierte rentable y no está en exacta → COSECHAR", () => {
+t("convierte rentable con muestra sólida → COSECHAR", () => {
   const r = SophiePPC.clasificar(
-    [{ term: "garlic press", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
+    [{ term: "garlic press", imp: 3000, clk: 30, spd: 15, sal: 150, ord: 10, src: { "Auto [broad]": { spd: 15, ord: 10 } } }],
     PPC_CTX);
-  eq(r.decisiones[0].accion, "COSECHAR", "acción");
+  eq(r.decisiones[0].accion, "COSECHAR", "30 clics / 10 órdenes: ganador confirmado");
 });
 
 t("término de marca de competidor → REVISAR_MARCA (economía aparte)", () => {
@@ -382,11 +382,13 @@ t("objetivo RANKING: convierte aunque no sea rentable → COSECHAR (no exige ren
 });
 
 t("objetivo RANKING: gasto sin venta NO se niega de una (priming) → VIGILAR", () => {
-  const fila = [{ term: "relevant broad", imp: 2000, clk: 15, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }];
+  // Muestra con evidencia suficiente (25 clics) para que rentabilidad sí niegue;
+  // en ranking, el mismo insumo se vigila (podría ser una priming query).
+  const fila = [{ term: "relevant broad", imp: 2000, clk: 25, spd: 20, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 20, ord: 0 } } }];
   const rank = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33, objetivo: "ranking" });
   eq(rank.decisiones[0].accion, "VIGILAR", "en ranking se es paciente");
   const rent = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33 });
-  eq(rent.decisiones[0].accion, "NEGAR", "en rentabilidad el mismo insumo se niega");
+  eq(rent.decisiones[0].accion, "NEGAR", "en rentabilidad, con evidencia suficiente, el mismo insumo se niega");
 });
 
 t("objetivo CONQUISTA: ROAS≥1 → MANTENER; ROAS<1 → BAJAR_PUJA", () => {
@@ -394,6 +396,35 @@ t("objetivo CONQUISTA: ROAS≥1 → MANTENER; ROAS<1 → BAJAR_PUJA", () => {
   eq(gana.decisiones[0].accion, "MANTENER", "ROAS 2.78: ACOS alto es esperado en conquista");
   const pierde = SophiePPC.clasificar([{ term: "yeti alt", imp: 800, clk: 20, spd: 30, sal: 25, ord: 1, src: { "PAT": { spd: 30, ord: 1 } } }], { precio: 30, breakEvenACOS: 33, objetivo: "conquista" });
   eq(pierde.decisiones[0].accion, "BAJAR_PUJA", "ROAS 0.83: pierde más de lo que entra");
+});
+
+/* ---------- Rigor estadístico (intervalo de Wilson) ---------- */
+
+t("RIGOR: pocos clics sin venta NO se niega (protege de mala suerte) → VIGILAR", () => {
+  // 12 clics / 0 ventas: el naive lo negaba; con Wilson el CVR real aún puede
+  // cruzar el equilibrio → se espera más evidencia.
+  const r = SophiePPC.clasificar(
+    [{ term: "borderline term", imp: 500, clk: 12, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }],
+    PPC_CTX);
+  eq(r.decisiones[0].accion, "VIGILAR", "12 clics no bastan para negar con confianza");
+});
+
+t("RIGOR: rentable pero muestra fina NO se cosecha (evita cosecha prematura) → VIGILAR", () => {
+  // 3 órdenes en 10 clics a CPC $2: rentable por ACOS, pero el piso del CVR aún
+  // no supera el equilibrio → confirmar antes de aislar a exacta.
+  const r = SophiePPC.clasificar(
+    [{ term: "lucky term", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
+    PPC_CTX);
+  eq(r.decisiones[0].accion, "VIGILAR", "3 órdenes no confirman un ganador aún");
+});
+
+t("wilson: el intervalo se estrecha al crecer la muestra", () => {
+  const chico = SophiePPC.wilson(0, 5, 1.28);
+  const grande = SophiePPC.wilson(0, 50, 1.28);
+  ok(grande.hi < chico.hi, "más datos → techo más bajo con 0 éxitos");
+  ok(chico.lo === 0 && grande.lo === 0, "sin éxitos, el piso es 0");
+  const mitad = SophiePPC.wilson(5, 10, 1.28);
+  ok(mitad.lo > 0 && mitad.hi < 1, "una proporción intermedia da banda interior");
 });
 
 t("TACOS: ventasTotales alimenta el resumen y el texto para el modelo", () => {

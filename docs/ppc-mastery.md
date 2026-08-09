@@ -273,3 +273,33 @@ por Sophie Lanzamiento con presupuesto que aceptes invertir.
 - 🔨 **Referral configurable** (8/12.5/15%) en break-even — V2. *(nuevo)*
 - 🔨 Enriquecer guías: **down-only/fixed**, **TOS/ISO**, **gold panning**, **frase vs
   exacta**, **negar a nivel campaña**, cautela de **stock/temporada** — V3/V4/V8/V9. *(nuevo)*
+- 🔨 **Rigor estadístico** (intervalo de Wilson del CVR) — ver §9. *(nuevo)*
+
+---
+
+## 9. Capa de rigor estadístico (intervalo de Wilson) — extensión de Crezcamos
+
+El curso no es estadístico, pero sus reglas ("un keyword no es no-rentable hasta que
+lo es", "espera un puñado de órdenes y 20-30% CVR antes de cosechar") son en el fondo
+afirmaciones sobre el **CVR verdadero**, que solo observamos por una muestra ruidosa.
+Esta capa las formaliza sin cambiar la pedagogía.
+
+- **CVR de equilibrio del término** (`beCVR`): el CVR que ESE término necesita a su
+  CPC para no perder = `cpc / beCPA`. (Deriva de: CPA = cpc/CVR ≤ beCPA ⇒ CVR ≥ cpc/beCPA.)
+- **Intervalo de Wilson** de `órdenes/clics` (se porta bien con n chico y cerca de 0/1):
+  - **Negar** solo si el **techo** del intervalo `< beCVR` → aun en el mejor caso pierde.
+    Con 0 ventas, esto exige ~`z²(1−beCVR)/beCVR` clics, que **escala con el precio**:
+    producto caro (beCVR bajo) pide más clics antes de podar (el "sofá al clic 11");
+    producto barato decide rápido. Reemplaza el crudo "10 clics + gastó el equilibrio".
+  - **Cosechar** (en rentabilidad) solo si el **piso** del intervalo `≥ beCVR` → aun en
+    el peor caso gana. Evita aislar a exacta un término que "vendió 2 veces" por suerte.
+  - Si el intervalo aún cruza el equilibrio → **VIGILAR** ("faltan ~N clics" / "confírmalo
+    una semana más"), en vez de fingir certeza.
+- **Ranking** no exige la compuerta de rentabilidad (basta que convierta de verdad:
+  ≥ MIN órdenes y ≥ piso de clics); solo se protege de la chiripa.
+- Palanca: `Z_CONFIANZA` (default **1.28**, ≈90% de un lado). Más alto = más conservador.
+- API: `SophiePPC.wilson(succ, trials, z)` y `SophiePPC.clicsParaNegar(beCVR, z)`; cada
+  decisión trae `confianza:{cvrLo, cvrHi, beCVR}`.
+
+**Beneficio:** menos negativos por mala suerte (no matas ganadores), menos cosechas
+prematuras (no comprometes presupuesto por chiripa), y todo **auto-calibrado al AOV**.
