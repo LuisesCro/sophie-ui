@@ -370,6 +370,38 @@ t("expresión de segmentación (no es término) → SEGMENTACION, nunca NEGAR/CO
   eq(real.decisiones[0].accion, "NEGAR", "una búsqueda real perdedora sí se niega");
 });
 
+/* ---------- OBJETIVO de campaña (PPC Mastery V9-V10) ---------- */
+
+t("objetivo RANKING: convierte aunque no sea rentable → COSECHAR (no exige rentabilidad)", () => {
+  const fila = [{ term: "garlic press", imp: 1000, clk: 15, spd: 20, sal: 45, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }];
+  // ACOS ~44% > break-even 33%: en rentabilidad NO cosecha; en ranking sí.
+  const rank = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33, objetivo: "ranking" });
+  eq(rank.decisiones[0].accion, "COSECHAR", "ranking cosecha lo que convierte");
+  const rent = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33 });
+  ok(rent.decisiones[0].accion !== "COSECHAR", "rentabilidad NO cosecha un no-rentable");
+});
+
+t("objetivo RANKING: gasto sin venta NO se niega de una (priming) → VIGILAR", () => {
+  const fila = [{ term: "relevant broad", imp: 2000, clk: 15, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }];
+  const rank = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33, objetivo: "ranking" });
+  eq(rank.decisiones[0].accion, "VIGILAR", "en ranking se es paciente");
+  const rent = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33 });
+  eq(rent.decisiones[0].accion, "NEGAR", "en rentabilidad el mismo insumo se niega");
+});
+
+t("objetivo CONQUISTA: ROAS≥1 → MANTENER; ROAS<1 → BAJAR_PUJA", () => {
+  const gana = SophiePPC.clasificar([{ term: "yeti alt", imp: 800, clk: 20, spd: 9, sal: 25, ord: 1, src: { "PAT": { spd: 9, ord: 1 } } }], { precio: 30, breakEvenACOS: 33, objetivo: "conquista" });
+  eq(gana.decisiones[0].accion, "MANTENER", "ROAS 2.78: ACOS alto es esperado en conquista");
+  const pierde = SophiePPC.clasificar([{ term: "yeti alt", imp: 800, clk: 20, spd: 30, sal: 25, ord: 1, src: { "PAT": { spd: 30, ord: 1 } } }], { precio: 30, breakEvenACOS: 33, objetivo: "conquista" });
+  eq(pierde.decisiones[0].accion, "BAJAR_PUJA", "ROAS 0.83: pierde más de lo que entra");
+});
+
+t("TACOS: ventasTotales alimenta el resumen y el texto para el modelo", () => {
+  const r = SophiePPC.clasificar([{ term: "x", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: {} }], { precio: 30, breakEvenACOS: 33, ventasTotales: 400 });
+  eq(r.resumen.tacos, 5, "TACOS = 20/400 = 5%");
+  ok(SophiePPC.texto(r).includes("TACOS 5%"), "texto muestra el TACOS");
+});
+
 /* ---------- 9 · SophieKeywords.parsear — encabezados de rank de Cerebro ---------- */
 
 grupo("SophieKeywords — reconoce los encabezados de rank de Cerebro");

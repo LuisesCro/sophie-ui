@@ -171,6 +171,12 @@
     var beACOS = n(ctx.breakEvenACOS);          // en porcentaje: 32 = 32%
     var marcas = ctx.marcasCompetidores || [];
     var dias = n(ctx.diasReporte, 0);
+    // Objetivo de la campaña (PPC Mastery V9-V10): reencuadra el veredicto de los
+    // terminos que CONVIERTEN. rentabilidad = default (ACOS/CPA manda); ranking =
+    // se acepta operar hasta break-even para rankear; conquista/PAT = ROAS bajo
+    // esperado. Si no viene, se comporta como antes (rentabilidad).
+    var objetivo = String(ctx.objetivo || 'rentabilidad').toLowerCase();
+    var ventasTotales = n(ctx.ventasTotales, 0);   // ventas TOTALES del producto (orgánicas+ads) -> TACOS
 
     if (precio <= 0 || beACOS <= 0) {
       return {
@@ -245,11 +251,24 @@
       if (ord === 0) {
         var pasaGasto = spd >= beCPA;
         var pasaClics = clk >= C.PISO_CLICS;
+        var ctrTerm = (imp > 0) ? (clk / imp * 100) : null;   // CTR del termino si vino la columna
 
-        if (pasaGasto && pasaClics) {
+        if (pasaGasto && pasaClics && objetivo === 'ranking') {
+          // En lanzamiento se es paciente: puede ser una "priming query" del embudo (V4).
+          d.accion = 'VIGILAR';
+          d.motivo = 'Gastó $' + r2(spd) + ' sin vender, pero el objetivo es RANKING: negar solo si es ' +
+                     'IRRELEVANTE. Si es relevante puede ser priming/intent mismatch (baja la puja o arregla ' +
+                     'el listing), no lo mates.';
+          d.requiereJuicio = true;
+        } else if (pasaGasto && pasaClics) {
           d.accion = 'NEGAR';
-          d.motivo = 'Gastó $' + r2(spd) + ' sin una sola venta. Tu CPA de equilibrio es $' + r2(beCPA) +
-                     ': ya consumió lo que habría dejado una venta rentable, con ' + clk + ' clics de evidencia.';
+          // Intent mismatch (V4): CTR alto + 0 ventas -> hacen clic pero no compran.
+          var intent = (ctrTerm !== null && ctrTerm >= 0.40);
+          d.motivo = intent
+            ? ('CTR ' + r2(ctrTerm) + '% y 0 ventas tras $' + r2(spd) + '. Hacen clic pero no compran: si el ' +
+               'termino es relevante es tu LISTING o PRECIO (intent mismatch); si no, negativo exacto.')
+            : ('Gastó $' + r2(spd) + ' sin una sola venta. Tu CPA de equilibrio es $' + r2(beCPA) +
+               ': ya consumió lo que habría dejado una venta rentable, con ' + clk + ' clics de evidencia.');
           d.requiereJuicio = true;  // el modelo decide negar vs. bajar puja según relevancia
         } else if (pasaGasto && !pasaClics) {
           d.accion = 'VIGILAR';
@@ -266,13 +285,37 @@
         return d;
       }
 
-      /* --- Con órdenes --- */
+      /* --- Con órdenes: el término CONVIERTE. Aquí el objetivo manda. --- */
       var rentable = acos !== null && acos <= beACOS;
+      // Techo de puja a break-even puro (sin margen): lo que se usa en RANKING,
+      // donde se acepta operar hasta el equilibrio con tal de ganar posición.
+      var maxCPCbe = cpo > 0 ? (beCPA / cpo) : null;
 
-      if (ord >= C.MIN_ORDENES_COSECHA && rentable && !d.yaEnExacta) {
+      // Conquista/PAT: ROAS bajo es esperado. Solo se alerta si pierde más de lo que entra.
+      if (objetivo === 'conquista') {
+        var roas = spd > 0 ? (sal / spd) : null;
+        if (roas !== null && roas < 1) {
+          d.accion = 'BAJAR_PUJA';
+          d.motivo = 'Conquista cara: ROAS ' + r2(roas) + ' (gastas más de lo que entra). Baja la puja o pausa, ' +
+                     'salvo que el producto tenga LTV alto (consumible / subscribe & save) que lo justifique.';
+          if (maxCPC !== null) d.pujaSugerida = r2(maxCPC);
+          return d;
+        }
+        d.accion = 'MANTENER';
+        d.motivo = 'Conquista/PAT: ROAS ' + (roas === null ? 'n/d' : r2(roas)) + '. Un ACOS alto es esperado aquí; ' +
+                   'mantén si absorbes el margen, tomas venta al competidor o hay LTV. No se juzga con el break-even normal.';
+        return d;
+      }
+
+      // Cosecha: en RANKING no exige rentabilidad (basta que convierta); en
+      // rentabilidad sí exige ACOS <= break-even.
+      if (ord >= C.MIN_ORDENES_COSECHA && !d.yaEnExacta && (objetivo === 'ranking' || rentable)) {
         d.accion = 'COSECHAR';
-        d.motivo = ord + ' órdenes con ACOS de ' + r2(acos) + '%, por debajo de tu equilibrio de ' + r2(beACOS) +
-                   '%. Va a campaña exacta propia, y se niega en exacto en la campaña de origen para que no compitan.';
+        d.motivo = objetivo === 'ranking'
+          ? (ord + ' órdenes (CVR ' + r2(cvr) + '%). Aíslalo en campaña exacta + Top-of-Search para rankear, y ' +
+             'niégalo en exacto en la de origen para no competir contra ti mismo.')
+          : (ord + ' órdenes con ACOS de ' + r2(acos) + '%, por debajo de tu equilibrio de ' + r2(beACOS) +
+             '%. Va a campaña exacta propia, y se niega en exacto en la campaña de origen para que no compitan.');
         return d;
       }
 
@@ -285,19 +328,36 @@
         return d;
       }
 
-      if (maxCPC !== null && cpc > maxCPC) {
+      // Techo de puja según objetivo: con margen (rentabilidad) o a break-even (ranking).
+      var techo = (objetivo === 'ranking') ? maxCPCbe : maxCPC;
+
+      if (techo !== null && cpc > techo) {
+        if (objetivo === 'ranking') {
+          // No se mata un término que convierte; solo se avisa si está MUY caro.
+          if (cpc > techo * 1.5) {
+            d.accion = 'BAJAR_PUJA';
+            d.motivo = 'Convierte pero pagas $' + r2(cpc) + ' por clic contra un break-even de $' + r2(techo) +
+                       '. Para rankear rentable, baja la puja o sube el CVR (listing, precio, reseñas).';
+            d.pujaSugerida = r2(techo);
+            return d;
+          }
+          d.accion = 'MANTENER';
+          d.motivo = 'Convierte a $' + r2(cpc) + ' por clic (break-even $' + r2(techo) + '). En ranking está bien ' +
+                     'invertir cerca del equilibrio para ganar posición.';
+          return d;
+        }
         d.accion = 'BAJAR_PUJA';
         d.motivo = 'Convierte cada ' + r2(cpo) + ' clics. A tu CPA objetivo de $' + r2(targetCPA) +
-                   ' puedes pagar hasta $' + r2(maxCPC) + ' por clic, y estás pagando $' + r2(cpc) + '.';
-        d.pujaSugerida = r2(maxCPC);
+                   ' puedes pagar hasta $' + r2(techo) + ' por clic, y estás pagando $' + r2(cpc) + '.';
+        d.pujaSugerida = r2(techo);
         return d;
       }
 
-      if (maxCPC !== null && cpc < maxCPC * C.HOLGURA_SUBIR) {
+      if (techo !== null && cpc < techo * C.HOLGURA_SUBIR) {
         d.accion = 'SUBIR_PUJA';
-        d.motivo = 'Convierte cada ' + r2(cpo) + ' clics y pagas $' + r2(cpc) + ' por clic, con techo en $' + r2(maxCPC) +
+        d.motivo = 'Convierte cada ' + r2(cpo) + ' clics y pagas $' + r2(cpc) + ' por clic, con techo en $' + r2(techo) +
                    '. Hay espacio para ganar más impresiones sin salir de rentabilidad.';
-        d.pujaSugerida = r2(Math.min(maxCPC, cpc * 1.10));  // pasos de 10%, nunca saltos
+        d.pujaSugerida = r2(Math.min(techo, cpc * 1.10));  // pasos de 10%, nunca saltos
         return d;
       }
 
@@ -325,6 +385,8 @@
       ventas: r2(totSal),
       ordenes: totOrd,
       acosCuenta: totSal > 0 ? r2(totSpd / totSal * 100) : null,
+      // TACOS = gasto en ads / ventas TOTALES del producto (orgánicas + ads). El KPI norte.
+      tacos: ventasTotales > 0 ? r2(totSpd / ventasTotales * 100) : null,
       clicsPorOrdenCuenta: cpoCuenta ? r2(cpoCuenta) : null,
       gastoDesperdiciado: r2(desperdicio),
       pctDesperdiciado: totSpd > 0 ? r2(desperdicio / totSpd * 100) : 0,
@@ -342,7 +404,8 @@
         breakEvenCPA: r2(beCPA),
         targetACOS: r2(targetACOS),
         targetCPA: r2(targetCPA),
-        pisoClics: C.PISO_CLICS
+        pisoClics: C.PISO_CLICS,
+        objetivo: objetivo
       },
       resumen: resumen,
       decisiones: decisiones
@@ -358,12 +421,19 @@
     if (!res || !res.ok) return 'MOTOR PPC: ' + ((res && res.error) || 'sin resultado');
     limite = limite || 25;
     var e = res.economia, s = res.resumen;
+    var OBJ_TXT = {
+      rentabilidad: 'RENTABILIDAD (producto maduro: ACOS/CPA manda; el norte real es el TACOS)',
+      ranking: 'RANKING/LANZAMIENTO (se acepta operar hasta break-even; un termino que CONVIERTE aunque su ACOS pase el equilibrio es victoria, no algo que pausar)',
+      conquista: 'CONQUISTA/PAT (ROAS bajo esperado; se justifica por LTV o por tomar venta al competidor)'
+    };
     var out = 'MOTOR PPC — DECISIONES YA CALCULADAS POR LA APLICACION\n';
+    out += 'Objetivo de la campaña: ' + (OBJ_TXT[e.objetivo] || OBJ_TXT.rentabilidad) + '\n';
     out += 'Economia del estudiante: precio $' + e.precio + ' | break-even ACOS ' + e.breakEvenACOS +
            '% | CPA de equilibrio $' + e.breakEvenCPA + ' | CPA objetivo $' + e.targetCPA +
            ' (ACOS objetivo ' + e.targetACOS + '%)\n';
     out += 'Cuenta: gasto $' + s.gasto + ' | ventas $' + s.ventas + ' | ordenes ' + s.ordenes +
-           ' | ACOS ' + (s.acosCuenta === null ? 'n/d' : s.acosCuenta + '%') +
+           ' | ACOS ads ' + (s.acosCuenta === null ? 'n/d' : s.acosCuenta + '%') +
+           (s.tacos !== null && s.tacos !== undefined ? ' | TACOS ' + s.tacos + '% (el norte)' : ' | TACOS n/d (pide ventas totales)') +
            ' | clics por orden ' + (s.clicsPorOrdenCuenta || 'n/d') + '\n';
     out += 'Desperdicio: $' + s.gastoDesperdiciado + ' (' + s.pctDesperdiciado + '% del gasto). ' +
            'Recuperable negando ya: $' + s.gastoRecuperableAhora +
@@ -385,6 +455,10 @@
       out += '\n';
     });
 
+    out += 'RECUERDA AL ESTUDIANTE: el ACOS de ads es DIRECCIONAL; el norte es el TACOS y los dolares de ' +
+           'utilidad. Un termino con ACOS alto puede estar bien si las ventas organicas lo compensan (TACOS sano) ' +
+           'o si el objetivo es rankear. Nunca mandes a pausar/negativizar un termino que CONVIERTE solo porque su ' +
+           'ACOS supera el break-even: mira primero el objetivo y el TACOS.\n\n';
     out += 'INSTRUCCION: estas decisiones ya estan calculadas y NO se recalculan. Tu trabajo es explicar ' +
            'las de mayor impacto, nombrar la campaña exacta donde se ejecuta cada una, y escribir el bloque ' +
            'de negaciones para copiar. En NEGAR y REVISAR_LISTING usa tu juicio de RELEVANCIA: si el termino ' +
@@ -396,7 +470,7 @@
   }
 
   global.SophiePPC = {
-    version: '1.0',
+    version: '1.1',
     config: CONFIG,
     clasificar: clasificar,
     texto: texto
