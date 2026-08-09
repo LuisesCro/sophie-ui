@@ -82,7 +82,13 @@
     // Rigor estadístico: z del intervalo de Wilson. 1.28 ≈ 90% de confianza
     // de un lado. Más alto = más conservador (exige más evidencia antes de
     // negar o cosechar). Es la palanca de "qué tan seguro antes de actuar".
-    Z_CONFIANZA: 1.28
+    Z_CONFIANZA: 1.28,
+
+    // Prior Bayesiano: "fuerza" del prior en clics equivalentes. El CVR de la
+    // cuenta pesa como si fueran ~12 clics de evidencia previa; con menos clics
+    // que esto el prior manda, con más manda el término. 0 = desactiva el prior
+    // y usa Wilson puro (cada término en el vacío).
+    PRIOR_FUERZA: 12
   };
 
   /* ============================================================
@@ -125,6 +131,37 @@
     z = z || 1.28; var z2 = z * z;
     if (!(beCVR > 0) || beCVR >= 1) return 0;
     return Math.max(1, Math.ceil(z2 * (1 - beCVR) / beCVR));
+  }
+
+  /* ============================================================
+     PRIOR BAYESIANO (Empirical Bayes · shrinkage hacia la cuenta)
+     Wilson juzga cada término en el vacío. Pero sabemos la conversión
+     TÍPICA de la cuenta (baseCVR = órdenes/clics del reporte). La
+     usamos como PRIOR: cada término arranca cerca de esa base y se
+     despega conforme acumula evidencia propia. Así:
+       - poca data -> el intervalo se ENCOGE hacia la base (decide antes,
+         no condena por ruido, no premia un 2/2 de suerte),
+       - mucha data -> el término manda (el prior se desvanece).
+     Prior Beta(a0,b0) con media = baseCVR y fuerza k = "clics
+     equivalentes". Posterior Beta(a0+ord, b0+clics-ord); intervalo por
+     aproximación normal a la Beta (media ± z·desv), que es cerrada,
+     estable y suficiente cerca de la frontera de decisión. Si no hay
+     base útil (cuenta sin conversiones), cae a Wilson (no informativo).
+     ============================================================ */
+  function intervalo(succ, trials, baseCVR, k, z) {
+    if (!(baseCVR > 0) || !(k > 0)) return wilson(succ, trials, z);   // sin prior útil
+    z = z || 1.28;
+    var a = baseCVR * k + succ;
+    var b = (1 - baseCVR) * k + (trials - succ);
+    var tot = a + b;
+    var media = a / tot;
+    var desv = Math.sqrt(a * b / (tot * tot * (tot + 1)));
+    return {
+      lo: Math.max(0, media - z * desv),
+      hi: Math.min(1, media + z * desv),
+      media: media,
+      base: baseCVR
+    };
   }
 
   // ¿El término ya vive en una campaña exacta? Se lee de las claves
@@ -236,10 +273,16 @@
     // Clics por orden de la CUENTA: sirve de referencia cuando un
     // término convierte pero tiene muy poca data propia.
     var totClk = 0, totOrd = 0, totSpd = 0, totSal = 0;
+    var baseClk = 0, baseOrd = 0;   // para el prior: excluye filas de segmentación
     lista.forEach(function (t) {
       totClk += n(t.clk); totOrd += n(t.ord); totSpd += n(t.spd); totSal += n(t.sal);
+      if (!esSegmentacion(t.term)) { baseClk += n(t.clk); baseOrd += n(t.ord); }
     });
     var cpoCuenta = totOrd > 0 ? (totClk / totOrd) : 0;
+    // Línea base de conversión de la cuenta: el PRIOR Bayesiano de cada término.
+    // Solo si hay evidencia real (clics y al menos una conversión) y se excluyen
+    // las expresiones de segmentación (no son búsquedas). Si no, null -> Wilson.
+    var baseCVR = (baseClk > 0 && baseOrd > 0) ? (baseOrd / baseClk) : null;
 
     var decisiones = lista.map(function (t) {
       var clk = n(t.clk), ord = n(t.ord), spd = n(t.spd), sal = n(t.sal), imp = n(t.imp);
@@ -251,7 +294,9 @@
       // Rigor estadístico: banda de confianza del CVR real vs. el CVR de
       // equilibrio (el CVR que ESTE término necesita para no perder a su CPC).
       var beCVR = (cpc > 0 && beCPA > 0) ? (cpc / beCPA) : null;   // CVR de equilibrio
-      var ci = wilson(ord, clk, C.Z_CONFIANZA);
+      // Intervalo del CVR real con PRIOR de la cuenta (Empirical Bayes); si no
+      // hay base útil, es Wilson puro. Misma comparación contra beCVR.
+      var ci = intervalo(ord, clk, baseCVR, C.PRIOR_FUERZA, C.Z_CONFIANZA);
       var confiadoPerdedor = (beCVR !== null) && (ci.hi < beCVR);  // aun en el mejor caso pierde
       var confiadoGanador  = (beCVR !== null) && (ci.lo >= beCVR); // aun en el peor caso gana
 
@@ -273,7 +318,9 @@
         confianza: {
           cvrLo: r2(ci.lo * 100),
           cvrHi: r2(ci.hi * 100),
-          beCVR: beCVR === null ? null : r2(beCVR * 100)
+          beCVR: beCVR === null ? null : r2(beCVR * 100),
+          baseCuenta: baseCVR === null ? null : r2(baseCVR * 100),
+          conPrior: baseCVR !== null && C.PRIOR_FUERZA > 0
         },
         campanas: listaCampanas(t.src),
         campanaPrincipal: campanaPrincipal(t.src),
@@ -469,6 +516,8 @@
       // TACOS = gasto en ads / ventas TOTALES del producto (orgánicas + ads). El KPI norte.
       tacos: ventasTotales > 0 ? r2(totSpd / ventasTotales * 100) : null,
       clicsPorOrdenCuenta: cpoCuenta ? r2(cpoCuenta) : null,
+      cvrBaseCuenta: baseCVR === null ? null : r2(baseCVR * 100),   // prior Bayesiano
+      priorFuerza: C.PRIOR_FUERZA,
       gastoDesperdiciado: r2(desperdicio),
       pctDesperdiciado: totSpd > 0 ? r2(desperdicio / totSpd * 100) : 0,
       gastoRecuperableAhora: r2(gastoANegar)
@@ -551,11 +600,12 @@
   }
 
   global.SophiePPC = {
-    version: '1.2',
+    version: '1.3',
     config: CONFIG,
     clasificar: clasificar,
     texto: texto,
-    wilson: wilson,             // intervalo de confianza de una proporción (CVR)
+    wilson: wilson,             // intervalo de confianza (no informativo) de una proporción
+    intervalo: intervalo,       // intervalo con prior Bayesiano (Empirical Bayes)
     clicsParaNegar: clicsParaNegar
   };
 

@@ -303,3 +303,27 @@ Esta capa las formaliza sin cambiar la pedagogía.
 
 **Beneficio:** menos negativos por mala suerte (no matas ganadores), menos cosechas
 prematuras (no comprometes presupuesto por chiripa), y todo **auto-calibrado al AOV**.
+
+### Prior Bayesiano (Empirical Bayes · shrinkage hacia la cuenta)
+
+Wilson juzga cada término **en el vacío**. Pero conocemos la conversión típica de la
+cuenta (`baseCVR = órdenes/clics del reporte, excluyendo segmentación`). La usamos como
+**prior**: cada término arranca cerca de esa base y se despega conforme acumula evidencia.
+
+- Prior **Beta(α₀, β₀)** con media = `baseCVR` y fuerza `k` = "clics equivalentes"
+  (`PRIOR_FUERZA`, default **12**). Posterior tras `s` órdenes en `n` clics:
+  `Beta(α₀+s, β₀+n−s)`. Intervalo por aproximación normal a la Beta (media ± z·desv).
+- Con **poca data** el intervalo se **encoge hacia la base** → decide antes, no condena
+  por ruido, no premia un "2/2 de suerte" (se encoge hacia ~baseCVR, no 100%). Con
+  **mucha data**, el término manda (el prior se desvanece). Es **Empirical Bayes**: la
+  base se estima de los propios datos del vendedor.
+- **Adaptativo a la calidad de la cuenta:** cuenta sana (base alta) da **beneficio de la
+  duda** a términos flojos con poca data (más paciente para negar); cuenta débil (base
+  baja) **corta antes**. Verificado en tests.
+- Sin base útil (cuenta sin conversiones) → cae a **Wilson** (no informativo).
+- API: `SophiePPC.intervalo(succ, trials, baseCVR, k, z)`; palanca `PRIOR_FUERZA`
+  (0 = desactiva, usa Wilson puro). El resumen trae `cvrBaseCuenta`.
+
+**Beneficio:** decisiones más rápidas y estables con poca data (clave para vendedores de
+bajo volumen), y un motor que se calibra a **la conversión real de cada cuenta**, no a
+un número fijo.

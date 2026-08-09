@@ -427,6 +427,49 @@ t("wilson: el intervalo se estrecha al crecer la muestra", () => {
   ok(mitad.lo > 0 && mitad.hi < 1, "una proporción intermedia da banda interior");
 });
 
+/* ---------- Prior Bayesiano (Empirical Bayes · shrinkage) ---------- */
+
+t("intervalo: encoge una muestra chica de suerte hacia la base de la cuenta", () => {
+  // 1/1 = 100% observado, pero la cuenta convierte al 10%: la media posterior
+  // debe quedar MUCHO más cerca de la base que del 100%.
+  const conPrior = SophiePPC.intervalo(1, 1, 0.10, 12, 1.28);
+  ok(conPrior.media < 0.30, "1/1 se encoge muy por debajo de 100% (dio " + (conPrior.media*100).toFixed(0) + "%)");
+  ok(conPrior.media > 0.10, "pero sube algo sobre la base por el éxito observado");
+  // k=0 desactiva el prior → cae a Wilson (no informativo)
+  const sinPrior = SophiePPC.intervalo(1, 1, 0.10, 0, 1.28);
+  const wil = SophiePPC.wilson(1, 1, 1.28);
+  ok(Math.abs(sinPrior.hi - wil.hi) < 1e-9, "k=0 equivale a Wilson");
+});
+
+t("prior: cuenta SANA da beneficio de la duda (más paciente para negar)", () => {
+  // Cuenta con base ~13% CVR. Un término de 22 clics / 0 ventas: Wilson lo niega,
+  // el prior lo mantiene en vigilar (dado que la cuenta suele convertir).
+  const cuenta = [
+    { term: "winner uno", imp: 4000, clk: 40, spd: 30, sal: 240, ord: 8, src: { "Auto [broad]": { spd: 30, ord: 8 } } },
+    { term: "winner dos", imp: 3000, clk: 30, spd: 22, sal: 120, ord: 4, src: { "Auto [broad]": { spd: 22, ord: 4 } } },
+    { term: "quiza malo", imp: 2000, clk: 22, spd: 19, sal: 0,  ord: 0, src: { "Auto [broad]": { spd: 19, ord: 0 } } }
+  ];
+  const ctx = { precio: 30, breakEvenACOS: 33 };
+  const conPrior = SophiePPC.clasificar(cuenta, ctx);
+  const sinPrior = SophiePPC.clasificar(cuenta, ctx, { PRIOR_FUERZA: 0 });   // Wilson puro
+  eq(conPrior.decisiones[2].accion, "VIGILAR", "con prior sano: paciencia");
+  eq(sinPrior.decisiones[2].accion, "NEGAR", "sin prior (Wilson): lo niega");
+});
+
+t("prior: cuenta DÉBIL corta antes (niega con menos evidencia)", () => {
+  // Cuenta que apenas convierte (~1.3%). Un término de 16 clics / 0 ventas: el
+  // prior ya lo condena; Wilson todavía esperaría más datos.
+  const cuenta = [
+    { term: "flojo base", imp: 8000, clk: 60, spd: 40, sal: 25, ord: 1, src: { "Auto [broad]": { spd: 40, ord: 1 } } },
+    { term: "sospechoso", imp: 2000, clk: 16, spd: 13, sal: 0,  ord: 0, src: { "Auto [broad]": { spd: 13, ord: 0 } } }
+  ];
+  const ctx = { precio: 30, breakEvenACOS: 33 };
+  const conPrior = SophiePPC.clasificar(cuenta, ctx);
+  const sinPrior = SophiePPC.clasificar(cuenta, ctx, { PRIOR_FUERZA: 0 });
+  eq(conPrior.decisiones[1].accion, "NEGAR", "con prior débil: corta antes");
+  eq(sinPrior.decisiones[1].accion, "VIGILAR", "sin prior (Wilson): aún esperaría");
+});
+
 t("TACOS: ventasTotales alimenta el resumen y el texto para el modelo", () => {
   const r = SophiePPC.clasificar([{ term: "x", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: {} }], { precio: 30, breakEvenACOS: 33, ventasTotales: 400 });
   eq(r.resumen.tacos, 5, "TACOS = 20/400 = 5%");
