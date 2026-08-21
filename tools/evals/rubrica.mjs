@@ -101,15 +101,21 @@ Sé estricto. El sesgo natural de un evaluador es dar 2 por defecto; resístelo.
 
 /* ---------- corrida ---------- */
 
-export async function correrJuez({ lista, informe, dirRespuestas, linea, marca, G, X }) {
+export async function correrJuez({ lista, informe, dirRespuestas, linea, marca, G, A, X }) {
   const KEY = process.env.ANTHROPIC_API_KEY;
   linea(`\n${G}CAPA 2 · JUEZ (${MODELO_JUEZ}) — ¿enseña, o solo acierta?${X}`);
   if (!KEY) { linea(`  ${G}sin ANTHROPIC_API_KEY: omitido${X}`); return; }
 
   const base = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
   const totales = {};
+  let fallos = 0;
 
   for (const caso of lista) {
+    const fila = informe.find((i) => i.id === caso.id);
+    // En vivo, si la llamada del caso falló, en disco queda la grabación de una
+    // corrida anterior — posiblemente de OTRO modelo. Calificarla daría un
+    // número que no corresponde a lo que se acaba de medir.
+    if (fila?.error) { linea(`  ${A}·${X} ${caso.id.padEnd(22)} ${G}omitido: el caso falló en esta corrida${X}`); continue; }
     const f = resolve(dirRespuestas, `${caso.id}.txt`);
     if (!existsSync(f)) continue;
     const respuesta = readFileSync(f, "utf8");
@@ -121,7 +127,7 @@ export async function correrJuez({ lista, informe, dirRespuestas, linea, marca, 
       headers: { "content-type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
         model: MODELO_JUEZ,
-        max_tokens: 4000,
+        max_tokens: 16000,   // adaptive thinking + el tool_use no caben en 4k
         thinking: { type: "adaptive" },
         output_config: { effort: "high" },   // juzgar es trabajo de juicio: no lo abaratamos
         system: SISTEMA,
@@ -149,18 +155,30 @@ ${respuesta}`
       })
     });
 
-    if (!res.ok) { linea(`  ✗ ${caso.id} — API ${res.status}`); continue; }
+    if (!res.ok) { linea(`  ${marca(false)} ${caso.id} — API ${res.status}`); fallos++; continue; }
     const j = await res.json();
-    const uso = (j.content || []).find((b) => b.type === "tool_use");
-    if (!uso) { linea(`  ✗ ${caso.id} — el juez no llamó a la herramienta`); continue; }
+    if (fila) fila.usoJuez = j.usage;   // el costo del juez también se cobra
+    const bloque = (j.content || []).find((b) => b.type === "tool_use");
+    if (!bloque) {
+      linea(`  ${marca(false)} ${caso.id} — el juez no llamó a la herramienta` +
+            (j.stop_reason === "max_tokens" ? ` ${G}(respuesta truncada: sube max_tokens)${X}` : ` ${G}(stop_reason: ${j.stop_reason})${X}`));
+      fallos++; continue;
+    }
 
-    const cal = uso.input;
+    const cal = bloque.input;
+    // Con strict:true la API valida el esquema, pero una respuesta truncada
+    // puede dejar el objeto a medias. Antes eso lanzaba y abortaba la corrida
+    // entera sin imprimir el resumen.
+    const incompleta = DIMS.filter((d) => typeof cal?.dimensiones?.[d.id]?.puntaje !== "number");
+    if (incompleta.length) {
+      linea(`  ${marca(false)} ${caso.id} — calificación incompleta: falta ${incompleta.map((d) => d.id).join(", ")}`);
+      fallos++; continue;
+    }
     const suma = DIMS.reduce((a, d) => a + cal.dimensiones[d.id].puntaje, 0);
     const max = DIMS.length * 2;
     DIMS.forEach((d) => { (totales[d.id] ||= []).push(cal.dimensiones[d.id].puntaje); });
 
     linea(`  ${marca(suma >= max * 0.8)} ${caso.id.padEnd(22)} ${suma}/${max}  ${G}${cal.fallo_mas_grave}${X}`);
-    const fila = informe.find((i) => i.id === caso.id);
     if (fila) fila.juez = cal;
   }
 
@@ -172,6 +190,8 @@ ${respuesta}`
     const prom = v.reduce((a, b) => a + b, 0) / v.length;
     linea(`    ${id.padEnd(24)} ${prom.toFixed(2)} / 2.00  ${G}(${v.length} caso${v.length > 1 ? "s" : ""})${X}`);
   }
+  if (fallos) linea(`  ${A}${fallos} caso(s) sin calificar${X}`);
+  return { fallos };
 }
 
 export { DIM_ANALISIS, DIM_PROPIO, RUBRICAS, dimsDe, esquemaDe };

@@ -66,7 +66,14 @@ const aqui = dirname(fileURLToPath(import.meta.url));
 const raiz = resolve(aqui, "..", "..");
 const args = process.argv.slice(2);
 const opt = (n) => args.includes(n);
-const val = (n, d) => { const i = args.indexOf(n); return i >= 0 && args[i + 1] ? args[i + 1] : d; };
+const val = (n, d) => {
+  const i = args.indexOf(n);
+  if (i < 0) return d;
+  const v = args[i + 1];
+  // "--vivo --caso" sin valor corría los 6 casos en vivo en vez de avisar.
+  if (!v || v.startsWith("--")) { console.error(`\n${n} necesita un valor.\n`); process.exit(1); }
+  return v;
+};
 
 const VIVO = opt("--vivo");
 const JUEZ = opt("--juez");
@@ -208,7 +215,9 @@ async function respuestaDelModelo(caso) {
   const fixture = resolve(DIR_RESP, `${caso.id}.txt`);
   if (!VIVO) {
     if (!existsSync(fixture)) return { texto: null, origen: "sin-grabar" };
-    return { texto: readFileSync(fixture, "utf8"), origen: "grabada" };
+    const t = readFileSync(fixture, "utf8");
+    if (!t.trim()) throw new Error("la respuesta grabada está vacía; regenérala con --vivo");
+    return { texto: t, origen: "grabada" };
   }
 
   const KEY = process.env.ANTHROPIC_API_KEY;
@@ -239,6 +248,9 @@ async function respuestaDelModelo(caso) {
   if (!res.ok) throw new Error(`API ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const j = await res.json();
   const texto = (j.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  // Una respuesta vacía es un fallo, no un caso "sin grabar": guardarla dejaba
+  // un fixture inservible que además nunca se regeneraba offline.
+  if (!texto.trim()) throw new Error(`respuesta vacía (stop_reason: ${j.stop_reason || "?"})`);
   mkdirSync(DIR_RESP, { recursive: true });
   writeFileSync(fixture, texto);
   return { texto, origen: "vivo", uso: j.usage };
@@ -263,18 +275,40 @@ function evaluarRespuesta(caso, texto) {
   // ¿el motor ve el mismo número con los datos de Sophie que con los esperados?
   const dEsp = caso.esperado.datos, dMod = payload.datos || {};
   const juiciosEsp = caso.esperado.juicios || {}, juiciosMod = payload.juicios || {};
-  const rEsp = SophieMotor.evaluar(dEsp, juiciosEsp);
-  const r = SophieMotor.evaluar(dMod, juiciosMod);
+  const r = SophieMotor.evaluar(dMod, juiciosMod);   // lo que ve el estudiante
 
-  const numericos = rEsp.filas.filter((f) => f.valor_num !== undefined);
-  const difs = numericos
-    .map((f) => ({ f, mod: r.filas.find((x) => x.id === f.id) }))
-    .filter(({ f, mod }) => Number(mod?.valor_num) !== Number(f.valor_num));
+  // Se comparan DOS cosas por criterio, ambas con los juicios esperados fijos
+  // para que una diferencia de juicio no se cuele aquí:
+  //
+  //   valor_num -> el número que el motor lee (resuelve alias por su cuenta).
+  //   estado    -> además del número, captura los campos auxiliares que el
+  //                motor usa para degradar: tendencia (C1), topReviews (C4),
+  //                roi (C8) y moq (C10). Sin esto, leer mal la tendencia daba
+  //                verde y el caso trampa no podía fallar.
+  //
+  // Se compara el EFECTO, no el texto: el estudiante escribe "en caída" y
+  // Sophie "bajando", y ambas disparan la misma degradación. Comparar cadenas
+  // reprobaría una lectura correcta.
+  const idsJuicio = new Set(SophieCriterios.lista.filter((c) => c.direccion === "juicio").map((c) => c.id));
+  const rDatosEsp = SophieMotor.evaluar(dEsp, juiciosEsp);
+  const rDatosMod = SophieMotor.evaluar(dMod, juiciosEsp);
+  const comparables = rDatosEsp.filas.filter((f) => !idsJuicio.has(f.id));
+
+  const difs = comparables
+    .map((f) => ({ f, mod: rDatosMod.filas.find((x) => x.id === f.id) }))
+    .map(({ f, mod }) => {
+      const numMal = Number(mod?.valor_num) !== Number(f.valor_num);
+      const estMal = mod?.estado !== f.estado;
+      return numMal || estMal
+        ? { id: f.id, motivo: numMal ? `${mod?.valor_num ?? "sin dato"}≠${f.valor_num}` : `estado ${mod?.estado}≠${f.estado}` }
+        : null;
+    })
+    .filter(Boolean);
+
   add("extracción", difs.length === 0,
       difs.length
-        ? `${difs.length}/${numericos.length} criterios con otro número: ` +
-          difs.map(({ f, mod }) => `C${f.id} ${mod?.valor_num ?? "sin dato"}≠${f.valor_num}`).join(", ")
-        : `${numericos.length}/${numericos.length} criterios leen el número correcto`);
+        ? `${difs.length}/${comparables.length} criterios distintos: ` + difs.map((d) => `C${d.id} ${d.motivo}`).join(", ")
+        : `${comparables.length}/${comparables.length} criterios leen lo mismo (número y estado)`);
   // Los criterios 6, 9, 12 y 13 los JUZGA el modelo: el prompt le da una regla
   // en prosa, no un umbral. Calificarlos contra una etiqueta que escribimos
   // nosotros no es un chequeo determinista, es una opinión con bata de
@@ -284,12 +318,10 @@ function evaluarRespuesta(caso, texto) {
   //   determinista  -> los números y lo que se deriva SOLO de ellos. Pass/fail.
   //   juicio        -> divergencias informativas; quién tiene razón lo evalúa
   //                    la capa 2 (¿está fundado en lo que dijo el estudiante?).
-  const idsJuicio = new Set(SophieCriterios.lista.filter((c) => c.direccion === "juicio").map((c) => c.id));
-
   // Veredicto del CAMINO DE DATOS: los números del modelo con los juicios
   // esperados. Aísla "¿leyó bien y el motor concluye lo correcto?" de
   // "¿juzgó igual que yo?".
-  const rDatos = SophieMotor.evaluar(dMod, juiciosEsp);
+  const rDatos = rDatosMod;
   add("veredicto", rDatos.veredicto === caso.esperado.veredicto,
       `${rDatos.veredicto}${rDatos.veredicto === caso.esperado.veredicto ? "" : ` (esperaba ${caso.esperado.veredicto})`}`);
 
@@ -316,6 +348,12 @@ function evaluarRespuesta(caso, texto) {
 /* ---------- corrida ---------- */
 
 async function main() {
+  // Se valida antes de correr nada: descubrir que la ruta estaba mal DESPUÉS
+  // de una corrida en vivo significa haber pagado por una comparación perdida.
+  if (BASE && !existsSync(BASE)) {
+    console.error(`\n✗ no encuentro la línea base "${BASE}" — no hay con qué comparar.\n`);
+    process.exit(1);
+  }
   linea(`\nARNÉS DE EVALUACIÓN · Sophie Producto`);
   linea(`${G}set: ${CASOS.casos.length} casos sintéticos · modo: ${VIVO ? "VIVO (llama a la API)" : "offline (respuestas grabadas)"}${X}`);
 
@@ -323,7 +361,7 @@ async function main() {
 
   linea(`\n${G}CAPA 1 · DETERMINISTA — ¿el modelo acierta sobre estos casos?${X}`);
   const informe = [];
-  let sinGrabar = 0;
+  let sinGrabar = 0, fallosJuez = 0;
 
   for (const caso of lista) {
     let r;
@@ -359,7 +397,8 @@ async function main() {
 
   if (JUEZ) {
     const { correrJuez } = await import("./rubrica.mjs");
-    await correrJuez({ lista, informe, dirRespuestas: DIR_RESP, linea, marca, G, X });
+    const rj = await correrJuez({ lista, informe, dirRespuestas: DIR_RESP, linea, marca, G, A, X });
+    if (rj?.fallos) fallosJuez = rj.fallos;
   }
 
   /* ---------- resumen ---------- */
@@ -369,6 +408,11 @@ async function main() {
   const dims = ["marcador", "extracción", "veredicto", "vetos"];
   linea(`\n${G}RESUMEN${X}`);
   if (!total) {
+    const conError = informe.filter((i) => i.error);
+    if (conError.length) {
+      linea(`  ${R}Los ${conError.length} caso(s) terminaron en error — no se midió nada.${X}\n`);
+      process.exit(1);
+    }
     linea(`  ${A}Ningún caso tiene respuesta grabada todavía.${X}`);
     linea(`  ${G}El arnés está listo; falta alimentarlo: node tools/evals/correr.mjs --vivo${X}\n`);
     return;
@@ -393,24 +437,33 @@ async function main() {
         `      Recrea la clave con "Sophie Evals" seleccionado, o ajusta SOPHIE_EVAL_WORKSPACE.`);
   }
 
-  // Costo real de la corrida. El eval mide calidad; esto mide lo que cuesta
-  // medirla, para que la decisión de correrlo seguido sea informada.
-  const usos = informe.filter((i) => i.uso);
-  if (usos.length) {
-    const modelo = process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6";
-    const sum = (k) => usos.reduce((a, i) => a + (i.uso[k] || 0), 0);
-    const dinero = usos.reduce((a, i) => a + (costoDe(modelo, i.uso) || 0), 0);
-    linea(`\n${G}COSTO DE ESTA CORRIDA (${modelo})${X}`);
-    linea(`  entrada sin cache  ${String(sum("input_tokens")).padStart(8)} tokens`);
-    linea(`  leído de cache     ${String(sum("cache_read_input_tokens")).padStart(8)} tokens ${G}(≈10% del precio)${X}`);
-    linea(`  escrito a cache    ${String(sum("cache_creation_input_tokens")).padStart(8)} tokens`);
-    linea(`  salida             ${String(sum("output_tokens")).padStart(8)} tokens`);
-    linea(PRECIOS[modelo]
-      ? `  ${V}total ≈ $${dinero.toFixed(4)}${X} ${G}· $${(dinero / usos.length).toFixed(4)} por caso${X}`
-      : `  ${A}sin precio conocido para ${modelo}: solo tokens${X}`);
+  // Costo real de la corrida: el modelo bajo prueba Y el juez, que corre en
+  // Opus 5 con effort alto y no es despreciable. Antes solo se sumaba el
+  // primero y la factura del --juez quedaba invisible.
+  const MODELO = process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6";
+  const MODELO_JUEZ = process.env.SOPHIE_JUEZ_MODELO || "claude-opus-5";
+  const tramos = [
+    { etiqueta: `modelo bajo prueba (${MODELO})`, modelo: MODELO, usos: informe.filter((i) => i.uso).map((i) => i.uso) },
+    { etiqueta: `juez (${MODELO_JUEZ})`, modelo: MODELO_JUEZ, usos: informe.filter((i) => i.usoJuez).map((i) => i.usoJuez) }
+  ].filter((t) => t.usos.length);
+
+  if (tramos.length) {
+    linea(`\n${G}COSTO DE ESTA CORRIDA${X}`);
+    let granTotal = 0, algunoSinPrecio = false;
+    for (const t of tramos) {
+      const sum = (k) => t.usos.reduce((a, u) => a + (u[k] || 0), 0);
+      const dinero = t.usos.reduce((a, u) => a + (costoDe(t.modelo, u) || 0), 0);
+      const conocido = !!PRECIOS[t.modelo];
+      if (conocido) granTotal += dinero; else algunoSinPrecio = true;
+      linea(`  ${t.etiqueta}  ${G}${t.usos.length} llamada(s)${X}`);
+      linea(`    entrada sin cache  ${String(sum("input_tokens")).padStart(8)}   leído de cache ${String(sum("cache_read_input_tokens")).padStart(8)} ${G}(≈10%)${X}`);
+      linea(`    escrito a cache    ${String(sum("cache_creation_input_tokens")).padStart(8)}   salida         ${String(sum("output_tokens")).padStart(8)}`);
+      linea(conocido ? `    subtotal ≈ $${dinero.toFixed(4)}` : `    ${A}sin precio conocido para ${t.modelo}: solo tokens${X}`);
+    }
+    linea(`  ${V}TOTAL ≈ $${granTotal.toFixed(4)}${X}` + (algunoSinPrecio ? ` ${A}(incompleto)${X}` : ""));
   }
 
-  if (BASE && existsSync(BASE)) {
+  if (BASE) {
     const base = JSON.parse(readFileSync(BASE, "utf8"));
     linea(`\n${G}CONTRA LÍNEA BASE (${BASE})${X}`);
     for (const d of dims) {
@@ -420,11 +473,16 @@ async function main() {
     }
   }
   if (GUARDAR_BASE) {
-    writeFileSync(GUARDAR_BASE, JSON.stringify({ fecha: null, modelo: process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6", tasas, total }, null, 2));
+    writeFileSync(GUARDAR_BASE, JSON.stringify({ fecha: new Date().toISOString(), modelo: process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6", tasas, total }, null, 2));
     linea(`\n${G}línea base guardada en ${GUARDAR_BASE}${X}`);
   }
 
-  const falla = conDatos.some((i) => !i.chequeos.every((c) => c.ok));
+  // Un caso que reventó no puede contar como "no hubo nada que medir": antes
+  // seis errores duros salían con código 0 y CI lo daba por bueno.
+  const conError = informe.filter((i) => i.error);
+  if (conError.length) linea(`  ${R}${conError.length} caso(s) terminaron en error${X}`);
+  if (fallosJuez) linea(`  ${R}${fallosJuez} caso(s) sin calificar por el juez${X}`);
+  const falla = conError.length > 0 || fallosJuez > 0 || conDatos.some((i) => !i.chequeos.every((c) => c.ok));
   linea("");
   process.exit(falla ? 1 : 0);
 }

@@ -63,6 +63,34 @@ t("número mal leído → falla 'extracción', el veredicto puede seguir bien", 
   eq(chequeo(r, "extracción").detalle.includes("C2"), true, "debe nombrar el criterio");
 });
 
+grupo("Los campos auxiliares SÍ se verifican (los que degradan un criterio)");
+// La revisión encontró que solo se comparaban los campos primarios: leer mal la
+// tendencia daba verde y el caso trampa no podía fallar nunca.
+const trampa = CASOS.casos.find((c) => c.id === "trampa-tendencia-01");
+t("tendencia mal leída ('estable' en vez de en caída) → falla extracción en C1", () => {
+  const r = evaluarRespuesta(trampa, respuestaPerfecta(trampa, { datos: { tendencia: "estable" } }));
+  eq(chequeo(r, "extracción").ok, false, "debe ver la tendencia mal leída");
+  eq(chequeo(r, "extracción").detalle.includes("C1"), true, "y señalar el criterio 1");
+});
+t("una reseña top inflada (>1000) → falla extracción en C4", () => {
+  const r = evaluarRespuesta(trampa, respuestaPerfecta(trampa, { datos: { topReviews: [1200] } }));
+  eq(chequeo(r, "extracción").ok, false, "topReviews degrada C4 y debe verse");
+});
+t("ROI mal leído bajo 100 → falla extracción en C8", () => {
+  const r = evaluarRespuesta(trampa, respuestaPerfecta(trampa, { datos: { roi: 80 } }));
+  eq(chequeo(r, "extracción").ok, false, "roi degrada C8 y debe verse");
+});
+t("MOQ mal leído sobre 300 → falla extracción en C10", () => {
+  const r = evaluarRespuesta(trampa, respuestaPerfecta(trampa, { datos: { moq: 900 } }));
+  eq(chequeo(r, "extracción").ok, false, "moq degrada C10 y debe verse");
+});
+t("decir la tendencia con otras palabras NO es un error", () => {
+  // El estudiante escribe "en caída" y Sophie "bajando": el motor degrada igual.
+  // Comparar cadenas reprobaría una lectura correcta; se compara el efecto.
+  const r = evaluarRespuesta(trampa, respuestaPerfecta(trampa, { datos: { tendencia: "descendente" } }));
+  eq(chequeo(r, "extracción").ok, true, "sinónimos que degradan igual deben pasar");
+});
+
 grupo("Renombrar campos a la nomenclatura canónica NO es un error de extracción");
 t("el alumno pega 'monthlyRevenue' y Sophie emite 'averageRevenue' → extracción OK", () => {
   const alias = CASOS.casos.find((c) => c.id === "alias-helium-01");
