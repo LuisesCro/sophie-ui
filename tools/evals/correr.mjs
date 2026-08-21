@@ -182,6 +182,15 @@ const DIR_RESP = resolve(aqui, "respuestas");
 // Mismo techo que producción (MAX_TOKENS.sonnet en sophie-producto), para que
 // el eval sufra el mismo truncamiento que sufriría el alumno.
 const MAX_SALIDA = Number(process.env.SOPHIE_EVAL_MAX_TOKENS || 6000);
+// Postura de thinking. Importa al comparar modelos: en Sonnet 4.6 omitirlo
+// significa SIN thinking; en Sonnet 5 la misma petición corre con adaptativo.
+// Comparar 4.6-sin-thinking contra 5-con-thinking cambia dos cosas a la vez y
+// no permite saber cuál explica la diferencia.
+//   disabled -> {type:"disabled"}   adaptive -> {type:"adaptive"}   (vacío) -> el default del modelo
+const THINKING = (process.env.SOPHIE_EVAL_THINKING || "").trim();
+const bloqueThinking = THINKING === "disabled" ? { type: "disabled" }
+                     : THINKING === "adaptive" ? { type: "adaptive", display: "summarized" }
+                     : null;
 const WORKSPACE_EVALS = process.env.SOPHIE_EVAL_WORKSPACE || "wrkspc_01GhK92aU5nvf7Z2v79EvqyU";
 let workspaceVisto = null;
 
@@ -244,6 +253,7 @@ async function respuestaDelModelo(caso) {
       max_tokens: MAX_SALIDA,
       // Mismo prefijo cacheado que en producción: el eval mide lo que ve el alumno.
       system: [{ type: "text", text: system, cache_control: { type: "ephemeral", ttl: "1h" } }],
+      ...(bloqueThinking ? { thinking: bloqueThinking } : {}),
       messages: [{ role: "user", content: caso.entrada }]
     })
   });
@@ -365,6 +375,7 @@ async function main() {
   }
   linea(`\nARNÉS DE EVALUACIÓN · Sophie Producto`);
   linea(`${G}set: ${CASOS.casos.length} casos sintéticos · modo: ${VIVO ? "VIVO (llama a la API)" : "offline (respuestas grabadas)"}${X}`);
+  if (VIVO) linea(`${G}modelo: ${process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6"} · max_tokens: ${MAX_SALIDA} · thinking: ${THINKING || "default del modelo"}${X}`);
 
   autoverificar();
 
@@ -476,6 +487,8 @@ async function main() {
   if (BASE) {
     const base = JSON.parse(readFileSync(BASE, "utf8"));
     linea(`\n${G}CONTRA LÍNEA BASE (${BASE})${X}`);
+    if (base.thinking && base.thinking !== (THINKING || "default"))
+      linea(`  ${A}⚠ la base se hizo con thinking=${base.thinking} y esta corrida con ${THINKING || "default"}: son dos experimentos distintos${X}`);
     if (base.modelo && base.modelo !== MODELO)
       linea(`  ${G}${base.modelo}${base.fecha ? " (" + base.fecha.slice(0, 10) + ")" : ""} → ${MODELO}${X}`);
     for (const d of dims) {
@@ -501,7 +514,7 @@ async function main() {
       process.exit(1);
     }
     writeFileSync(GUARDAR_BASE, JSON.stringify({
-      fecha: new Date().toISOString(), modelo: MODELO, juezModelo: JUEZ ? MODELO_JUEZ : undefined,
+      fecha: new Date().toISOString(), modelo: MODELO, thinking: THINKING || "default", maxTokens: MAX_SALIDA, juezModelo: JUEZ ? MODELO_JUEZ : undefined,
       tasas, juez: promediosJuez || undefined, total
     }, null, 2));
     linea(`\n${G}línea base guardada en ${GUARDAR_BASE}${X}`);
