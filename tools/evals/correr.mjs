@@ -46,6 +46,22 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
+
+// Clave desde .env en la raíz del repo, si existe. Evita tener que exportarla
+// a mano (y que quede en el historial del shell). .env está en .gitignore:
+// la clave nunca se sube. Una variable ya exportada tiene prioridad.
+(function cargarEnv() {
+  try {
+    const f = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", ".env");
+    if (!existsSync(f)) return;
+    for (const l of readFileSync(f, "utf8").split("\n")) {
+      const m = l.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i);
+      if (!m) continue;
+      const v = m[2].trim().replace(/^["'](.*)["']$/, "$1");
+      if (!process.env[m[1]]) process.env[m[1]] = v;
+    }
+  } catch {}
+})();
 const raiz = resolve(aqui, "..", "..");
 const args = process.argv.slice(2);
 const opt = (n) => args.includes(n);
