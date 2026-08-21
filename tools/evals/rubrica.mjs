@@ -191,7 +191,13 @@ ${respuesta}`
     linea(`    ${id.padEnd(24)} ${prom.toFixed(2)} / 2.00  ${G}(${v.length} caso${v.length > 1 ? "s" : ""})${X}`);
   }
   if (fallos) linea(`  ${A}${fallos} caso(s) sin calificar${X}`);
-  return { fallos };
+  // Los promedios vuelven al runner para que entren en la línea base: sin esto
+  // una migración de modelo solo podría compararse por el camino de datos.
+  const promedios = Object.fromEntries(ids.map((id) => {
+    const v = totales[id];
+    return [id, v.reduce((a, b) => a + b, 0) / v.length];
+  }));
+  return { fallos, promedios };
 }
 
 export { DIM_ANALISIS, DIM_PROPIO, RUBRICAS, dimsDe, esquemaDe };

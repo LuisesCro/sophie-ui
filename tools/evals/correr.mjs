@@ -361,7 +361,7 @@ async function main() {
 
   linea(`\n${G}CAPA 1 · DETERMINISTA — ¿el modelo acierta sobre estos casos?${X}`);
   const informe = [];
-  let sinGrabar = 0, fallosJuez = 0;
+  let sinGrabar = 0, fallosJuez = 0, promediosJuez = null;
 
   for (const caso of lista) {
     let r;
@@ -399,6 +399,7 @@ async function main() {
     const { correrJuez } = await import("./rubrica.mjs");
     const rj = await correrJuez({ lista, informe, dirRespuestas: DIR_RESP, linea, marca, G, A, X });
     if (rj?.fallos) fallosJuez = rj.fallos;
+    promediosJuez = rj?.promedios || null;
   }
 
   /* ---------- resumen ---------- */
@@ -466,14 +467,34 @@ async function main() {
   if (BASE) {
     const base = JSON.parse(readFileSync(BASE, "utf8"));
     linea(`\n${G}CONTRA LÍNEA BASE (${BASE})${X}`);
+    if (base.modelo && base.modelo !== MODELO)
+      linea(`  ${G}${base.modelo}${base.fecha ? " (" + base.fecha.slice(0, 10) + ")" : ""} → ${MODELO}${X}`);
     for (const d of dims) {
       const antes = base.tasas?.[d] ?? 0, ahora = tasas[d], dif = Math.round((ahora - antes) * 100);
       const sig = dif > 0 ? `${V}+${dif}${X}` : dif < 0 ? `${R}${dif}${X}` : `${G}=${X}`;
-      linea(`  ${d.padEnd(12)} ${Math.round(antes * 100)}% → ${Math.round(ahora * 100)}%  ${sig}`);
+      linea(`  ${d.padEnd(24)} ${Math.round(antes * 100)}% → ${Math.round(ahora * 100)}%  ${sig}`);
+    }
+    if (base.juez && promediosJuez) {
+      for (const [id, antes] of Object.entries(base.juez)) {
+        const ahora = promediosJuez[id];
+        if (ahora === undefined) { linea(`  ${A}${id.padEnd(24)} en la base pero no en esta corrida${X}`); continue; }
+        const dif = ahora - antes;
+        const sig = dif > 0.005 ? `${V}+${dif.toFixed(2)}${X}` : dif < -0.005 ? `${R}${dif.toFixed(2)}${X}` : `${G}=${X}`;
+        linea(`  ${id.padEnd(24)} ${antes.toFixed(2)} → ${ahora.toFixed(2)}  ${sig}`);
+      }
+    } else if (base.juez && !promediosJuez) {
+      linea(`  ${A}la base trae notas del juez; corre con --juez para compararlas${X}`);
     }
   }
   if (GUARDAR_BASE) {
-    writeFileSync(GUARDAR_BASE, JSON.stringify({ fecha: new Date().toISOString(), modelo: process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6", tasas, total }, null, 2));
+    if (JUEZ && !promediosJuez) {
+      linea(`\n${R}✗ pediste --juez pero no hay notas: no guardo una base a medias.${X}`);
+      process.exit(1);
+    }
+    writeFileSync(GUARDAR_BASE, JSON.stringify({
+      fecha: new Date().toISOString(), modelo: MODELO, juezModelo: JUEZ ? MODELO_JUEZ : undefined,
+      tasas, juez: promediosJuez || undefined, total
+    }, null, 2));
     linea(`\n${G}línea base guardada en ${GUARDAR_BASE}${X}`);
   }
 
