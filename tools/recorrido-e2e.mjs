@@ -404,19 +404,56 @@ grupo("Ads/PPC · SophiePPC.clasificar — acciones por término");
 
 const PPC_CTX = { precio: 30, breakEvenACOS: 33 };
 
-t("término que gastó el CPA de equilibrio sin ventas → NEGAR", () => {
+// "Un keyword no es rentable hasta que lo es" (Brandon Young / Talal Asad, V3-V8).
+// El curso RECHAZA el umbral fijo de clics: la compuerta real es el gasto contra
+// el CPA de equilibrio, escalada al precio. La capa de Wilson (docs/ppc-mastery.md
+// §9) formaliza eso: se niega solo cuando el término pierde AUN EN EL MEJOR CASO.
+// Estos casos fijan ese comportamiento — antes esperaban la regla cruda de "gastó
+// el equilibrio, fuera", que el propio curso supera.
+
+t("gastó el equilibrio pero el intervalo aún lo cruza → VIGILAR, no NEGAR", () => {
+  // $12 en 12 clics a $30 de precio: necesitaría 10.1% de CVR para no perder.
+  // Con 0 ventas en 12 clics todavía no se puede afirmar que pierde: faltan ~3.
   const r = SophiePPC.clasificar(
     [{ term: "cheap gadget", imp: 500, clk: 12, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }],
     PPC_CTX);
   eq(r.ok, true, "ok");
+  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+});
+
+t("con los clics suficientes, el mismo término sí se niega", () => {
+  // Mismo CPC, 15 clics: ahora el techo del intervalo cae bajo el CVR de
+  // equilibrio. Es el momento en que la evidencia alcanza, ni antes ni después.
+  const r = SophiePPC.clasificar(
+    [{ term: "cheap gadget", imp: 620, clk: 15, spd: 15, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 15, ord: 0 } } }],
+    PPC_CTX);
   eq(r.decisiones[0].accion, "NEGAR", "acción");
 });
 
-t("término rentable fuera de exacta → COSECHAR", () => {
+t("vendió 3 veces en 10 clics → VIGILAR (podría ser chiripa)", () => {
+  // Cosechar aísla el término a exacta y le compromete presupuesto. El curso pide
+  // "un puñado de órdenes" antes; la capa estadística evita hacerlo por suerte.
   const r = SophiePPC.clasificar(
     [{ term: "garlic press", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
     PPC_CTX);
+  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+});
+
+t("término rentable con evidencia suficiente → COSECHAR", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "garlic press", imp: 1000, clk: 10, spd: 20, sal: 132, ord: 4, src: { "Auto [broad]": { spd: 20, ord: 4 } } }],
+    PPC_CTX);
   eq(r.decisiones[0].accion, "COSECHAR", "acción");
+});
+
+t("el AOV manda: un producto caro exige mucha más evidencia antes de podar", () => {
+  // "Un sofá de $250 puede vender al clic 11" (V8). El motor no lo recuerda como
+  // regla: lo deriva del precio del estudiante. Barato decide rápido, caro espera.
+  const clics = (precio) => Math.ceil(SophiePPC.clicsParaNegar(1 / (precio * 0.33), 1.28));
+  const barato = clics(15), medio = clics(30), caro = clics(250);
+  ok(barato < medio && medio < caro, `debe escalar con el precio (dio ${barato}, ${medio}, ${caro})`);
+  ok(barato <= 10, `un producto de $15 decide rápido (dio ${barato})`);
+  ok(caro >= 100, `uno de $250 no se poda con un puñado de clics (dio ${caro})`);
 });
 
 t("gastó el equilibrio pero con muy pocos clics → VIGILAR (poca evidencia para negar)", () => {
