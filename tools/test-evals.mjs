@@ -57,8 +57,27 @@ t("respuesta sin marcador (Sophie contestó en prosa) → falla 'marcador'", () 
 grupo("El arnés separa fallo de EXTRACCIÓN de fallo de JUICIO");
 t("número mal leído → falla 'extracción', el veredicto puede seguir bien", () => {
   const r = evaluarRespuesta(caso, respuestaPerfecta(caso, { datos: { averageRevenue: 980 } }));
-  eq(chequeo(r, "extracción").ok, false, "debe ver el campo mal leído");
-  eq(chequeo(r, "extracción").detalle.includes("averageRevenue"), true, "debe nombrar el campo");
+  eq(chequeo(r, "extracción").ok, false, "debe ver el número mal leído");
+  // El reporte nombra el CRITERIO afectado (C2 = Ingresos reales del mercado),
+  // no la clave cruda: es lo que le dice al alumno qué se evaluó mal.
+  eq(chequeo(r, "extracción").detalle.includes("C2"), true, "debe nombrar el criterio");
+});
+
+grupo("Renombrar campos a la nomenclatura canónica NO es un error de extracción");
+t("el alumno pega 'monthlyRevenue' y Sophie emite 'averageRevenue' → extracción OK", () => {
+  const alias = CASOS.casos.find((c) => c.id === "alias-helium-01");
+  // Sophie normaliza los nombres viejos de Helium 10 a los canónicos del motor.
+  // El motor resuelve ambos con su tabla de alias, así que ve los mismos números.
+  const canonico = {
+    searchVolume: 7800, averageRevenue: 6400, averageReviews: 195, averagePrice: 29.99,
+    concentracionTop1: 24, topReviews: [390], tendencia: "estable",
+    keywordsCerebro: 37, margenAntesPPC: 36, roi: 122,
+    costoAterrizadoPct: 25, moq: 200, unidadesPosibles: 240
+  };
+  const texto = `<p>Listo.</p><!--SOPHIE:${JSON.stringify({ fase: 9, datos: canonico, juicios: alias.esperado.juicios })}-->`;
+  const r = evaluarRespuesta(alias, texto);
+  eq(chequeo(r, "extracción").ok, true, "renombrar al canónico no debe contar como fallo");
+  eq(chequeo(r, "veredicto").ok, true, "y el veredicto debe salir igual");
 });
 t("extracción perfecta pero juicio equivocado → falla 'veredicto', no 'extracción'", () => {
   const r = evaluarRespuesta(caso, respuestaPerfecta(caso, { juicios: { 6: "fail", 9: "fail", 12: "fail", 13: "fail" } }));

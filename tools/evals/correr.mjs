@@ -73,6 +73,7 @@ const JUEZ = opt("--juez");
 const SOLO = val("--caso", null);
 const BASE = val("--base", null);
 const GUARDAR_BASE = val("--guardar-base", null);
+const DETALLE = opt("--detalle");
 
 /* ---------- motor: la misma fuente única que ve el alumno ---------- */
 
@@ -254,17 +255,26 @@ function evaluarRespuesta(caso, texto) {
       payload ? "extraído y parseado" : "no se pudo extraer/parsear el marcador SOPHIE");
   if (!payload) return { chequeos, payload: null };
 
-  // Extracción: cada campo numérico esperado, contra el que emitió el modelo.
+  // Extracción: NO se comparan nombres de campo, se compara lo que el MOTOR
+  // lee de cada lado. El alumno puede pegar "Monthly Revenue" y Sophie
+  // normalizarlo a averageRevenue: eso es correcto, y el motor lo resuelve con
+  // su tabla de alias. Comparar claves literales castigaría a Sophie por hacer
+  // bien su trabajo. Comparando valor_num por criterio se mide lo que importa:
+  // ¿el motor ve el mismo número con los datos de Sophie que con los esperados?
   const dEsp = caso.esperado.datos, dMod = payload.datos || {};
-  const campos = Object.keys(dEsp).filter((k) => typeof dEsp[k] === "number");
-  const malos = campos.filter((k) => Number(dMod[k]) !== Number(dEsp[k]));
-  add("extracción", malos.length === 0,
-      malos.length ? `${malos.length}/${campos.length} campos mal: ${malos.map((k) => `${k}=${dMod[k]}≠${dEsp[k]}`).join(", ")}`
-                   : `${campos.length}/${campos.length} campos correctos`);
+  const juiciosEsp = caso.esperado.juicios || {}, juiciosMod = payload.juicios || {};
+  const rEsp = SophieMotor.evaluar(dEsp, juiciosEsp);
+  const r = SophieMotor.evaluar(dMod, juiciosMod);
 
-  // Veredicto: el motor sobre LOS DATOS DEL MODELO. Así se separa el fallo de
-  // extracción del fallo de juicio — dos problemas distintos con arreglos distintos.
-  const r = SophieMotor.evaluar(dMod, payload.juicios || {});
+  const numericos = rEsp.filas.filter((f) => f.valor_num !== undefined);
+  const difs = numericos
+    .map((f) => ({ f, mod: r.filas.find((x) => x.id === f.id) }))
+    .filter(({ f, mod }) => Number(mod?.valor_num) !== Number(f.valor_num));
+  add("extracción", difs.length === 0,
+      difs.length
+        ? `${difs.length}/${numericos.length} criterios con otro número: ` +
+          difs.map(({ f, mod }) => `C${f.id} ${mod?.valor_num ?? "sin dato"}≠${f.valor_num}`).join(", ")
+        : `${numericos.length}/${numericos.length} criterios leen el número correcto`);
   add("veredicto", r.veredicto === caso.esperado.veredicto,
       `${r.veredicto}${r.veredicto === caso.esperado.veredicto ? "" : ` (esperaba ${caso.esperado.veredicto})`}`);
 
@@ -304,10 +314,14 @@ async function main() {
       continue;
     }
 
-    const { chequeos } = evaluarRespuesta(caso, r.texto);
+    const { chequeos, payload } = evaluarRespuesta(caso, r.texto);
     const todos = chequeos.every((c) => c.ok);
     linea(`  ${marca(todos)} ${caso.id.padEnd(22)} ${G}${caso.arquetipo}${X}`);
     for (const c of chequeos) linea(`      ${marca(c.ok)} ${c.nombre.padEnd(12)} ${G}${c.detalle}${X}`);
+    if (DETALLE && payload) {
+      linea(`      ${G}datos   ${JSON.stringify(payload.datos || {})}${X}`);
+      linea(`      ${G}juicios ${JSON.stringify(payload.juicios || {})}${X}`);
+    }
     informe.push({ id: caso.id, arquetipo: caso.arquetipo, chequeos, uso: r.uso });
   }
 
