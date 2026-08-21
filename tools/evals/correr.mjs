@@ -44,6 +44,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { rutaChatProducto, extraerDeChat, leerSnapshot, sha } from "./sincronizar-prompt.mjs";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 
@@ -144,6 +145,23 @@ function autoverificar() {
     process.exit(1);
   }
   linea(`  ${G}los ${lista.length} casos son consistentes con la fuente única${X}`);
+
+  // De qué prompt vamos a medir. Un eval sobre un prompt viejo mide un
+  // Sophie que ya no existe, así que esto se dice siempre, no se asume.
+  const v = verificarSnapshot();
+  const p = promptProduccion();
+  linea(`\n${G}PROMPT BAJO PRUEBA${X}`);
+  if (!p) { linea(`  ${R}✗${X} no hay prompt disponible (ni chat.js ni snapshot)`); process.exit(1); }
+  if (p.origen === "chat.js real") linea(`  ${V}✓${X} chat.js real de sophie-producto ${G}(${p.texto.length} caracteres)${X}`);
+  else linea(`  ${V}✓${X} snapshot del prompt ${G}(${p.texto.length} caracteres · sha ${String(p.sha256).slice(0, 12)}…)${X}`);
+
+  if (v.estado === "desincronizado") {
+    linea(`  ${R}✗ el snapshot ya no coincide con chat.js — el prompt cambió.${X}`);
+    linea(`     Regenera con: node tools/evals/sincronizar-prompt.mjs`);
+    process.exit(1);
+  }
+  if (v.estado === "al-dia") linea(`  ${V}✓${X} ${G}snapshot verificado contra el chat.js real${X}`);
+  if (v.estado === "sin-verificar") linea(`  ${A}·${X} ${G}sin sophie-producto al lado: no se puede verificar que el snapshot esté al día${X}`);
 }
 
 /* ---------- obtener la respuesta del modelo ---------- */
@@ -156,26 +174,33 @@ const DIR_RESP = resolve(aqui, "respuestas");
 const WORKSPACE_EVALS = process.env.SOPHIE_EVAL_WORKSPACE || "wrkspc_01GhK92aU5nvf7Z2v79EvqyU";
 let workspaceVisto = null;
 
-function rutaChatProducto() {
-  return ["/workspace/sophie-producto/netlify/edge-functions/chat.js",
-          resolve(raiz, "..", "sophie-producto", "netlify", "edge-functions", "chat.js")]
-    .find(existsSync) || null;
+// El prompt que corre en producción. Preferencia: el chat.js real. Si
+// sophie-producto no está montado (laptop sin los 10 repos, CI sin token),
+// cae al snapshot generado por sincronizar-prompt.mjs. Nunca a una copia
+// escrita a mano. Devuelve también DE DÓNDE salió, para poder decirlo.
+function promptProduccion() {
+  const ruta = rutaChatProducto();
+  if (ruta) {
+    const real = extraerDeChat(ruta);
+    if (real) return { texto: real, origen: "chat.js real", ruta };
+  }
+  const snap = leerSnapshot();
+  if (snap?.prompt) return { texto: snap.prompt, origen: "snapshot", sha256: snap.sha256 };
+  return null;
 }
 
-// El prompt REAL del módulo, no una copia. Si sophie-producto no está montado,
-// no hay modo vivo posible — misma convención que las guardas.
-function promptReal() {
+// El snapshot solo vale si sigue igual al original. Donde sophie-producto
+// está montado, esto lo comprueba; donde no, avisa que no pudo comprobarse.
+function verificarSnapshot() {
   const ruta = rutaChatProducto();
-  if (!ruta) return null;
-  const L = readFileSync(ruta, "utf8").split("\n");
-  const saca = (n) => {
-    const i = L.findIndex((l) => l.startsWith(`const ${n} =`));
-    if (i < 0) return null;
-    const m = L[i].match(/=\s*"([\s\S]*)";\s*$/);
-    return m ? JSON.parse('"' + m[1] + '"') : null;
-  };
-  const a = saca("SYSTEM_PROMPT_V2"), b = saca("BLOQUE_V2");
-  return a && b ? a + b : null;
+  const snap = leerSnapshot();
+  if (!snap) return { estado: "falta" };
+  if (!ruta) return { estado: "sin-verificar", sha256: snap.sha256 };
+  const real = extraerDeChat(ruta);
+  if (!real) return { estado: "ilegible" };
+  return sha(real) === snap.sha256
+    ? { estado: "al-dia", sha256: snap.sha256 }
+    : { estado: "desincronizado", esperado: sha(real), tiene: snap.sha256 };
 }
 
 async function respuestaDelModelo(caso) {
@@ -191,8 +216,12 @@ async function respuestaDelModelo(caso) {
     "         Es la misma variable que usan tus edge functions (chat.js:331).\n" +
     "         Recomendado: una clave aparte, en un workspace con tope de gasto,\n" +
     "         para poder revocarla sin tocar producción. Ver tools/evals/README.md.");
-  const system = promptReal();
-  if (!system) throw new Error("no encuentro SYSTEM_PROMPT_V2/BLOQUE_V2 (¿sophie-producto montado?)");
+  const p = promptProduccion();
+  if (!p) throw new Error(
+    "no hay prompt de producción disponible.\n" +
+    "         Monta sophie-producto junto a este repo, o genera el snapshot\n" +
+    "         con: node tools/evals/sincronizar-prompt.mjs");
+  const system = p.texto;
 
   const res = await fetch((process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com") + "/v1/messages", {
     method: "POST",
