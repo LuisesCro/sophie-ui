@@ -179,6 +179,9 @@ const DIR_RESP = resolve(aqui, "respuestas");
 // El workspace donde vive la clave de evals. Las claves se scopean a UN
 // workspace; si la clave se creó con el Default activo, el gasto no queda
 // aislado y el tope mensual no aplica. Vale más avisar que suponerlo.
+// Mismo techo que producción (MAX_TOKENS.sonnet en sophie-producto), para que
+// el eval sufra el mismo truncamiento que sufriría el alumno.
+const MAX_SALIDA = Number(process.env.SOPHIE_EVAL_MAX_TOKENS || 6000);
 const WORKSPACE_EVALS = process.env.SOPHIE_EVAL_WORKSPACE || "wrkspc_01GhK92aU5nvf7Z2v79EvqyU";
 let workspaceVisto = null;
 
@@ -238,7 +241,7 @@ async function respuestaDelModelo(caso) {
     headers: { "content-type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6",
-      max_tokens: 6000,
+      max_tokens: MAX_SALIDA,
       // Mismo prefijo cacheado que en producción: el eval mide lo que ve el alumno.
       system: [{ type: "text", text: system, cache_control: { type: "ephemeral", ttl: "1h" } }],
       messages: [{ role: "user", content: caso.entrada }]
@@ -251,6 +254,12 @@ async function respuestaDelModelo(caso) {
   // Una respuesta vacía es un fallo, no un caso "sin grabar": guardarla dejaba
   // un fixture inservible que además nunca se regeneraba offline.
   if (!texto.trim()) throw new Error(`respuesta vacía (stop_reason: ${j.stop_reason || "?"})`);
+  // Truncar es el riesgo real al migrar a un modelo con thinking adaptativo por
+  // defecto y tokenizador nuevo: max_tokens limita thinking + texto juntos, y un
+  // marcador cortado a la mitad deja al estudiante sin pantalla de veredicto.
+  if (j.stop_reason === "max_tokens") throw new Error(
+    `respuesta TRUNCADA (max_tokens ${MAX_SALIDA}). Con thinking activo el techo se comparte ` +
+    `entre razonamiento y texto: el marcador puede quedar cortado. Sube SOPHIE_EVAL_MAX_TOKENS.`);
   mkdirSync(DIR_RESP, { recursive: true });
   writeFileSync(fixture, texto);
   return { texto, origen: "vivo", uso: j.usage };
