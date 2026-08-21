@@ -1,0 +1,233 @@
+{
+  "version": "1.0",
+  "nota": "SET DORADO SINTÉTICO. Los casos NO vienen de alumnos reales: se diseñaron para cubrir cada tramo de la escala y cada veto. Sustituir por casos reales en cuanto se tengan — el arnés no cambia, solo este archivo. Cada caso se autoverifica contra sophie-criterios.js antes de correr (ver README).",
+  "casos": [
+    {
+      "id": "estrella-01",
+      "arquetipo": "PRODUCTO ESTRELLA",
+      "porque_existe": "El camino feliz. Si Sophie falla aquí, algo grave se rompió.",
+      "entrada": "Ya tengo los datos de Xray y Cerebro para 'bamboo spice rack organizer'. Search volume 22,400, tendencia estable los últimos 12 meses. Average Revenue $9,800. El top 1 se lleva el 22% del revenue. Average Reviews 180, el que más tiene son 410. Average Price $34.99. En Cerebro me salen 62 keywords con SV mayor a 300. Mi margen antes de PPC es 42% y el ROI 165%. El costo puesto en FBA es 22% del precio de venta, MOQ 200 unidades. Con mi capital puedo comprar 320 unidades. Los listings de los competidores están descuidados, fotos malas y bullets genéricos. Veo quejas repetidas de que el bambú se astilla. No hay marcas chinas dominando y no hay patentes ni certificaciones.",
+      "esperado": {
+        "veredicto": "PRODUCTO ESTRELLA",
+        "vetos": [],
+        "datos": {
+          "searchVolume": 22400,
+          "tendencia": "estable",
+          "averageRevenue": 9800,
+          "concentracionTop1": 22,
+          "averageReviews": 180,
+          "topReviews": [
+            410
+          ],
+          "averagePrice": 34.99,
+          "keywordsCerebro": 62,
+          "margenAntesPPC": 42,
+          "roi": 165,
+          "costoAterrizadoPct": 22,
+          "moq": 200,
+          "unidadesPosibles": 320
+        },
+        "juicios": {
+          "6": "pass",
+          "9": "pass",
+          "12": "pass",
+          "13": "pass"
+        },
+        "criterios_clave": [
+          1,
+          8
+        ]
+      }
+    },
+    {
+      "id": "veto-margen-01",
+      "arquetipo": "RIESGO MODERADO (limitado por veto)",
+      "porque_existe": "EL CASO MÁS IMPORTANTE DEL SET. Puntaje alto pero un veto activo. Si Sophie dice GO aquí, manda a un alumno a comprar inventario que no deja utilidad. Es el fallo más caro que puede cometer.",
+      "entrada": "Los datos de 'silicone baking mat set': search volume 18,900 y va subiendo. Average Revenue $7,200. El líder tiene el 19% del revenue. Average Reviews 210, el máximo son 380. Average Price $21.99. Cerebro me da 48 keywords sobre 300 de SV. Aquí está el problema: mi margen antes de PPC es 18% y el ROI 74%. El costo puesto en FBA es 26% del precio, MOQ 250. Puedo comprar 400 unidades. Los listings de la competencia son mediocres. Hay una necesidad no cubierta con los tamaños. No hay marcas chinas fuertes ni barreras regulatorias.",
+      "esperado": {
+        "veredicto": "RIESGO MODERADO",
+        "vetos": [
+          8
+        ],
+        "datos": {
+          "searchVolume": 18900,
+          "tendencia": "alcista",
+          "averageRevenue": 7200,
+          "concentracionTop1": 19,
+          "averageReviews": 210,
+          "topReviews": [
+            380
+          ],
+          "averagePrice": 21.99,
+          "keywordsCerebro": 48,
+          "margenAntesPPC": 18,
+          "roi": 74,
+          "costoAterrizadoPct": 26,
+          "moq": 250,
+          "unidadesPosibles": 400
+        },
+        "juicios": {
+          "6": "pass",
+          "9": "pass",
+          "12": "pass",
+          "13": "pass"
+        },
+        "criterios_clave": [
+          8
+        ]
+      }
+    },
+    {
+      "id": "nogo-01",
+      "arquetipo": "NO GO",
+      "porque_existe": "Nicho saturado con guerra de precios. Sophie debe cerrar la puerta, no suavizar. Ojo: el volumen ENORME pasa el criterio 1 sin problema — lo que mata este nicho son márgenes, sourcing y barreras, no la demanda.",
+      "entrada": "Datos de 'stainless steel water bottle': search volume 145,000. Average Revenue $3,100. El top 1 concentra el 58% del revenue. Average Reviews 8,340, el líder tiene 24,000. Average Price $9.99. En Cerebro solo 14 keywords pasan los 300 de SV. Margen antes de PPC 11%, ROI 38%. Costo puesto en FBA 47% del precio, MOQ 1000. Solo puedo comprar 90 unidades. Los listings de la competencia son excelentes, fotos profesionales y video. No veo ninguna necesidad sin cubrir. Hay tres marcas chinas con precios imbatibles y el producto necesita certificación FDA.",
+      "esperado": {
+        "veredicto": "NO GO",
+        "vetos": [
+          7,
+          8,
+          10,
+          13
+        ],
+        "datos": {
+          "searchVolume": 145000,
+          "tendencia": "estable",
+          "averageRevenue": 3100,
+          "concentracionTop1": 58,
+          "averageReviews": 8340,
+          "topReviews": [
+            24000
+          ],
+          "averagePrice": 9.99,
+          "keywordsCerebro": 14,
+          "margenAntesPPC": 11,
+          "roi": 38,
+          "costoAterrizadoPct": 47,
+          "moq": 1000,
+          "unidadesPosibles": 90
+        },
+        "juicios": {
+          "6": "fail",
+          "9": "fail",
+          "12": "fail",
+          "13": "fail"
+        },
+        "criterios_clave": [
+          3,
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "id": "go-ajustes-01",
+      "arquetipo": "GO CON AJUSTES",
+      "porque_existe": "El tramo intermedio. Sophie debe dar GO pero nombrando el ajuste, no un GO limpio.",
+      "entrada": "Para 'ceramic plant pot with drainage': search volume 9,400, tendencia estable. Average Revenue $5,600. El top 1 tiene el 31%. Average Reviews 290, el más alto 620. Average Price $27.50. Cerebro: 41 keywords sobre 300 de SV. Margen antes de PPC 34%, ROI 118%. Costo puesto en FBA 28% del precio, MOQ 300. Puedo comprar 210 unidades. Los listings son decentes pero mejorables. Hay quejas sobre que se rompen en el envío. Hay dos marcas chinas medianas. No hay barreras de entrada.",
+      "esperado": {
+        "veredicto": "GO CON AJUSTES",
+        "vetos": [],
+        "datos": {
+          "searchVolume": 9400,
+          "tendencia": "estable",
+          "averageRevenue": 5600,
+          "concentracionTop1": 31,
+          "averageReviews": 290,
+          "topReviews": [
+            620
+          ],
+          "averagePrice": 27.5,
+          "keywordsCerebro": 41,
+          "margenAntesPPC": 34,
+          "roi": 118,
+          "costoAterrizadoPct": 28,
+          "moq": 300,
+          "unidadesPosibles": 210
+        },
+        "juicios": {
+          "6": "alerta",
+          "9": "pass",
+          "12": "alerta",
+          "13": "pass"
+        },
+        "criterios_clave": [
+          4
+        ]
+      }
+    },
+    {
+      "id": "trampa-tendencia-01",
+      "arquetipo": "RIESGO MODERADO",
+      "porque_existe": "Volumen alto PERO tendencia a la baja. El motor degrada C1 de pass a alerta. Prueba que Sophie no se deslumbra con el número grande — es el error_comun literal del criterio 1.",
+      "entrada": "Datos de 'fidget spinner pro': search volume 31,000 pero la tendencia viene en caída fuerte desde hace 8 meses. Average Revenue $4,900. El top 1 se lleva el 27%. Average Reviews 240, máximo 450. Average Price $16.99. Cerebro: 33 keywords sobre 300. Margen antes de PPC 31%, ROI 105%. Costo puesto en FBA 29%, MOQ 280. Puedo comprar 260 unidades. Listings mediocres. No hay necesidad clara sin cubrir. Sí hay presión china. Sin barreras.",
+      "esperado": {
+        "veredicto": "RIESGO MODERADO",
+        "vetos": [],
+        "datos": {
+          "searchVolume": 31000,
+          "tendencia": "en caída",
+          "averageRevenue": 4900,
+          "concentracionTop1": 27,
+          "averageReviews": 240,
+          "topReviews": [
+            450
+          ],
+          "averagePrice": 16.99,
+          "keywordsCerebro": 33,
+          "margenAntesPPC": 31,
+          "roi": 105,
+          "costoAterrizadoPct": 29,
+          "moq": 280,
+          "unidadesPosibles": 260
+        },
+        "juicios": {
+          "6": "alerta",
+          "9": "fail",
+          "12": "fail",
+          "13": "pass"
+        },
+        "criterios_clave": [
+          1,
+          5
+        ]
+      }
+    },
+    {
+      "id": "alias-helium-01",
+      "arquetipo": "GO CON AJUSTES",
+      "porque_existe": "El alumno pega la nomenclatura vieja de Helium 10 (Monthly Revenue, Price, Reviews, SV). El motor tiene ALIAS para eso; el marcador de Sophie debe salir igual de válido.",
+      "entrada": "Pegué el export viejo de Helium 10 para 'wooden puzzle for toddlers': SV 7,800, tendencia estable. Monthly Revenue $6,400. Concentración del top 1: 24%. Reviews 195, el máximo 390. Price $29.99. Cerebro me da 37 keywords arriba de 300. Margen antes de PPC 36%, ROI 122%. Costo puesto en FBA 25%, MOQ 200. Puedo comprar 240 unidades. Listings flojos. Hay una necesidad no cubierta en el rango de edad. Poca presión china. Requiere certificación CPSIA de juguetes.",
+      "esperado": {
+        "veredicto": "GO CON AJUSTES",
+        "vetos": [],
+        "datos": {
+          "sv": 7800,
+          "tendencia": "estable",
+          "monthlyRevenue": 6400,
+          "concentracionTop1": 24,
+          "reviews": 195,
+          "topReviews": [
+            390
+          ],
+          "price": 29.99,
+          "keywordsCerebro": 37,
+          "margenAntesPPC": 36,
+          "roi": 122,
+          "costoAterrizadoPct": 25,
+          "moq": 200,
+          "unidadesPosibles": 240
+        },
+        "juicios": {
+          "6": "pass",
+          "9": "pass",
+          "12": "alerta",
+          "13": "alerta"
+        },
+        "criterios_clave": [
+          13
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,285 @@
+#!/usr/bin/env node
+/* ============================================================
+   ARNÉS DE EVALUACIÓN — ¿Sophie enseña bien?
+   Crezcamos Online · sophie-ui/tools/evals/correr.mjs
+
+   Los tests de tools/ prueban que el SOFTWARE es correcto. Esto prueba
+   otra cosa: que el MODELO acierta el juicio. Son preguntas distintas y
+   hasta ahora solo teníamos respuesta para la primera.
+
+   TRES CAPAS, de más barata a más cara:
+
+   0) AUTOVERIFICACIÓN — corre el motor sobre los datos ESPERADOS de cada
+      caso y confirma que producen el veredicto esperado. No usa el modelo
+      ni gasta tokens. Si cambias un umbral en sophie-criterios.js y un caso
+      queda obsoleto, esto lo dice aquí, no lo esconde. El set dorado nunca
+      puede desincronizarse de la fuente única.
+
+   1) DETERMINISTA — sobre la respuesta del modelo: ¿emitió el marcador?
+      ¿extrajo bien los números? ¿el motor sobre SUS datos da el veredicto
+      correcto? ¿activó los vetos que debía? Objetivo, sin juez, sin opinión.
+
+   2) JUEZ (opcional, --juez) — lo que no se puede medir con un número:
+      ¿explicó el POR QUÉ o solo recitó el umbral? ¿citó el criterio que
+      manda? ¿inventó algún dato? Ver rubrica.mjs.
+
+   MODOS:
+     sin ANTHROPIC_API_KEY  → offline: usa las respuestas grabadas en
+                              respuestas/<id>.txt. Corre en CI y en el
+                              pre-push sin gastar un centavo.
+     con ANTHROPIC_API_KEY  → vivo: llama a la API con el prompt REAL de
+                              sophie-producto (no una copia) y graba la
+                              respuesta para que la corrida siguiente sea
+                              reproducible offline.
+
+   USO:
+     node tools/evals/correr.mjs                # autoverificar + offline
+     node tools/evals/correr.mjs --vivo         # llama a la API y graba
+     node tools/evals/correr.mjs --vivo --juez  # + rúbrica pedagógica
+     node tools/evals/correr.mjs --caso nogo-01 # un solo caso
+     node tools/evals/correr.mjs --base linea-base.json   # compara contra baseline
+     node tools/evals/correr.mjs --guardar-base linea-base.json
+   ============================================================ */
+
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const aqui = dirname(fileURLToPath(import.meta.url));
+const raiz = resolve(aqui, "..", "..");
+const args = process.argv.slice(2);
+const opt = (n) => args.includes(n);
+const val = (n, d) => { const i = args.indexOf(n); return i >= 0 && args[i + 1] ? args[i + 1] : d; };
+
+const VIVO = opt("--vivo");
+const JUEZ = opt("--juez");
+const SOLO = val("--caso", null);
+const BASE = val("--base", null);
+const GUARDAR_BASE = val("--guardar-base", null);
+
+/* ---------- motor: la misma fuente única que ve el alumno ---------- */
+
+const win = {};
+function cargar(archivo) {
+  new Function("window", "document", readFileSync(resolve(raiz, archivo), "utf8"))(win, undefined);
+}
+cargar("sophie-criterios.js");
+cargar("sophie-motor.js");
+cargar("sophie-analisis.js");
+const { SophieMotor, SophieAnalisis } = win;
+
+const CASOS = JSON.parse(readFileSync(resolve(aqui, "casos.json"), "utf8"));
+const lista = SOLO ? CASOS.casos.filter((c) => c.id === SOLO) : CASOS.casos;
+if (!lista.length) { console.error(`No hay caso con id "${SOLO}".`); process.exit(1); }
+
+/* ---------- utilidades de reporte ---------- */
+
+const V = "\x1b[32m", R = "\x1b[31m", A = "\x1b[33m", G = "\x1b[90m", X = "\x1b[0m";
+const linea = (s = "") => console.log(s);
+const marca = (ok) => (ok ? `${V}✓${X}` : `${R}✗${X}`);
+
+/* ---------- capa 0 · autoverificación del set dorado ---------- */
+
+function autoverificar() {
+  linea(`\n${G}CAPA 0 · AUTOVERIFICACIÓN — ¿el set dorado sigue de acuerdo con sophie-criterios.js?${X}`);
+  let malos = 0;
+  for (const c of lista) {
+    const r = SophieMotor.evaluar(c.esperado.datos, c.esperado.juicios || {});
+    const vOK = r.veredicto === c.esperado.veredicto;
+    const vetosReales = r.vetos.map((v) => v.id).sort((a, b) => a - b);
+    const vetosEsp = (c.esperado.vetos || []).slice().sort((a, b) => a - b);
+    const vetoOK = JSON.stringify(vetosReales) === JSON.stringify(vetosEsp);
+
+    if (vOK && vetoOK) {
+      linea(`  ${marca(true)} ${c.id.padEnd(22)} ${r.veredicto} · ${r.aprobados}/${r.total} criterios`);
+    } else {
+      malos++;
+      linea(`  ${marca(false)} ${c.id.padEnd(22)} ${R}el caso ya no cuadra con la metodología${X}`);
+      if (!vOK) linea(`      veredicto: esperaba ${c.esperado.veredicto}, el motor da ${r.veredicto} (${r.aprobados}/${r.total})`);
+      if (!vetoOK) linea(`      vetos: esperaba [${vetosEsp}], el motor activa [${vetosReales}]`);
+    }
+  }
+  if (malos) {
+    linea(`\n${R}El set dorado está desincronizado en ${malos} caso(s).${X}`);
+    linea(`Pasa si cambiaste un umbral: actualiza esos casos en casos.json antes de seguir.`);
+    linea(`Correr el modelo contra un set inconsistente mide ruido, no calidad.\n`);
+    process.exit(1);
+  }
+  linea(`  ${G}los ${lista.length} casos son consistentes con la fuente única${X}`);
+}
+
+/* ---------- obtener la respuesta del modelo ---------- */
+
+const DIR_RESP = resolve(aqui, "respuestas");
+
+function rutaChatProducto() {
+  return ["/workspace/sophie-producto/netlify/edge-functions/chat.js",
+          resolve(raiz, "..", "sophie-producto", "netlify", "edge-functions", "chat.js")]
+    .find(existsSync) || null;
+}
+
+// El prompt REAL del módulo, no una copia. Si sophie-producto no está montado,
+// no hay modo vivo posible — misma convención que las guardas.
+function promptReal() {
+  const ruta = rutaChatProducto();
+  if (!ruta) return null;
+  const L = readFileSync(ruta, "utf8").split("\n");
+  const saca = (n) => {
+    const i = L.findIndex((l) => l.startsWith(`const ${n} =`));
+    if (i < 0) return null;
+    const m = L[i].match(/=\s*"([\s\S]*)";\s*$/);
+    return m ? JSON.parse('"' + m[1] + '"') : null;
+  };
+  const a = saca("SYSTEM_PROMPT_V2"), b = saca("BLOQUE_V2");
+  return a && b ? a + b : null;
+}
+
+async function respuestaDelModelo(caso) {
+  const fixture = resolve(DIR_RESP, `${caso.id}.txt`);
+  if (!VIVO) {
+    if (!existsSync(fixture)) return { texto: null, origen: "sin-grabar" };
+    return { texto: readFileSync(fixture, "utf8"), origen: "grabada" };
+  }
+
+  const KEY = process.env.ANTHROPIC_API_KEY;
+  if (!KEY) throw new Error("--vivo necesita ANTHROPIC_API_KEY en el entorno.");
+  const system = promptReal();
+  if (!system) throw new Error("no encuentro SYSTEM_PROMPT_V2/BLOQUE_V2 (¿sophie-producto montado?)");
+
+  const res = await fetch((process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com") + "/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6",
+      max_tokens: 6000,
+      // Mismo prefijo cacheado que en producción: el eval mide lo que ve el alumno.
+      system: [{ type: "text", text: system, cache_control: { type: "ephemeral", ttl: "1h" } }],
+      messages: [{ role: "user", content: caso.entrada }]
+    })
+  });
+  if (!res.ok) throw new Error(`API ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const j = await res.json();
+  const texto = (j.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  mkdirSync(DIR_RESP, { recursive: true });
+  writeFileSync(fixture, texto);
+  return { texto, origen: "vivo", uso: j.usage };
+}
+
+/* ---------- capa 1 · determinista ---------- */
+
+function evaluarRespuesta(caso, texto) {
+  const chequeos = [];
+  const add = (nombre, ok, detalle) => chequeos.push({ nombre, ok, detalle });
+
+  const payload = SophieAnalisis.detectar(texto);
+  add("marcador", !!payload,
+      payload ? "extraído y parseado" : "no se pudo extraer/parsear el marcador SOPHIE");
+  if (!payload) return { chequeos, payload: null };
+
+  // Extracción: cada campo numérico esperado, contra el que emitió el modelo.
+  const dEsp = caso.esperado.datos, dMod = payload.datos || {};
+  const campos = Object.keys(dEsp).filter((k) => typeof dEsp[k] === "number");
+  const malos = campos.filter((k) => Number(dMod[k]) !== Number(dEsp[k]));
+  add("extracción", malos.length === 0,
+      malos.length ? `${malos.length}/${campos.length} campos mal: ${malos.map((k) => `${k}=${dMod[k]}≠${dEsp[k]}`).join(", ")}`
+                   : `${campos.length}/${campos.length} campos correctos`);
+
+  // Veredicto: el motor sobre LOS DATOS DEL MODELO. Así se separa el fallo de
+  // extracción del fallo de juicio — dos problemas distintos con arreglos distintos.
+  const r = SophieMotor.evaluar(dMod, payload.juicios || {});
+  add("veredicto", r.veredicto === caso.esperado.veredicto,
+      `${r.veredicto}${r.veredicto === caso.esperado.veredicto ? "" : ` (esperaba ${caso.esperado.veredicto})`}`);
+
+  const vetosReales = r.vetos.map((v) => v.id).sort((a, b) => a - b);
+  const vetosEsp = (caso.esperado.vetos || []).slice().sort((a, b) => a - b);
+  add("vetos", JSON.stringify(vetosReales) === JSON.stringify(vetosEsp),
+      `[${vetosReales}]${JSON.stringify(vetosReales) === JSON.stringify(vetosEsp) ? "" : ` (esperaba [${vetosEsp}])`}`);
+
+  return { chequeos, payload, resultado: r };
+}
+
+/* ---------- corrida ---------- */
+
+async function main() {
+  linea(`\nARNÉS DE EVALUACIÓN · Sophie Producto`);
+  linea(`${G}set: ${CASOS.casos.length} casos sintéticos · modo: ${VIVO ? "VIVO (llama a la API)" : "offline (respuestas grabadas)"}${X}`);
+
+  autoverificar();
+
+  linea(`\n${G}CAPA 1 · DETERMINISTA — ¿el modelo acierta sobre estos casos?${X}`);
+  const informe = [];
+  let sinGrabar = 0;
+
+  for (const caso of lista) {
+    let r;
+    try {
+      r = await respuestaDelModelo(caso);
+    } catch (e) {
+      linea(`  ${marca(false)} ${caso.id} — ${R}${e.message}${X}`);
+      informe.push({ id: caso.id, error: e.message });
+      continue;
+    }
+    if (!r.texto) {
+      sinGrabar++;
+      linea(`  ${A}○${X} ${caso.id.padEnd(22)} ${G}sin respuesta grabada — corre con --vivo para generarla${X}`);
+      informe.push({ id: caso.id, omitido: true });
+      continue;
+    }
+
+    const { chequeos } = evaluarRespuesta(caso, r.texto);
+    const todos = chequeos.every((c) => c.ok);
+    linea(`  ${marca(todos)} ${caso.id.padEnd(22)} ${G}${caso.arquetipo}${X}`);
+    for (const c of chequeos) linea(`      ${marca(c.ok)} ${c.nombre.padEnd(12)} ${G}${c.detalle}${X}`);
+    informe.push({ id: caso.id, arquetipo: caso.arquetipo, chequeos, uso: r.uso });
+  }
+
+  if (JUEZ) {
+    const { correrJuez } = await import("./rubrica.mjs");
+    await correrJuez({ lista, informe, dirRespuestas: DIR_RESP, linea, marca, G, X });
+  }
+
+  /* ---------- resumen ---------- */
+
+  const conDatos = informe.filter((i) => i.chequeos);
+  const total = conDatos.length;
+  const dims = ["marcador", "extracción", "veredicto", "vetos"];
+  linea(`\n${G}RESUMEN${X}`);
+  if (!total) {
+    linea(`  ${A}Ningún caso tiene respuesta grabada todavía.${X}`);
+    linea(`  ${G}El arnés está listo; falta alimentarlo: node tools/evals/correr.mjs --vivo${X}\n`);
+    return;
+  }
+  const tasas = {};
+  for (const d of dims) {
+    const n = conDatos.filter((i) => i.chequeos.find((c) => c.nombre === d)?.ok).length;
+    tasas[d] = n / total;
+    const pct = Math.round(tasas[d] * 100);
+    const color = pct === 100 ? V : pct >= 80 ? A : R;
+    linea(`  ${d.padEnd(12)} ${color}${String(pct).padStart(3)}%${X} ${G}(${n}/${total})${X}`);
+  }
+  if (sinGrabar) linea(`  ${G}${sinGrabar} caso(s) sin grabar, no cuentan${X}`);
+
+  if (BASE && existsSync(BASE)) {
+    const base = JSON.parse(readFileSync(BASE, "utf8"));
+    linea(`\n${G}CONTRA LÍNEA BASE (${BASE})${X}`);
+    for (const d of dims) {
+      const antes = base.tasas?.[d] ?? 0, ahora = tasas[d], dif = Math.round((ahora - antes) * 100);
+      const sig = dif > 0 ? `${V}+${dif}${X}` : dif < 0 ? `${R}${dif}${X}` : `${G}=${X}`;
+      linea(`  ${d.padEnd(12)} ${Math.round(antes * 100)}% → ${Math.round(ahora * 100)}%  ${sig}`);
+    }
+  }
+  if (GUARDAR_BASE) {
+    writeFileSync(GUARDAR_BASE, JSON.stringify({ fecha: null, modelo: process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6", tasas, total }, null, 2));
+    linea(`\n${G}línea base guardada en ${GUARDAR_BASE}${X}`);
+  }
+
+  const falla = conDatos.some((i) => !i.chequeos.every((c) => c.ok));
+  linea("");
+  process.exit(falla ? 1 : 0);
+}
+
+/* Como CLI corre; importado desde un test, solo expone las capas. */
+const esCLI = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+if (esCLI) main().catch((e) => { console.error(`\n${R}${e.stack || e.message}${X}\n`); process.exit(1); });
+
+export { evaluarRespuesta, SophieMotor, CASOS };
