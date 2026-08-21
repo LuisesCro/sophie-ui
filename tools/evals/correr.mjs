@@ -134,6 +134,12 @@ function autoverificar() {
 
 const DIR_RESP = resolve(aqui, "respuestas");
 
+// El workspace donde vive la clave de evals. Las claves se scopean a UN
+// workspace; si la clave se creó con el Default activo, el gasto no queda
+// aislado y el tope mensual no aplica. Vale más avisar que suponerlo.
+const WORKSPACE_EVALS = process.env.SOPHIE_EVAL_WORKSPACE || "wrkspc_01GhK92aU5nvf7Z2v79EvqyU";
+let workspaceVisto = null;
+
 function rutaChatProducto() {
   return ["/workspace/sophie-producto/netlify/edge-functions/chat.js",
           resolve(raiz, "..", "sophie-producto", "netlify", "edge-functions", "chat.js")]
@@ -183,6 +189,7 @@ async function respuestaDelModelo(caso) {
       messages: [{ role: "user", content: caso.entrada }]
     })
   });
+  workspaceVisto = res.headers.get("anthropic-workspace-id") || workspaceVisto;
   if (!res.ok) throw new Error(`API ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const j = await res.json();
   const texto = (j.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
@@ -284,6 +291,16 @@ async function main() {
     linea(`  ${d.padEnd(12)} ${color}${String(pct).padStart(3)}%${X} ${G}(${n}/${total})${X}`);
   }
   if (sinGrabar) linea(`  ${G}${sinGrabar} caso(s) sin grabar, no cuentan${X}`);
+
+  if (workspaceVisto) {
+    const ok = workspaceVisto === WORKSPACE_EVALS;
+    linea(`\n${G}WORKSPACE${X}`);
+    linea(ok
+      ? `  ${V}✓${X} la clave resuelve a ${workspaceVisto} ${G}(el de evals: gasto aislado y con tope)${X}`
+      : `  ${A}⚠${X}  la clave resuelve a ${A}${workspaceVisto}${X}, no al de evals (${WORKSPACE_EVALS}).\n` +
+        `      Se creó con otro workspace activo: el gasto NO está aislado y el tope no aplica.\n` +
+        `      Recrea la clave con "Sophie Evals" seleccionado, o ajusta SOPHIE_EVAL_WORKSPACE.`);
+  }
 
   // Costo real de la corrida. El eval mide calidad; esto mide lo que cuesta
   // medirla, para que la decisión de correrlo seguido sea informada.
