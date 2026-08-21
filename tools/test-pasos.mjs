@@ -103,7 +103,7 @@ grupo("No quedan umbrales escritos a mano");
 t("los pasos 3 y 4 no llevan ningún número de filtro literal", () => {
   const src = fuente("sophie-pasos.js");
   const i3 = src.indexOf("\n    3: function"), i5 = src.indexOf("\n    5: function");
-  const duros = src.slice(i3, i5).match(/(?:≥|≤|Min:|Max:|\(mínimo\)|\(máximo\)) ?\$?[\d,]{2,}/g) || [];
+  const duros = src.slice(i3, i5).match(/(?:≥|≤|Min|Max|\(mínimo\)|\(máximo\))\s*:?\s*\$?\d[\d.,]*/g) || [];
   ok(duros.length === 0, "reaparecieron umbrales a mano: " + duros.join(" · "));
 });
 

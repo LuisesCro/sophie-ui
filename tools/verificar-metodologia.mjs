@@ -88,6 +88,33 @@ if (!chatPath) {
   // "SV ≥ 4,500" a "SV ≥ 3,000" seguía en verde porque el 4,500 sobrevivía
   // en la condición de fallo de la misma línea, dejando el prompt
   // contradiciéndose a sí mismo.
+  // El generador arma el bloque desde el campo `prompt` (texto), pero el motor
+  // puntúa con `umbral_num`. Son dos representaciones del MISMO umbral dentro
+  // del mismo archivo: si alguien cambia el número y no la frase, el alumno lee
+  // un criterio y el motor aplica otro. Esto lo comprueba antes de comparar.
+  for (const c of SC.lista) {
+    if (!c.prompt) continue;
+    const faltan = [];
+    const mencionado = (n) => {
+      const s1 = String(n), conMiles = Number(n).toLocaleString("en-US");
+      return c.prompt.includes(s1) || c.prompt.includes(conMiles) ||
+             (c.prompt_extra || []).some((e) => e.includes(s1) || e.includes(conMiles));
+    };
+    // El texto que ve el ALUMNO en su scorecard es un tercer sitio donde vive
+    // el mismo umbral. Puede decir "SV ≥ 3,000" mientras el motor puntúa con
+    // 4,500 y nadie se entera: el alumno lee una regla y su nota sale de otra.
+    if (c.umbral_num != null && c.umbral && !(
+          c.umbral.includes(String(c.umbral_num)) ||
+          c.umbral.includes(Number(c.umbral_num).toLocaleString("en-US"))))
+      fail("C" + c.id + " (" + c.criterio + "): el texto que ve el alumno (\"" + c.umbral +
+           "\") no menciona " + c.umbral_num + ", que es con lo que el motor puntúa");
+
+    if (c.umbral_num != null && !mencionado(c.umbral_num)) faltan.push("umbral " + c.umbral_num);
+    if (c.alerta_num != null && c.alerta_num !== c.umbral_num && !mencionado(c.alerta_num)) faltan.push("alerta " + c.alerta_num);
+    if (faltan.length) fail("C" + c.id + " (" + c.criterio + "): el texto del prompt no menciona " + faltan.join(" ni ") +
+                            " — el motor puntúa con ese número y la frase dice otro");
+  }
+
   const generado = generarBloque();
   const actual = bloqueEnChat(chatPath);
 
@@ -143,7 +170,7 @@ seccion("PANTALLAS DEL ALUMNO (sophie-pasos.js · filtros Black Box y Cerebro)")
     // Regresión: que nadie vuelva a escribir un umbral a mano en estos pasos.
     const src = readFileSync(resolve(raiz, "sophie-pasos.js"), "utf8");
     const i3 = src.indexOf("\n    3: function"), i5 = src.indexOf("\n    5: function");
-    const duros = (src.slice(i3, i5).match(/(?:≥|≤|Min:|Max:|\(mínimo\)|\(máximo\)) ?\$?[\d,]{2,}/g) || []);
+    const duros = (src.slice(i3, i5).match(/(?:≥|≤|Min|Max|\(mínimo\)|\(máximo\))\s*:?\s*\$?\d[\d.,]*/g) || []);
     if (duros.length) fail("los pasos 3 y 4 volvieron a llevar umbrales escritos a mano: " + duros.join(" · "));
     else ok("ningún umbral escrito a mano en los pasos 3 y 4");
   }
