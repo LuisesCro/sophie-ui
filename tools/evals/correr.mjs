@@ -72,6 +72,28 @@ const CASOS = JSON.parse(readFileSync(resolve(aqui, "casos.json"), "utf8"));
 const lista = SOLO ? CASOS.casos.filter((c) => c.id === SOLO) : CASOS.casos;
 if (!lista.length) { console.error(`No hay caso con id "${SOLO}".`); process.exit(1); }
 
+/* ---------- precios (USD por millón de tokens, ago-2026) ---------- */
+
+// Solo para reportar el costo de la corrida. Si un modelo no está aquí, se
+// informa el consumo en tokens y se omite el dinero, en vez de inventarlo.
+const PRECIOS = {
+  "claude-opus-5":     { in: 5, out: 25 },
+  "claude-sonnet-5":   { in: 2, out: 10 },   // precio de introducción hasta 2026-08-31
+  "claude-sonnet-4-6": { in: 3, out: 15 },
+  "claude-haiku-4-5":  { in: 1, out: 5 },
+  "claude-haiku-4-5-20251001": { in: 1, out: 5 }
+};
+
+// Lectura de cache ≈ 0.1× · escritura de cache ≈ 1.25× (sobre el precio de entrada).
+function costoDe(modelo, u) {
+  const p = PRECIOS[modelo];
+  if (!p || !u) return null;
+  return ((u.input_tokens || 0) * p.in
+        + (u.cache_read_input_tokens || 0) * p.in * 0.1
+        + (u.cache_creation_input_tokens || 0) * p.in * 1.25
+        + (u.output_tokens || 0) * p.out) / 1e6;
+}
+
 /* ---------- utilidades de reporte ---------- */
 
 const V = "\x1b[32m", R = "\x1b[31m", A = "\x1b[33m", G = "\x1b[90m", X = "\x1b[0m";
@@ -142,7 +164,11 @@ async function respuestaDelModelo(caso) {
   }
 
   const KEY = process.env.ANTHROPIC_API_KEY;
-  if (!KEY) throw new Error("--vivo necesita ANTHROPIC_API_KEY en el entorno.");
+  if (!KEY) throw new Error(
+    "--vivo necesita ANTHROPIC_API_KEY en el entorno.\n" +
+    "         Es la misma variable que usan tus edge functions (chat.js:331).\n" +
+    "         Recomendado: una clave aparte, en un workspace con tope de gasto,\n" +
+    "         para poder revocarla sin tocar producción. Ver tools/evals/README.md.");
   const system = promptReal();
   if (!system) throw new Error("no encuentro SYSTEM_PROMPT_V2/BLOQUE_V2 (¿sophie-producto montado?)");
 
@@ -258,6 +284,23 @@ async function main() {
     linea(`  ${d.padEnd(12)} ${color}${String(pct).padStart(3)}%${X} ${G}(${n}/${total})${X}`);
   }
   if (sinGrabar) linea(`  ${G}${sinGrabar} caso(s) sin grabar, no cuentan${X}`);
+
+  // Costo real de la corrida. El eval mide calidad; esto mide lo que cuesta
+  // medirla, para que la decisión de correrlo seguido sea informada.
+  const usos = informe.filter((i) => i.uso);
+  if (usos.length) {
+    const modelo = process.env.SOPHIE_EVAL_MODELO || "claude-sonnet-4-6";
+    const sum = (k) => usos.reduce((a, i) => a + (i.uso[k] || 0), 0);
+    const dinero = usos.reduce((a, i) => a + (costoDe(modelo, i.uso) || 0), 0);
+    linea(`\n${G}COSTO DE ESTA CORRIDA (${modelo})${X}`);
+    linea(`  entrada sin cache  ${String(sum("input_tokens")).padStart(8)} tokens`);
+    linea(`  leído de cache     ${String(sum("cache_read_input_tokens")).padStart(8)} tokens ${G}(≈10% del precio)${X}`);
+    linea(`  escrito a cache    ${String(sum("cache_creation_input_tokens")).padStart(8)} tokens`);
+    linea(`  salida             ${String(sum("output_tokens")).padStart(8)} tokens`);
+    linea(PRECIOS[modelo]
+      ? `  ${V}total ≈ $${dinero.toFixed(4)}${X} ${G}· $${(dinero / usos.length).toFixed(4)} por caso${X}`
+      : `  ${A}sin precio conocido para ${modelo}: solo tokens${X}`);
+  }
 
   if (BASE && existsSync(BASE)) {
     const base = JSON.parse(readFileSync(BASE, "utf8"));
