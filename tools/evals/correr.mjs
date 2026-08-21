@@ -84,7 +84,7 @@ function cargar(archivo) {
 cargar("sophie-criterios.js");
 cargar("sophie-motor.js");
 cargar("sophie-analisis.js");
-const { SophieMotor, SophieAnalisis } = win;
+const { SophieMotor, SophieAnalisis, SophieCriterios } = win;
 
 const CASOS = JSON.parse(readFileSync(resolve(aqui, "casos.json"), "utf8"));
 const lista = SOLO ? CASOS.casos.filter((c) => c.id === SOLO) : CASOS.casos;
@@ -275,15 +275,42 @@ function evaluarRespuesta(caso, texto) {
         ? `${difs.length}/${numericos.length} criterios con otro número: ` +
           difs.map(({ f, mod }) => `C${f.id} ${mod?.valor_num ?? "sin dato"}≠${f.valor_num}`).join(", ")
         : `${numericos.length}/${numericos.length} criterios leen el número correcto`);
-  add("veredicto", r.veredicto === caso.esperado.veredicto,
-      `${r.veredicto}${r.veredicto === caso.esperado.veredicto ? "" : ` (esperaba ${caso.esperado.veredicto})`}`);
+  // Los criterios 6, 9, 12 y 13 los JUZGA el modelo: el prompt le da una regla
+  // en prosa, no un umbral. Calificarlos contra una etiqueta que escribimos
+  // nosotros no es un chequeo determinista, es una opinión con bata de
+  // laboratorio — y en la primera corrida nos hizo reprobar a Sophie dos veces
+  // por juicios que la regla del prompt respaldaba. Así que se separan:
+  //
+  //   determinista  -> los números y lo que se deriva SOLO de ellos. Pass/fail.
+  //   juicio        -> divergencias informativas; quién tiene razón lo evalúa
+  //                    la capa 2 (¿está fundado en lo que dijo el estudiante?).
+  const idsJuicio = new Set(SophieCriterios.lista.filter((c) => c.direccion === "juicio").map((c) => c.id));
 
-  const vetosReales = r.vetos.map((v) => v.id).sort((a, b) => a - b);
-  const vetosEsp = (caso.esperado.vetos || []).slice().sort((a, b) => a - b);
+  // Veredicto del CAMINO DE DATOS: los números del modelo con los juicios
+  // esperados. Aísla "¿leyó bien y el motor concluye lo correcto?" de
+  // "¿juzgó igual que yo?".
+  const rDatos = SophieMotor.evaluar(dMod, juiciosEsp);
+  add("veredicto", rDatos.veredicto === caso.esperado.veredicto,
+      `${rDatos.veredicto}${rDatos.veredicto === caso.esperado.veredicto ? "" : ` (esperaba ${caso.esperado.veredicto})`}`);
+
+  // Vetos deterministas: los que dispara un número (1, 7, 8, 10). El 13 es de
+  // juicio y se reporta abajo, no se califica aquí.
+  const soloDet = (v) => v.map((x) => (typeof x === "object" ? x.id : x)).filter((id) => !idsJuicio.has(id)).sort((a, b) => a - b);
+  const vetosReales = soloDet(rDatos.vetos);
+  const vetosEsp = soloDet(caso.esperado.vetos || []);
   add("vetos", JSON.stringify(vetosReales) === JSON.stringify(vetosEsp),
       `[${vetosReales}]${JSON.stringify(vetosReales) === JSON.stringify(vetosEsp) ? "" : ` (esperaba [${vetosEsp}])`}`);
 
-  return { chequeos, payload, resultado: r };
+  // Informativo: los juicios del modelo y el veredicto que ve el estudiante.
+  const estadoDe = (j, id) => {
+    const v = (j && (j[id] || j["c" + id])) || {};
+    return typeof v === "string" ? v : v.estado || "alerta";
+  };
+  const divergen = [...idsJuicio]
+    .map((id) => ({ id, mod: estadoDe(juiciosMod, id), esp: estadoDe(juiciosEsp, id) }))
+    .filter((d) => d.mod !== d.esp);
+
+  return { chequeos, payload, resultado: r, divergen, veredictoReal: r.veredicto };
 }
 
 /* ---------- corrida ---------- */
@@ -314,10 +341,15 @@ async function main() {
       continue;
     }
 
-    const { chequeos, payload } = evaluarRespuesta(caso, r.texto);
+    const { chequeos, payload, divergen, veredictoReal } = evaluarRespuesta(caso, r.texto);
     const todos = chequeos.every((c) => c.ok);
     linea(`  ${marca(todos)} ${caso.id.padEnd(22)} ${G}${caso.arquetipo}${X}`);
     for (const c of chequeos) linea(`      ${marca(c.ok)} ${c.nombre.padEnd(12)} ${G}${c.detalle}${X}`);
+    if (divergen?.length) {
+      linea(`      ${A}·${X} juicios      ${G}${divergen.map((d) => `C${d.id} ${d.mod} (yo puse ${d.esp})`).join(" · ")}${X}`);
+      if (veredictoReal !== caso.esperado.veredicto)
+        linea(`        ${G}con SUS juicios el estudiante ve: ${veredictoReal}${X}`);
+    }
     if (DETALLE && payload) {
       linea(`      ${G}datos   ${JSON.stringify(payload.datos || {})}${X}`);
       linea(`      ${G}juicios ${JSON.stringify(payload.juicios || {})}${X}`);

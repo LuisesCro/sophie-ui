@@ -79,10 +79,23 @@ t("el alumno pega 'monthlyRevenue' y Sophie emite 'averageRevenue' → extracci�
   eq(chequeo(r, "extracción").ok, true, "renombrar al canónico no debe contar como fallo");
   eq(chequeo(r, "veredicto").ok, true, "y el veredicto debe salir igual");
 });
-t("extracción perfecta pero juicio equivocado → falla 'veredicto', no 'extracción'", () => {
+t("juicio distinto al mío → se REPORTA, no se reprueba", () => {
+  // Los criterios 6, 9, 12 y 13 los juzga el modelo con una regla en prosa.
+  // Discrepar de la etiqueta que escribimos nosotros no es un fallo
+  // determinista: se reporta la divergencia y la capa 2 decide si está fundada.
   const r = evaluarRespuesta(caso, respuestaPerfecta(caso, { juicios: { 6: "fail", 9: "fail", 12: "fail", 13: "fail" } }));
   eq(chequeo(r, "extracción").ok, true, "los números están bien");
-  eq(chequeo(r, "veredicto").ok, false, "el veredicto ya no es el esperado");
+  eq(chequeo(r, "veredicto").ok, true, "el camino de datos sigue siendo correcto");
+  eq(r.divergen.length, 4, "las cuatro divergencias de juicio se reportan");
+  eq(r.veredictoReal !== caso.esperado.veredicto, true, "y se dice qué veredicto ve el estudiante con SUS juicios");
+});
+
+t("un veto de JUICIO (C13) no reprueba el chequeo de vetos", () => {
+  // Fue el falso fallo de trampa-tendencia-01: Sophie marcó C13 fail siguiendo
+  // la regla del prompt y el arnés la reprobó contra una etiqueta improvisada.
+  const r = evaluarRespuesta(caso, respuestaPerfecta(caso, { juicios: { 13: "fail" } }));
+  eq(chequeo(r, "vetos").ok, true, "los vetos numéricos siguen intactos");
+  eq(r.divergen.some((d) => d.id === 13), true, "pero la divergencia de C13 se reporta");
 });
 
 grupo("El arnés atrapa el fallo más caro: un GO sobre un producto vetado");
