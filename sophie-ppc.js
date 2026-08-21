@@ -599,14 +599,101 @@
     return out;
   }
 
+
+  /* ============================================================
+     TRASPASO AL MÓDULO DE ADS
+     ------------------------------------------------------------
+     El Optimizador decide por matemática, en el navegador, sin
+     modelo. Este puente empaqueta LO QUE EL ALUMNO YA VIO para que
+     Sophie Ads lo explique y arme el plan — no para que lo recalcule.
+
+     Regla de oro: aquí no se decide nada. Si el texto dijera algo
+     distinto de la pantalla, el alumno tendría dos verdades. Por eso
+     recibe las decisiones ya tomadas (f.decision.g y .accion) y se
+     limita a ordenarlas y resumirlas.
+     ============================================================ */
+
+  // datos = {
+  //   economia:  { precio, breakEvenACOS, diasReporte, objetivo }
+  //   totales:   { gasto, ventas, ordenes, clics, desperdicio, cosechables, ventasTotales }
+  //   filas:     [ { term, spend, sales, orders, clicks, acos, cpc, decision:{g,accion} } ]
+  //   gate:      { veredicto, motivo }   // el "¿pujas o listing?", opcional
+  // }
+  function traspaso(datos, limitePorGrupo) {
+    if (!datos || !Array.isArray(datos.filas)) return null;
+    var lim = limitePorGrupo || 6;
+    var e = datos.economia || {}, t = datos.totales || {};
+
+    var precio = n(e.precio), be = n(e.breakEvenACOS);
+    if (precio <= 0 || be <= 0) return null;
+
+    var beCPA = precio * (be / 100);
+    var targetACOS = be * (1 - CONFIG.MARGEN_OBJETIVO);
+
+    var out = 'OPTIMIZADOR PPC — DECISIONES YA CALCULADAS EN EL NAVEGADOR DEL ESTUDIANTE\n';
+    out += 'NO recalcules ni contradigas estas decisiones: son las que el estudiante ya vio en pantalla.\n';
+    out += 'Tu trabajo es explicarlas, priorizarlas y convertirlas en un plan de ejecución.\n\n';
+
+    out += 'ECONOMÍA DEL ESTUDIANTE\n';
+    out += '  precio $' + precio.toFixed(2) + ' | break-even ACOS ' + be + '%';
+    out += ' | CPA de equilibrio $' + beCPA.toFixed(2);
+    out += ' | ACOS objetivo ' + targetACOS.toFixed(1) + '%\n';
+    if (e.objetivo) out += '  objetivo de campaña: ' + String(e.objetivo).toUpperCase() + '\n';
+    if (n(e.diasReporte) > 0) out += '  periodo del reporte: ' + n(e.diasReporte) + ' días\n';
+
+    out += '\nLA CUENTA EN ESTE REPORTE\n';
+    out += '  gasto $' + n(t.gasto).toFixed(2) + ' | ventas de ads $' + n(t.ventas).toFixed(2);
+    out += ' | órdenes ' + n(t.ordenes) + ' | clics ' + n(t.clics) + '\n';
+    if (n(t.ventas) > 0) out += '  ACOS de la cuenta: ' + (n(t.gasto) / n(t.ventas) * 100).toFixed(1) + '%\n';
+    // TACOS: el norte real. Solo si el estudiante aportó sus ventas totales.
+    if (n(t.ventasTotales) > 0) {
+      out += '  TACOS: ' + (n(t.gasto) / n(t.ventasTotales) * 100).toFixed(1) + '%';
+      out += ' (sobre $' + n(t.ventasTotales).toFixed(2) + ' de ventas totales, orgánicas + ads)\n';
+    } else {
+      out += '  TACOS: no calculable — el estudiante no aportó sus ventas totales. Pídeselas: sin TACOS\n';
+      out += '  no se puede juzgar si el gasto vale la pena.\n';
+    }
+    if (n(t.desperdicio) > 0) out += '  gasto sin una sola venta: $' + n(t.desperdicio).toFixed(2) + '\n';
+    if (n(t.cosechables) > 0) out += '  términos listos para cosechar: ' + n(t.cosechables) + '\n';
+
+    if (datos.gate && datos.gate.veredicto) {
+      out += '\n¿PUJAS O LISTING?\n  ' + datos.gate.veredicto;
+      if (datos.gate.motivo) out += ' — ' + datos.gate.motivo;
+      out += '\n';
+    }
+
+    // Decisiones agrupadas, cada grupo ordenado por gasto: lo que más cuesta primero.
+    var porGrupo = {};
+    datos.filas.forEach(function (f) {
+      var g = (f.decision && f.decision.g) || 'sin-grupo';
+      (porGrupo[g] = porGrupo[g] || []).push(f);
+    });
+
+    out += '\nDECISIONES POR GRUPO (hasta ' + lim + ' términos por grupo, los de mayor gasto)\n';
+    Object.keys(porGrupo).sort().forEach(function (g) {
+      var lista = porGrupo[g].slice().sort(function (a, b) { return n(b.spend) - n(a.spend); });
+      out += '\n  [' + g.toUpperCase() + '] ' + lista.length + ' término(s)\n';
+      lista.slice(0, lim).forEach(function (f) {
+        out += '    · "' + String(f.term || '').slice(0, 70) + '"';
+        out += ' — $' + n(f.spend).toFixed(2) + ' gasto, ' + n(f.clicks) + ' clics, ' + n(f.orders) + ' órdenes';
+        if (f.acos !== null && f.acos !== undefined && !isNaN(n(f.acos))) out += ', ACOS ' + n(f.acos).toFixed(1) + '%';
+        out += '\n      → ' + ((f.decision && f.decision.accion) || 'sin acción') + '\n';
+      });
+      if (lista.length > lim) out += '    (+' + (lista.length - lim) + ' más en el mismo grupo)\n';
+    });
+
+    return out;
+  }
+
   global.SophiePPC = {
-    version: '1.3',
+    version: '1.4',
     config: CONFIG,
     clasificar: clasificar,
     texto: texto,
     wilson: wilson,             // intervalo de confianza (no informativo) de una proporción
     intervalo: intervalo,       // intervalo con prior Bayesiano (Empirical Bayes)
-    clicsParaNegar: clicsParaNegar
+    clicsParaNegar: clicsParaNegar,
+    traspaso: traspaso        // empaqueta lo ya decidido para Sophie Ads
   };
 
 })(typeof window !== 'undefined' ? window : this);
