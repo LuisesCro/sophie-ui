@@ -24,6 +24,7 @@
    ============================================================ */
 
 import { readFileSync, existsSync } from "node:fs";
+import { generarBloque, bloqueEnChat } from "./generar-bloque-criterios.mjs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -77,29 +78,32 @@ const candidatosChat = [
 ];
 const chatPath = candidatosChat.find(existsSync);
 
-seccion("PROMPT DEL MODELO (sophie-producto/chat.js · SYSTEM_PROMPT_V2)");
+seccion("PROMPT DEL MODELO (sophie-producto/chat.js · bloque de los 13 criterios)");
 if (!chatPath) {
   aviso("No encuentro el chat.js de sophie-producto (repo no montado). Revisado: " + candidatosChat.join(" | "));
 } else {
-  const chat = readFileSync(chatPath, "utf8");
-  // El prompt activo empieza en SYSTEM_PROMPT_V2 (el SYSTEM_PROMPT viejo
-  // está dormido y no se envía; lo excluimos cortando desde V2).
-  const desdeV2 = chat.indexOf("const SYSTEM_PROMPT_V2");
-  const activo = desdeV2 >= 0 ? chat.slice(desdeV2) : chat;
+  // Comparación EXACTA contra el bloque generado desde sophie-criterios.js.
+  // Antes esto solo comprobaba que el número apareciera en algún lugar del
+  // bloque del criterio, y eso dejaba pasar una edición parcial: bajar
+  // "SV ≥ 4,500" a "SV ≥ 3,000" seguía en verde porque el 4,500 sobrevivía
+  // en la condición de fallo de la misma línea, dejando el prompt
+  // contradiciéndose a sí mismo.
+  const generado = generarBloque();
+  const actual = bloqueEnChat(chatPath);
 
-  for (const c of calculables) {
-    // bloque del criterio: entre "C{id} ·" y "C{id+1} ·"
-    const ini = activo.indexOf("C" + c.id + " ·");
-    if (ini < 0) { fail("C" + c.id + " (" + c.criterio + "): no encuentro su bloque en el prompt"); continue; }
-    let fin = activo.indexOf("C" + (c.id + 1) + " ·", ini + 1);
-    if (fin < 0) fin = ini + 600;
-    const bloque = activo.slice(ini, fin);
-
-    const faltantes = [];
-    if (c.umbral_num != null && !numRe(c.umbral_num).test(bloque)) faltantes.push("umbral " + c.umbral_num);
-    if (c.alerta_num != null && !numRe(c.alerta_num).test(bloque)) faltantes.push("alerta " + c.alerta_num);
-    if (faltantes.length) fail("C" + c.id + " (" + c.criterio + "): el prompt no menciona " + faltantes.join(" ni "));
-    else ok("C" + c.id + " (" + c.criterio + "): umbrales presentes");
+  if (actual === null) {
+    fail("no pude aislar el bloque de criterios en el prompt (¿cambiaron los delimitadores?)");
+  } else if (actual === generado) {
+    ok("el bloque de los 13 criterios es idéntico al generado desde la fuente única (" + generado.length + " caracteres)");
+  } else {
+    let donde = -1;
+    for (let k = 0; k < Math.max(actual.length, generado.length); k++) {
+      if (actual[k] !== generado[k]) { donde = k; break; }
+    }
+    fail("el bloque del prompt NO coincide con sophie-criterios.js (primera diferencia en el carácter " + donde + ")");
+    lineas.push("      en chat.js:  " + JSON.stringify(actual.slice(Math.max(0, donde - 45), donde + 45)));
+    lineas.push("      debería ser: " + JSON.stringify(generado.slice(Math.max(0, donde - 45), donde + 45)));
+    lineas.push("      arréglalo en sophie-criterios.js y corre: node tools/generar-bloque-criterios.mjs --escribir");
   }
 }
 

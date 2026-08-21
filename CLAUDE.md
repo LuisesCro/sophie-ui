@@ -32,13 +32,24 @@ un módulo que no tienes al lado.
    suavizarlos. Si te piden "que Sophie sea más flexible con X", eso es un cambio
    de umbral en `sophie-criterios.js` — no una instrucción en un prompt.
 
-2. **Cambiar un umbral toca tres lugares.** `sophie-criterios.js` es la fuente
-   única, pero dos copias en **prosa** repiten esos números a mano:
-   el prompt en `sophie-producto/netlify/edge-functions/chat.js`
-   (`SYSTEM_PROMPT_V2` + `BLOQUE_V2`) y las pantallas del alumno en
-   `sophie-pasos.js` (pasos 3 y 4). Flujo obligatorio:
-   editar criterios → actualizar las dos copias → `node tools/verificar-metodologia.mjs`
-   hasta OK → desplegar.
+2. **Cambiar un umbral: el prompt se genera, las pantallas todavía no.**
+   `sophie-criterios.js` es la fuente única y ahora también la fuente del
+   **texto** de los 13 criterios en el prompt del modelo (campos `prompt` y
+   `prompt_extra`). El bloque de `sophie-producto/chat.js` se genera y se
+   compara byte a byte:
+
+   ```bash
+   npm run criterios:generar     # reescribe el bloque en chat.js
+   ```
+
+   La segunda copia en prosa —las pantallas del alumno en `sophie-pasos.js`,
+   pasos 3 y 4— **sigue escrita a mano**. Flujo: editar criterios → correr el
+   generador → actualizar `sophie-pasos.js` → `npm run guardas` hasta OK.
+
+   La guarda ya no comprueba que el número "aparezca" en el bloque del prompt:
+   compara el bloque entero. Una edición parcial —bajar `SV ≥ 4,500` a
+   `SV ≥ 3,000` dejando intacto el `❌ si SV < 4,500` de la misma línea— pasaba
+   en verde con la comprobación vieja y ahora falla señalando el carácter exacto.
 
 3. **Ningún módulo se abre sobre un producto no validado.** `sophie-puerta.js` es
    la puerta pedagógica (tres estados: permitido / advertencia / bloqueado). No

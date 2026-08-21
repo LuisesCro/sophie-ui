@@ -4,14 +4,15 @@
   "version": "1.0.0",
   "description": "Front-end de la suite Sophie · Crezcamos Online",
   "scripts": {
-    "test": "node tools/test-parsers.mjs && node tools/test-intencion.mjs && node tools/test-cobertura.mjs && node tools/test-evals.mjs && node tools/test-traspaso.mjs",
+    "test": "node tools/test-parsers.mjs && node tools/test-intencion.mjs && node tools/test-cobertura.mjs && node tools/test-evals.mjs && node tools/test-traspaso.mjs && node tools/test-generador.mjs",
     "guardas": "node tools/verificar-metodologia.mjs && node tools/verificar-router.mjs",
     "test:e2e": "node tools/recorrido-e2e.mjs",
     "test:e2e:html": "node tools/recorrido-e2e.mjs --html recorrido-e2e-reporte.html",
     "test:all": "npm run test && npm run test:e2e",
     "evals": "node tools/evals/correr.mjs",
     "evals:vivo": "node tools/evals/correr.mjs --vivo --juez",
-    "guardas:strict": "node tools/verificar-metodologia.mjs --strict && node tools/verificar-router.mjs --strict"
+    "guardas:strict": "node tools/verificar-metodologia.mjs --strict && node tools/verificar-router.mjs --strict",
+    "criterios:generar": "node tools/generar-bloque-criterios.mjs --escribir"
   },
   "devDependencies": {
     "jsdom": "^25.0.1"
