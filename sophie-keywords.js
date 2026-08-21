@@ -52,12 +52,59 @@
   // Relevancia multi-ASIN: no cambia los umbrales, informa los bordes.
   var RELEVANCIA = { alta: 5, baja: 2 };
 
+  /* ---- Lectura de números escritos por personas -------------------------
+     El estudiante teclea en español ("24,9") y pega exportaciones de Helium 10
+     en inglés ("22,400"). Un parser que borra todas las comas convierte 24,9
+     en 249 — un error de 10x en un criterio de VETO.
+
+     Reglas, tomadas de lo que ya funcionaba en la suite:
+       · Con AMBOS separadores, manda el ÚLTIMO: "1.234,56" y "1,234.56" → 1234.56
+       · Con UNO SOLO, es separador de miles si agrupa de tres en tres y el
+         primer grupo no empieza en 0: "22,400" y "1.234" → 22400 y 1234.
+         Si no agrupa así, es decimal: "24,9" → 24.9 · "0.325" → 0.325
+       · Sufijo k: "1.2k" → 1200
+
+     Devuelve NaN —nunca 0— cuando no hay número: el motor distingue
+     "sin dato" de "cero", y confundirlos aprueba criterios que deberían
+     quedar en alerta. Esta función está DUPLICADA a propósito en los motores
+     que la necesitan (cada módulo carga un subconjunto distinto); el test
+     tools/test-numeros.mjs verifica que las copias no diverjan. */
   function num(v) {
-    if (typeof v === 'number') return v;
-    if (v === null || v === undefined) return NaN;
-    var s = String(v).trim().replace(/[$%\s]/g, '').replace(/,/g, '');
-    if (/^\d+\.\d{3}$/.test(String(v).trim())) s = String(v).trim().replace('.', ''); // 1.234 europeo
-    return parseFloat(s);
+    if (typeof v === 'number') return isFinite(v) ? v : NaN;
+    if (v === null || v === undefined || v === '') return NaN;
+
+    var bruto = String(v).trim();
+    var esK = /k$/i.test(bruto);
+    var s = bruto.replace(/[^0-9.,\-]/g, '');
+    if (!s) return NaN;
+
+    var signo = s.charAt(0) === '-' ? -1 : 1;
+    s = s.replace(/-/g, '');
+
+    // ¿El separador agrupa de tres en tres? "1.234.567" sí; "0.325" no
+    // (una agrupación nunca empieza en 0); "24,9" tampoco.
+    function esMiles(sep) {
+      var partes = s.split(sep);
+      if (partes.length < 2) return false;
+      if (!/^\d{1,3}$/.test(partes[0]) || partes[0] === '0') return false;
+      for (var i = 1; i < partes.length; i++) if (!/^\d{3}$/.test(partes[i])) return false;
+      return true;
+    }
+
+    var coma = s.indexOf(','), punto = s.indexOf('.');
+    if (coma > -1 && punto > -1) {
+      // Los dos presentes: el último es el decimal, el otro agrupa.
+      if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(/,/g, '');
+    } else if (coma > -1) {
+      s = esMiles(',') ? s.replace(/,/g, '') : s.replace(',', '.');
+    } else if (punto > -1) {
+      if (esMiles('.')) s = s.replace(/\./g, '');
+    }
+
+    var x = parseFloat(s);
+    if (!isFinite(x)) return NaN;
+    return signo * (esK ? x * 1000 : x);
   }
 
   // Reconoce los encabezados de Cerebro, incluidos los nombres antiguos.
