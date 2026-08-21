@@ -21,7 +21,31 @@ const MODELO_JUEZ = process.env.SOPHIE_JUEZ_MODELO || "claude-opus-5";
 
 /* ---------- la rúbrica ---------- */
 
-const DIMENSIONES = [
+/* ---------- las rúbricas, una por modo ----------
+
+   En los pasos de análisis (6, 8, 9) el prompt le dice a Sophie: "Emites solo
+   el marcador de datos", y la pedagogía la redacta la app desde
+   sophie-criterios.js (ver sophie-render.js: por_que, leccion, error_comun).
+   Calificar ahí "¿explicó el porqué?" mide el artefacto equivocado: castiga a
+   Sophie por obedecer. Lo que Sophie SÍ controla en ese modo es el juicio de
+   los criterios 6, 9, 12 y 13, y no inventar datos.
+
+   En los turnos propios (MODO 3) Sophie sí escribe la pantalla. Ahí la
+   pedagogía es suya y sí se califica.                                        */
+
+const DIM_ANALISIS = [
+  { id: "juicio_fundado",
+    pregunta: "¿Los criterios de juicio (6, 9, 12, 13) se apoyan en lo que el estudiante realmente observó?",
+    guia: "2 = cada juicio se apoya en algo que el estudiante dijo. 1 = alguno queda sin respaldo. 0 = juicios que contradicen lo que el estudiante reportó." },
+  { id: "sin_invencion",
+    pregunta: "¿Se apegó a los datos que dio el estudiante?",
+    guia: "2 = ningún dato inventado. 1 = alguna cifra vaga no aportada. 0 = inventó datos concretos (el fallo más grave: el estudiante decide con números falsos)." },
+  { id: "no_se_desborda",
+    pregunta: "¿Respetó su modo, sin escribir la pantalla que le toca a la aplicación?",
+    guia: "2 = emite el marcador y a lo sumo una línea de transición. 1 = agrega prosa que duplica lo que la app ya pinta. 0 = redacta el veredicto o el scorecard por su cuenta." }
+];
+
+const DIM_PROPIO = [
   { id: "explica_por_que",
     pregunta: "¿Explicó POR QUÉ el criterio existe, o solo recitó el umbral?",
     guia: "2 = explica la razón de negocio detrás del criterio. 1 = la menciona de pasada. 0 = solo dice el número o el veredicto." },
@@ -29,22 +53,25 @@ const DIMENSIONES = [
     pregunta: "¿Nombró el criterio que realmente decide este caso?",
     guia: "2 = nombra el criterio clave y lo conecta con la decisión. 1 = lo menciona sin conectarlo. 0 = no lo menciona o culpa al criterio equivocado." },
   { id: "sin_invencion",
-    pregunta: "¿Se apegó a los datos que dio el alumno?",
-    guia: "2 = ningún dato inventado. 1 = alguna cifra vaga no aportada. 0 = inventó datos concretos (el fallo más grave: el alumno decide con números falsos)." },
+    pregunta: "¿Se apegó a los datos que dio el estudiante?",
+    guia: "2 = ningún dato inventado. 1 = alguna cifra vaga no aportada. 0 = inventó datos concretos." },
   { id: "accionable",
     pregunta: "¿El siguiente paso es concreto y ejecutable hoy?",
     guia: "2 = paso específico y accionable. 1 = genérico ('mejora tu margen'). 0 = no hay siguiente paso." },
   { id: "tono",
     pregunta: "¿Cálida y directa, sin condescendencia ni relleno motivacional?",
-    guia: "2 = habla como una experta que respeta al alumno. 1 = correcta pero acartonada. 0 = condescendiente, o puro ánimo sin sustancia." }
+    guia: "2 = habla como una experta que respeta al estudiante. 1 = correcta pero acartonada. 0 = condescendiente, o puro ánimo sin sustancia." }
 ];
 
-const ESQUEMA = {
+const RUBRICAS = { analisis: DIM_ANALISIS, propio: DIM_PROPIO };
+const dimsDe = (caso) => RUBRICAS[caso.modo || "propio"] || DIM_PROPIO;
+
+const esquemaDe = (DIMS) => ({
   type: "object",
   properties: {
     dimensiones: {
       type: "object",
-      properties: Object.fromEntries(DIMENSIONES.map((d) => [d.id, {
+      properties: Object.fromEntries(DIMS.map((d) => [d.id, {
         type: "object",
         properties: {
           puntaje: { type: "integer", enum: [0, 1, 2] },
@@ -53,20 +80,22 @@ const ESQUEMA = {
         required: ["puntaje", "evidencia"],
         additionalProperties: false
       }])),
-      required: DIMENSIONES.map((d) => d.id),
+      required: DIMS.map((d) => d.id),
       additionalProperties: false
     },
-    fallo_mas_grave: { type: "string", description: "En una frase: lo peor de esta respuesta desde el punto de vista del alumno. 'ninguno' si no lo hay." }
+    fallo_mas_grave: { type: "string", description: "En una frase: lo peor de esta respuesta desde el punto de vista del estudiante. 'ninguno' si no lo hay." }
   },
   required: ["dimensiones", "fallo_mas_grave"],
   additionalProperties: false
-};
+});
 
 const SISTEMA = `Eres un evaluador de calidad pedagógica para Crezcamos Online, una academia de Amazon FBA en español.
 
 Vas a calificar UNA respuesta de Sophie, la asistente que valida productos con los alumnos.
 
-Califica SOLO la calidad de la enseñanza. La corrección del veredicto ya se midió con el motor de criterios — no la vuelvas a juzgar y no premies ni castigues el veredicto en sí.
+Califica SOLO lo que la rúbrica pide. La corrección del veredicto ya se midió con el motor de criterios — no la vuelvas a juzgar y no premies ni castigues el veredicto en sí.
+
+IMPORTANTE — en los pasos de análisis, la aplicación calcula el puntaje, decide el veredicto y redacta la pedagogía de cada criterio. Sophie tiene instrucción explícita de emitir SOLO el marcador de datos. Que la respuesta sea breve y no explique la metodología NO es un defecto: es lo que se le pidió.
 
 Sé estricto. El sesgo natural de un evaluador es dar 2 por defecto; resístelo. Un 2 significa que la respuesta enseña algo que el alumno recordará dentro de un mes. Si dudas entre dos puntajes, da el menor y explica por qué en la evidencia.`;
 
@@ -78,12 +107,13 @@ export async function correrJuez({ lista, informe, dirRespuestas, linea, marca, 
   if (!KEY) { linea(`  ${G}sin ANTHROPIC_API_KEY: omitido${X}`); return; }
 
   const base = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
-  const totales = Object.fromEntries(DIMENSIONES.map((d) => [d.id, []]));
+  const totales = {};
 
   for (const caso of lista) {
     const f = resolve(dirRespuestas, `${caso.id}.txt`);
     if (!existsSync(f)) continue;
     const respuesta = readFileSync(f, "utf8");
+    const DIMS = dimsDe(caso);
     const clave = (caso.esperado.criterios_clave || []).join(", ");
 
     const res = await fetch(base + "/v1/messages", {
@@ -98,13 +128,13 @@ export async function correrJuez({ lista, informe, dirRespuestas, linea, marca, 
         tools: [{
           name: "calificar",
           description: "Entrega la calificación de la respuesta según la rúbrica.",
-          input_schema: ESQUEMA,
+          input_schema: esquemaDe(DIMS),
           strict: true            // ← la API valida; el juez no puede salirse del contrato
         }],
         tool_choice: { type: "tool", name: "calificar" },
         messages: [{
           role: "user",
-          content: `RÚBRICA\n${DIMENSIONES.map((d) => `- ${d.id}: ${d.pregunta}\n  ${d.guia}`).join("\n")}
+          content: `MODO DEL TURNO: ${caso.modo || "propio"}\n\nRÚBRICA\n${DIMS.map((d) => `- ${d.id}: ${d.pregunta}\n  ${d.guia}`).join("\n")}
 
 CONTEXTO DEL CASO
 Arquetipo esperado: ${caso.arquetipo}
@@ -125,23 +155,23 @@ ${respuesta}`
     if (!uso) { linea(`  ✗ ${caso.id} — el juez no llamó a la herramienta`); continue; }
 
     const cal = uso.input;
-    const suma = DIMENSIONES.reduce((a, d) => a + cal.dimensiones[d.id].puntaje, 0);
-    const max = DIMENSIONES.length * 2;
-    DIMENSIONES.forEach((d) => totales[d.id].push(cal.dimensiones[d.id].puntaje));
+    const suma = DIMS.reduce((a, d) => a + cal.dimensiones[d.id].puntaje, 0);
+    const max = DIMS.length * 2;
+    DIMS.forEach((d) => { (totales[d.id] ||= []).push(cal.dimensiones[d.id].puntaje); });
 
     linea(`  ${marca(suma >= max * 0.8)} ${caso.id.padEnd(22)} ${suma}/${max}  ${G}${cal.fallo_mas_grave}${X}`);
     const fila = informe.find((i) => i.id === caso.id);
     if (fila) fila.juez = cal;
   }
 
-  const conDatos = DIMENSIONES.filter((d) => totales[d.id].length);
-  if (!conDatos.length) return;
+  const ids = Object.keys(totales);
+  if (!ids.length) return;
   linea(`\n${G}  promedio por dimensión${X}`);
-  for (const d of conDatos) {
-    const v = totales[d.id];
+  for (const id of ids) {
+    const v = totales[id];
     const prom = v.reduce((a, b) => a + b, 0) / v.length;
-    linea(`    ${d.id.padEnd(24)} ${prom.toFixed(2)} / 2.00`);
+    linea(`    ${id.padEnd(24)} ${prom.toFixed(2)} / 2.00  ${G}(${v.length} caso${v.length > 1 ? "s" : ""})${X}`);
   }
 }
 
-export { DIMENSIONES, ESQUEMA };
+export { DIM_ANALISIS, DIM_PROPIO, RUBRICAS, dimsDe, esquemaDe };
