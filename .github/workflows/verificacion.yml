@@ -1,0 +1,96 @@
+name: Verificación
+
+# Un push a main publica en vivo para los alumnos, así que esto corre en cada
+# push y en cada PR. El hook de pre-push sigue existiendo para el trabajo local;
+# esto es la red que no depende de que nadie se acuerde de activarlo.
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+
+  # ── Lo que no necesita nada: 142 tests sin dependencias ni repos hermanos ──
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A PROPÓSITO antes de instalar nada. Los tests rápidos deben correr en un
+      # checkout limpio —es lo que permite que el hook de pre-push funcione sin
+      # node_modules—. Si alguien mete una dependencia, este paso lo delata.
+      - name: Tests rápidos (sin node_modules)
+        run: npm test
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # jsdom: monta las pantallas en un DOM real y recorre el viaje del producto.
+      - name: Recorrido E2E
+        run: npm run test:e2e
+
+  # ── Lo que sí necesita los 6 módulos, que son privados ──
+  guardas:
+    name: Guardas de metodología y router
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprobar el token de lectura
+        env:
+          TOKEN: ${{ secrets.SOPHIE_REPOS_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            {
+              echo "### ⚠️ Guardas no verificadas"
+              echo ""
+              echo "Falta el secreto \`SOPHIE_REPOS_TOKEN\`, así que no se pudieron clonar los 6"
+              echo "módulos y **no se comprobó** que sus prompts sigan de acuerdo con"
+              echo "\`sophie-criterios.js\` ni que cumplan el contrato del router."
+              echo ""
+              echo "Para activarlo:"
+              echo "1. GitHub → Settings → Developer settings → **Fine-grained tokens**"
+              echo "2. Acceso de solo lectura al contenido de los 6 repos \`sophie-*\`"
+              echo "3. Pegarlo en este repo como secreto \`SOPHIE_REPOS_TOKEN\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Sin SOPHIE_REPOS_TOKEN las guardas no pueden correr. Ver el resumen del job."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          path: sophie-ui
+
+      # Los módulos van como hermanos: las guardas los buscan en ../sophie-<modulo>.
+      - name: Clonar los módulos
+        env:
+          TOKEN: ${{ secrets.SOPHIE_REPOS_TOKEN }}
+        run: |
+          for m in producto listing proveedores ads lanzamiento rescate optiads; do
+            git clone --depth 1 --quiet \
+              "https://x-access-token:${TOKEN}@github.com/${{ github.repository_owner }}/sophie-$m.git" \
+              "sophie-$m"
+          done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # --strict: un módulo que falte deja de omitirse en silencio y falla.
+      # Es la diferencia entre "corrieron las guardas" y "las guardas verificaron algo".
+      - name: Guardas en modo estricto
+        working-directory: sophie-ui
+        run: npm run guardas:strict
+
+      # Con optiads montado, el recorrido también ejercita su gate "¿pujas o listing?".
+      - name: Instalar dependencias
+        working-directory: sophie-ui
+        run: npm ci
+
+      - name: Recorrido E2E con los repos hermanos
+        working-directory: sophie-ui
+        run: npm run test:e2e

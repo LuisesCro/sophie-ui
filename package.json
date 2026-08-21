@@ -10,7 +10,8 @@
     "test:e2e:html": "node tools/recorrido-e2e.mjs --html recorrido-e2e-reporte.html",
     "test:all": "npm run test && npm run test:e2e",
     "evals": "node tools/evals/correr.mjs",
-    "evals:vivo": "node tools/evals/correr.mjs --vivo --juez"
+    "evals:vivo": "node tools/evals/correr.mjs --vivo --juez",
+    "guardas:strict": "node tools/verificar-metodologia.mjs --strict && node tools/verificar-router.mjs --strict"
   },
   "devDependencies": {
     "jsdom": "^25.0.1"
