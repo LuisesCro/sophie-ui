@@ -80,6 +80,56 @@
      Cada función devuelve lo que va DENTRO de <div class="s-body">
      ============================================================ */
 
+  /* ---- Filtros: los números salen de sophie-criterios.js ----------------
+     Estas pantallas repetían a mano los umbrales de Black Box y Cerebro. Era
+     la segunda copia en prosa del README: si alguien cambiaba el criterio y
+     olvidaba la pantalla, el alumno filtraba con un número y el motor
+     evaluaba con otro. Ahora se leen de la fuente; la copia dejó de existir.
+     Si SophieCriterios no está cargado, se lanza en vez de pintar un número
+     inventado — una pantalla rota se ve; un umbral silenciosamente mal, no. */
+  function filtro(grupo, campo) {
+    var C = global.SophieCriterios;
+    if (!C || !C.filtros || !C.filtros[grupo]) {
+      throw new Error('SophiePasos: falta sophie-criterios.js (filtros.' + grupo + ')');
+    }
+    for (var i = 0; i < C.filtros[grupo].length; i++) {
+      if (C.filtros[grupo][i].campo === campo) return C.filtros[grupo][i];
+    }
+    throw new Error('SophiePasos: no encuentro el filtro "' + campo + '" en ' + grupo);
+  }
+
+  // Número tal como lo ve el alumno: separador de miles y $ si es moneda.
+  function numFiltro(grupo, campo, cual) {
+    var f = filtro(grupo, campo);
+    var v = f[cual];
+    if (v === null || v === undefined) throw new Error('SophiePasos: ' + campo + ' no tiene ' + cual);
+    return (f.moneda ? '$' : '') + Number(v).toLocaleString('en-US');
+  }
+
+  // La lista de filtros de una pantalla, generada entera desde la fuente.
+  // Regla: una línea por límite existente; la nota acompaña a la primera.
+  function listaFiltros(grupo) {
+    var out = '';
+    var lista = (global.SophieCriterios.filtros[grupo] || []);
+    for (var i = 0; i < lista.length; i++) {
+      var f = lista[i], primera = true;
+      if (f.valor !== undefined) {
+        out += '<li><b>' + f.campo + '</b>: ' + f.valor + '</li>';
+        continue;
+      }
+      if (f.min !== null && f.min !== undefined) {
+        out += '<li><b>' + f.campo + '</b> (mínimo): ' + numFiltro(grupo, f.campo, 'min') +
+               (f.nota ? ' — ' + f.nota : '') + '</li>';
+        primera = false;
+      }
+      if (f.max !== null && f.max !== undefined) {
+        out += '<li><b>' + f.campo + '</b> (máximo): ' + numFiltro(grupo, f.campo, 'max') +
+               (primera && f.nota ? ' — ' + f.nota : '') + '</li>';
+      }
+    }
+    return out;
+  }
+
   var PASOS = {
 
     /* ---- 1 · Bienvenida y elección de camino ---- */
@@ -128,31 +178,25 @@
       return '<h1>Configura estos filtros</h1>' +
         '<p class="s-lead">Con <b>[categoria]</b> seleccionada, aplica exactamente estos filtros en Black Box → Keywords.</p>' +
         '<ul class="s-list">' +
-          '<li><b>Search Volume</b> (mínimo): 4,500 — sin máximo</li>' +
-          '<li><b>Monthly Sales Units</b> (mínimo): 300</li>' +
-          '<li><b>Review Count</b> (máximo): 500</li>' +
-          '<li><b>Monthly Revenue</b> (mínimo): $4,500</li>' +
-          '<li><b>Price</b> (mínimo): $20 — ideal desde $25</li>' +
-          '<li><b>Price</b> (máximo): $60</li>' +
-          '<li><b>Word Count</b> (mínimo): 2</li>' +
+          listaFiltros('blackBox') +
         '</ul>' +
         '<h2>¿Por qué estos filtros específicos?</h2>' +
         '<div class="s-card">' +
-          '<p><b>Search Volume ≥ 4,500</b>, sin máximo: asegura un ecosistema de keywords con tráfico real, ' +
+          '<p><b>Search Volume ≥ ' + numFiltro('blackBox','Search Volume','min') + '</b>, sin máximo: asegura un ecosistema de keywords con tráfico real, ' +
           'para que el producto indexe y genere ventas orgánicas constantes. No le ponemos techo: más demanda ' +
           'nunca es algo que quieras filtrar fuera.</p>' +
-          '<p><b>Monthly Sales Units ≥ 300</b>: el filtro más importante que la mayoría omite. El volumen de ' +
+          '<p><b>Monthly Sales Units ≥ ' + numFiltro('blackBox','Monthly Sales Units','min') + '</b>: el filtro más importante que la mayoría omite. El volumen de ' +
           'búsqueda mide intención; las unidades vendidas miden comportamiento real. Un nicho puede tener 10,000 ' +
           'búsquedas y solo 50 ventas al mes — eso es un nicho de curiosos, no de compradores.</p>' +
-          '<p><b>Review Count ≤ 500</b>: este es el filtro de descubrimiento, más permisivo que el criterio de ' +
+          '<p><b>Review Count ≤ ' + numFiltro('blackBox','Review Count','max') + '</b>: este es el filtro de descubrimiento, más permisivo que el criterio de ' +
           'evaluación posterior. Queremos ver más nichos para que tengas mayor superficie de candidatos. En Fase 1 ' +
           'aplicamos un criterio más estricto que descarta los quemados. La diferencia es intencional: el filtro ' +
           'abre la puerta, el criterio cierra la trampa.</p>' +
-          '<p><b>Monthly Revenue ≥ $4,500/mes</b>: valida que el nicho tiene tamaño comercial saludable y evita ' +
+          '<p><b>Monthly Revenue ≥ ' + numFiltro('blackBox','Monthly Revenue','min') + '/mes</b>: valida que el nicho tiene tamaño comercial saludable y evita ' +
           'que pierdas tiempo en mercados muertos que no cubrirían tus costos operativos.</p>' +
-          '<p><b>Price desde $20</b>: las tarifas FBA subieron fuerte. Hoy un producto de $15 con FBA ($3–5), ' +
+          '<p><b>Price desde ' + numFiltro('blackBox','Price','min') + '</b>: las tarifas FBA subieron fuerte. Hoy un producto de $15 con FBA ($3–5), ' +
           'comisión del 15% ($2.25) y COGS ($3) no deja margen real. El piso viable es $20; el objetivo, $25+.</p>' +
-          '<p><b>Word Count ≥ 2</b>: las keywords de una palabra (bag, mat, kit) son demasiado genéricas y mezclan ' +
+          '<p><b>Word Count ≥ ' + numFiltro('blackBox','Word Count','min') + '</b>: las keywords de una palabra (bag, mat, kit) son demasiado genéricas y mezclan ' +
           'productos distintos. Con mínimo 2 palabras llegas a keywords con intención de compra definida, que es ' +
           'donde viven los nichos más rentables.</p>' +
         '</div>' +
@@ -183,13 +227,13 @@
           '<p><b>Paso 4 — Aplica exactamente estos filtros</b> y dale Apply Filters:</p>' +
         '</div>' +
         '<ul class="s-list">' +
-          '<li><b>Search Volume</b> → Min: 300</li>' +
-          '<li><b>Match Type</b> → Organic</li>' +
-          '<li><b>Number of Organic Competitors</b> → ASIN Min: 3 · ASIN Max: 10</li>' +
-          '<li><b>Competitor Organic Rank</b> → Rank Min: 1 · Rank Max: 45</li>' +
+          '<li><b>Search Volume</b> → Min: ' + numFiltro('cerebro','Search Volume','min') + '</li>' +
+          '<li><b>Match Type</b> → ' + filtro('cerebro','Match Type').valor + '</li>' +
+          '<li><b>Number of Organic Competitors</b> → ASIN Min: ' + numFiltro('cerebro','Number of Organic Competitors','min') + ' · ASIN Max: ' + numFiltro('cerebro','Number of Organic Competitors','max') + '</li>' +
+          '<li><b>Competitor Organic Rank</b> → Rank Min: ' + numFiltro('cerebro','Competitor Organic Rank','min') + ' · Rank Max: ' + numFiltro('cerebro','Competitor Organic Rank','max') + '</li>' +
         '</ul>' +
         '<div class="s-why"><b>Qué acabas de hacer</b>' +
-          '<p>Le pediste a Cerebro solo las keywords con demanda real (≥300 búsquedas/mes) por las que entre 3 y 10 ' +
+          '<p>Le pediste a Cerebro solo las keywords con demanda real (≥' + numFiltro('cerebro','Search Volume','min') + ' búsquedas/mes) por las que entre ' + numFiltro('cerebro','Number of Organic Competitors','min') + ' y ' + numFiltro('cerebro','Number of Organic Competitors','max') + ' ' +
           'de esos competidores aparecen de forma orgánica en la primera página o cerca. Ese filtro de "al menos 3 ' +
           'competidores" limpia el ruido: deja las palabras que de verdad mueven ventas, no las que un solo producto ' +
           'rankea por casualidad. Son los mismos filtros con los que medimos la demanda, así que el número nos sirve doble.</p>' +

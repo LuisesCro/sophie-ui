@@ -110,39 +110,45 @@ if (!chatPath) {
 /* ---------- 3. pantallas guiadas del alumno (sophie-pasos.js) ---------- */
 
 seccion("PANTALLAS DEL ALUMNO (sophie-pasos.js · filtros Black Box y Cerebro)");
-const pasosPath = resolve(raiz, "sophie-pasos.js");
-if (!existsSync(pasosPath)) {
-  fail("No encuentro sophie-pasos.js");
-} else {
-  const pasos = readFileSync(pasosPath, "utf8");
-
-  // Cada pantalla es "N: function". Aislamos el bloque de cada paso para no
-  // confundir "Search Volume 4,500" (paso 3) con "Search Volume 300" (paso 4).
-  function bloquePaso(n) {
-    const ini = pasos.indexOf("\n    " + n + ": function");
-    if (ini < 0) return null;
-    const sig = pasos.indexOf("\n    " + (n + 1) + ": function", ini + 1);
-    return pasos.slice(ini, sig < 0 ? ini + 4000 : sig);
+{
+  // Las pantallas ya NO repiten los umbrales: los leen de SophieCriterios.filtros.
+  // Así que esto no busca números en el código —no están— sino que RENDERIZA las
+  // pantallas y comprueba que el alumno vea los valores de la fuente única.
+  // Es la verificación de lo que llega a la pantalla, no de lo que dice el archivo.
+  let pantallas = null;
+  try {
+    // `win` ya trae SophieCriterios cargado más arriba; solo falta pasos.
+    new Function("window", "document", readFileSync(resolve(raiz, "sophie-pasos.js"), "utf8"))(win, undefined);
+    pantallas = { 3: win.SophiePasos.pantalla(3, { categoria: "Home & Kitchen" }),
+                  4: win.SophiePasos.pantalla(4, { keyword: "bamboo spice rack" }) };
+  } catch (e) {
+    fail("no pude renderizar las pantallas 3 y 4: " + e.message);
   }
 
-  const grupos = [
-    { titulo: "Black Box (paso 3)", paso: 3, filtros: SC.filtros.blackBox },
-    { titulo: "Cerebro (paso 4)", paso: 4, filtros: SC.filtros.cerebro },
-  ];
-
-  for (const g of grupos) {
-    const blk = bloquePaso(g.paso);
-    if (!blk) { fail(g.titulo + ": no encuentro la pantalla en sophie-pasos.js"); continue; }
-    for (const f of g.filtros) {
-      if (!blk.includes(f.campo)) { fail(g.titulo + " · " + f.campo + ": la pantalla no nombra este filtro"); continue; }
-      const faltan = [];
-      if (f.min != null && !numRe(f.min).test(blk)) faltan.push("min " + f.min);
-      if (f.max != null && !numRe(f.max).test(blk)) faltan.push("max " + f.max);
-      if (faltan.length) fail(g.titulo + " · " + f.campo + ": falta " + faltan.join(" y "));
-      else ok(g.titulo + " · " + f.campo + ": valores presentes");
+  if (pantallas) {
+    const grupos = [["blackBox", 3, "Black Box (paso 3)"], ["cerebro", 4, "Cerebro (paso 4)"]];
+    for (const [grupo, paso, etiqueta] of grupos) {
+      for (const f of (SC.filtros[grupo] || [])) {
+        const html = pantallas[paso];
+        const faltan = [];
+        const aparece = (v) => html.includes(Number(v).toLocaleString("en-US"));
+        if (f.valor !== undefined && !html.includes(f.valor)) faltan.push('valor "' + f.valor + '"');
+        if (f.min != null && !aparece(f.min)) faltan.push("min " + f.min);
+        if (f.max != null && !aparece(f.max)) faltan.push("max " + f.max);
+        if (faltan.length) fail(etiqueta + " · " + f.campo + ": la pantalla no muestra " + faltan.join(" ni "));
+        else ok(etiqueta + " · " + f.campo + ": la pantalla muestra los valores de la fuente");
+      }
     }
+
+    // Regresión: que nadie vuelva a escribir un umbral a mano en estos pasos.
+    const src = readFileSync(resolve(raiz, "sophie-pasos.js"), "utf8");
+    const i3 = src.indexOf("\n    3: function"), i5 = src.indexOf("\n    5: function");
+    const duros = (src.slice(i3, i5).match(/(?:≥|≤|Min:|Max:|\(mínimo\)|\(máximo\)) ?\$?[\d,]{2,}/g) || []);
+    if (duros.length) fail("los pasos 3 y 4 volvieron a llevar umbrales escritos a mano: " + duros.join(" · "));
+    else ok("ningún umbral escrito a mano en los pasos 3 y 4");
   }
 }
+
 
 /* ---------- reporte ---------- */
 

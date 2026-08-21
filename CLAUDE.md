@@ -42,9 +42,10 @@ un módulo que no tienes al lado.
    npm run criterios:generar     # reescribe el bloque en chat.js
    ```
 
-   La segunda copia en prosa —las pantallas del alumno en `sophie-pasos.js`,
-   pasos 3 y 4— **sigue escrita a mano**. Flujo: editar criterios → correr el
-   generador → actualizar `sophie-pasos.js` → `npm run guardas` hasta OK.
+   Las pantallas del alumno (`sophie-pasos.js`, pasos 3 y 4) **ya no repiten
+   los umbrales**: los leen de `SophieCriterios.filtros` al pintar. No hay copia
+   que desincronizar. Flujo completo: editar criterios → `npm run criterios:generar`
+   → `npm run guardas` hasta OK.
 
    La guarda ya no comprueba que el número "aparezca" en el bloque del prompt:
    compara el bloque entero. Una edición parcial —bajar `SV ≥ 4,500` a
