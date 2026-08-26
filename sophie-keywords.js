@@ -709,8 +709,35 @@
     };
   }
 
+  // Repara determinísticamente el formato de las viñetas: normaliza el separador
+  // a ' - ', limpia el encabezado (antes del primer ' - ') para que solo lleve
+  // MAYÚSCULAS, dígitos, & y espacios —quita comas, puntos y apóstrofes, que son
+  // lo que rompe el criterio de formato— y cambia los guiones largos (—/–, 3
+  // bytes) por guión simple (1 byte) en todo el texto para ahorrar bytes. No
+  // recorta prosa: eso lo decide el modelo. Devuelve las viñetas corregidas.
+  function repararVinetas(vinetas) {
+    if (!Array.isArray(vinetas) || !vinetas.length) return null;
+    var cambio = false;
+    var reparadas = vinetas.map(function (v) {
+      var s = String(v || '').trim();
+      // guiones largos → guión simple con espacios (ahorra bytes, separador válido)
+      var out = s.replace(/\s*[—–]\s*/g, ' - ');
+      // separa encabezado y resto en el PRIMER ' - '
+      var m = out.match(/^([\s\S]*?)\s-\s([\s\S]*)$/);
+      if (m) {
+        var head = m[1].toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ0-9&\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        out = head + ' - ' + m[2].replace(/\s+/g, ' ').trim();
+      } else {
+        out = out.replace(/\s+/g, ' ').trim();
+      }
+      if (out !== s) cambio = true;
+      return out;
+    });
+    return { vinetas: reparadas, cambio: cambio, indexado: indexadoVinetas(reparadas) };
+  }
+
   global.SophieKeywords = {
-    version: '2.1',
+    version: '2.2',
     vigenteDesde: '2026-07-27',
     limites: LIMITES,
     umbrales: UMBRALES,
@@ -725,7 +752,8 @@
     palabrasRepetidas: palabrasRepetidas,
     terminosEspanol: terminosEspanol,
     auditoriaParaModelo: auditoriaParaModelo,
-    repararBackend: repararBackend
+    repararBackend: repararBackend,
+    repararVinetas: repararVinetas
   };
 
 })(window);
