@@ -736,8 +736,52 @@
     return { vinetas: reparadas, cambio: cambio, indexado: indexadoVinetas(reparadas) };
   }
 
+  // Cierra el bucle también en los pasos de construcción (5-8): revisa las
+  // medidas exactas del listing parcial y devuelve SOLO los campos que se
+  // salieron de su límite, en instrucciones directas para el modelo. Devuelve
+  // '' si todo lo presente está dentro de límites (no hay nada que corregir).
+  function medidasParaModelo(listing) {
+    var L = listing || {};
+    var probs = [];
+    if (L.titulo !== undefined) {
+      var tc = chars(L.titulo);
+      if (tc > LIMITES.titulo.max) probs.push('Título: ' + tc + '/75 chars — recórtalo a 75 o menos SIN quitar la keyword P1 del inicio ni la marca.');
+    }
+    if (L.itemHighlights !== undefined) {
+      var ic = chars(L.itemHighlights);
+      if (ic > LIMITES.itemHighlights.max) probs.push('Item Highlights: ' + ic + '/125 chars — recórtalo a 125 o menos.');
+      else if (ic === 0) probs.push('Item Highlights vacío — llénalo (hasta 125 chars) con atributos y las P1 que no cupieron en el título.');
+    }
+    if (Array.isArray(L.vinetas) && L.vinetas.length) {
+      L.vinetas.forEach(function (v, i) {
+        var c = chars(v);
+        if (c > LIMITES.vineta.max) probs.push('Viñeta ' + (i + 1) + ': ' + c + '/250 chars — recórtala.');
+      });
+      var idx = indexadoVinetas(L.vinetas);
+      if (idx.totalBytes > LIMITES.vinetasIndexado.max)
+        probs.push('Viñetas juntas: ' + idx.totalBytes + '/1000 bytes — recorta ~' + (idx.totalBytes - 950) + ' bytes de relleno (deja margen a 950).');
+    }
+    if (L.backend !== undefined && L.backend) {
+      var bb = bytes(L.backend);
+      if (bb > LIMITES.backend.max) probs.push('Backend: ' + bb + '/249 bytes — recorta ' + (bb - LIMITES.backend.objetivo) + ' bytes (apunta a 240).');
+      var esn = terminosEspanol(L.backend).length;
+      if (esn < 5) probs.push('Backend: solo ' + esn + ' términos en español (mínimo 5) — agrega palabras claramente españolas y CON acento (luz, baño, ducha, lámpara, relajación…).');
+      var rep = solapan(L.titulo + ' ' + L.itemHighlights, L.backend);
+      if (rep.length > 2) probs.push('Backend repite del título/Item Highlights: ' + rep.slice(0, 4).join(', ') + ' — quítalas, Amazon indexa una vez por sección.');
+    }
+    if (L.descripcion !== undefined && L.descripcion) {
+      var dc = chars(L.descripcion);
+      if (dc > LIMITES.descripcion.max) probs.push('Descripción: ' + dc + '/2000 chars — recórtala a 2000 o menos.');
+      else if (dc < LIMITES.descripcion.min) probs.push('Descripción: ' + dc + '/2000 chars — muy corta, mínimo 1000.');
+    }
+    if (!probs.length) return '';
+    return 'MEDIDAS EXACTAS DE LA APP — usa estos números reales, NO estimes ni cuentes a mano.\n' +
+      'Corrige SOLO estos campos que se salieron del límite y vuelve a mostrarlos ya corregidos, sin tocar lo demás:\n' +
+      probs.map(function (p) { return '✗ ' + p; }).join('\n');
+  }
+
   global.SophieKeywords = {
-    version: '2.2',
+    version: '2.3',
     vigenteDesde: '2026-07-27',
     limites: LIMITES,
     umbrales: UMBRALES,
@@ -752,6 +796,7 @@
     palabrasRepetidas: palabrasRepetidas,
     terminosEspanol: terminosEspanol,
     auditoriaParaModelo: auditoriaParaModelo,
+    medidasParaModelo: medidasParaModelo,
     repararBackend: repararBackend,
     repararVinetas: repararVinetas
   };
