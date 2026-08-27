@@ -19,16 +19,19 @@
    con un reporte claro, en vez de dejar que llegue a producción.
 
    Uso:
-     node tools/verificar-metodologia.mjs
+     node tools/verificar-metodologia.mjs            (lenient)
+     node tools/verificar-metodologia.mjs --strict   (exige todo)
+
    Sale con código 1 si detecta cualquier desincronización.
+   Si un repo hermano no está montado, esa comprobación se OMITE
+   y el cierre lo dice: "PARCIAL", nunca "OK". Con --strict una
+   omisión también es falla — ese es el modo del flujo "voy a
+   mover un umbral".
    ============================================================ */
 
 import { readFileSync, existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const raiz = resolve(__dirname, "..");
+import { resolve } from "node:path";
+import { RAIZ as raiz, repoHermano, crearReporte, cerrar } from "./guarda-comun.mjs";
 
 /* ---------- utilidades ---------- */
 
@@ -42,15 +45,8 @@ function numRe(n) {
   return new RegExp("\\b" + conSep + "\\b");
 }
 
-const ESTRICTO = process.argv.includes("--strict");
-let fallos = 0;
-const lineas = [];
-function ok(msg) { lineas.push("  ✓ " + msg); }
-function fail(msg) { lineas.push("  ✗ " + msg); fallos++; }
-// Repo no montado localmente: no bloquea (el hook corre en checkouts parciales);
-// con --strict (CI, todos los repos presentes) sí cuenta como falla.
-function aviso(msg) { lineas.push("  ⚠ " + msg + (ESTRICTO ? " [--strict → falla]" : " [omitido]")); if (ESTRICTO) fallos++; }
-function seccion(t) { lineas.push("\n" + t); }
+const rep = crearReporte();
+const { ok, fail, aviso, seccion } = rep;
 
 /* ---------- 1. cargar la fuente única ---------- */
 
@@ -71,11 +67,8 @@ const calculables = SC.lista.filter((c) => c.direccion !== "juicio");
 
 /* ---------- 2. prompt activo del modelo (Producto) ---------- */
 
-const candidatosChat = [
-  "/workspace/sophie-producto/netlify/edge-functions/chat.js",
-  resolve(raiz, "../sophie-producto/netlify/edge-functions/chat.js"),
-];
-const chatPath = candidatosChat.find(existsSync);
+const { ruta: chatPath, revisados: candidatosChat } =
+  repoHermano("sophie-producto", "netlify/edge-functions/chat.js");
 
 seccion("PROMPT DEL MODELO (sophie-producto/chat.js · SYSTEM_PROMPT_V2)");
 if (!chatPath) {
@@ -142,13 +135,10 @@ if (!existsSync(pasosPath)) {
 
 /* ---------- reporte ---------- */
 
-console.log("GUARDA DE METODOLOGÍA · fuente única = sophie-criterios.js (v" + SC.version + ")");
-console.log(lineas.join("\n"));
-console.log("");
-if (fallos) {
-  console.log("RESULTADO: " + fallos + " desincronización(es). Actualiza la copia en prosa para que coincida con sophie-criterios.js.");
-  process.exit(1);
-} else {
-  console.log("RESULTADO: OK — todas las copias en prosa coinciden con la fuente única.");
-  process.exit(0);
-}
+cerrar(rep, {
+  titulo: "GUARDA DE METODOLOGÍA · fuente única = sophie-criterios.js (v" + SC.version + ")",
+  falla: "desincronización(es). Actualiza la copia en prosa para que coincida con sophie-criterios.js.",
+  parcial: "que el prompt del modelo siga los umbrales canónicos",
+  ok: "todas las copias en prosa coinciden con la fuente única.",
+  comando: "node tools/verificar-metodologia.mjs",
+});

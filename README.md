@@ -16,32 +16,59 @@ solo lugar: **`sophie-criterios.js`**. El modelo no puede alterarlos.
 
 ### El riesgo: copias en prosa
 
-Dos lugares repiten esos números **escritos a mano** (un build step no los genera):
+**Tres** lugares repiten esos números **escritos a mano** (un build step no los
+genera):
 
 1. El **prompt del modelo** en `sophie-producto/netlify/edge-functions/chat.js`
    (`SYSTEM_PROMPT_V2 + BLOQUE_V2`), para que Sophie razone con el mismo criterio.
 2. Las **pantallas guiadas** del alumno en `sophie-pasos.js` (pasos 3 y 4: los
    filtros de Black Box y Cerebro).
+3. Los **prompts del cockpit privado** en `sophie-creador/lib/sophie-system.js`:
+   siete módulos que citan a mano los umbrales de seis motores distintos
+   (criterios, keywords, cotizaciones, PPC, lanzamiento y rescate).
 
-Si cambias un umbral en `sophie-criterios.js` y olvidas actualizar una de esas
-copias, el alumno vería un número y el motor usaría otro.
+Si cambias un umbral y olvidas actualizar una de esas copias, el alumno vería un
+número y el motor usaría otro.
 
-### La guarda: `tools/verificar-metodologia.mjs`
-
-Antes de desplegar un cambio de umbrales, corre:
+### Las guardas
 
 ```bash
-node tools/verificar-metodologia.mjs
+npm run guardas          # lenient: omite los repos hermanos que no tengas
+npm run guardas:strict   # exige que TODOS estén montados
 ```
 
-Lee los números canónicos de `sophie-criterios.js` y confirma que las dos copias
-en prosa siguen de acuerdo. Sale con código `1` y un reporte claro si algo no
-coincide. Requiere que el repo `sophie-producto` esté montado junto a este
-(lo busca en `/workspace/sophie-producto` y en `../sophie-producto`); si no lo
-encuentra, avisa en vez de dar un falso OK.
+Corre las tres de una vez (y las corre todas aunque una falle, para que veas de
+un golpe todas las copias que quedaron atrás):
 
-**Flujo para cambiar un umbral:** edita `sophie-criterios.js` → actualiza la
-prosa en `chat.js` y `sophie-pasos.js` → corre la guarda hasta que dé OK → despliega.
+| Guarda | Qué compara |
+| --- | --- |
+| `tools/verificar-metodologia.mjs` | `sophie-criterios.js` ↔ prompt de Producto y `sophie-pasos.js` |
+| `tools/verificar-router.mjs` | contrato del router ↔ los 6 `chat.js` |
+| `tools/verificar-creador.mjs` | los motores ↔ los 7 prompts de `sophie-creador` |
+
+Las tres buscan los repos hermanos en `/workspace/<repo>` y en `../<repo>`.
+
+**Lenient, PARCIAL y `--strict`.** Si un repo hermano no está montado, esa
+comprobación se **omite** — para que un checkout parcial no te bloquee el push.
+Pero omitir no es aprobar: el cierre distingue tres estados.
+
+- `OK` — se verificó todo y todo coincide.
+- `PARCIAL` — nada falló, pero quedaron comprobaciones sin hacer. Sale con
+  código 0 y dice exactamente cuántas y qué NO confirma.
+- falla — hay drift, o corriste con `--strict` y quedó algo sin verificar.
+
+`--strict` es el modo del flujo "voy a mover un umbral": ahí omitir la mitad de
+las copias es justo el error que estas guardas existen para atrapar.
+
+**El hook lo elige solo.** `tools/hooks/pre-push` corre lenient en un push
+normal, y sube a `--strict` automáticamente cuando el push toca una fuente de
+umbrales (`sophie-criterios.js`, `sophie-keywords.js`, `sophie-ppc.js`,
+`sophie-lanzamiento.js`, `sophie-rescate.js`, `sophie-cotizaciones.js`).
+Actívalo una vez con `git config core.hooksPath tools/hooks`.
+
+**Flujo para cambiar un umbral:** monta los repos hermanos → edita el motor →
+actualiza las tres copias en prosa → `npm run guardas:strict` hasta OK →
+despliega.
 
 ## Contrato del router de modelo
 
@@ -57,8 +84,11 @@ y confirma que los 6 lo cumplen:
 - la red `isDataHeavy` conserva sus umbrales oficiales.
 
 ```bash
-node tools/verificar-router.mjs
+node tools/verificar-router.mjs --strict
 ```
+
+(`--strict` porque una migración a medias es justo lo que esta guarda existe
+para atrapar: sin él, un módulo que no tengas clonado se omite y no lo verías.)
 
 Si migras a un modelo nuevo (p.ej. `claude-sonnet-5`): cambia `MODELOS` en la
 guarda, cámbialo en los 6 chat.js y corre la guarda hasta OK. Si dejas un módulo

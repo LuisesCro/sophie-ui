@@ -4,12 +4,21 @@
 # Crezcamos Online
 #
 # Corre las guardas ANTES de cada push. Si detectan drift real
-# (umbral de metodología o contrato del router desincronizado),
-# aborta el push con un mensaje claro.
+# (umbral de metodología, contrato del router o prompt del
+# cockpit desincronizado), aborta el push con un mensaje claro.
 #
-# Los repos de módulos que no estén montados localmente se
-# OMITEN (no bloquean el push); solo se validan los que estén
-# presentes. Para exigir todos, corre con --strict a mano o en CI.
+# DOS MODOS, elegidos solos:
+#
+#  · Push normal → lenient. Los repos de módulos que no tengas
+#    montados se OMITEN y no bloquean. El reporte lo dice:
+#    cierra en "PARCIAL", nunca en un "OK" que no comprobó.
+#
+#  · Push que TOCA UNA FUENTE DE UMBRALES → --strict. Si estás
+#    moviendo un número canónico, omitir la mitad de las copias
+#    en prosa es exactamente el error que estas guardas existen
+#    para atrapar. Ahí sí exigimos los repos hermanos montados.
+#    Si te bloquea: clona los repos al lado de este, o corre
+#    `npm run guardas:strict` para ver qué falta.
 #
 # Activar en tu clon (una sola vez):
 #   git config core.hooksPath tools/hooks
@@ -24,15 +33,39 @@ if ! command -v node >/dev/null 2>&1; then
   exit 0
 fi
 
-echo "▶ Guardas Sophie (pre-push)…"
+# ---- ¿este push mueve algún umbral canónico? ----
+# Los archivos que son fuente única de números. Si alguno viaja en
+# el push, subimos a --strict.
+FUENTES="sophie-criterios.js sophie-keywords.js sophie-ppc.js sophie-lanzamiento.js sophie-rescate.js sophie-cotizaciones.js"
+ZERO="0000000000000000000000000000000000000000"
+MODO=""
 
-node tools/verificar-metodologia.mjs || {
-  echo "✗ Metodología desincronizada. Corrige la prosa o corre 'node tools/verificar-metodologia.mjs'. Push abortado."
-  exit 1
-}
+# git entrega las refs por stdin: <local ref> <local sha> <remote ref> <remote sha>
+while read -r _lref lsha _rref rsha; do
+  [ -z "$lsha" ] && continue
+  [ "$lsha" = "$ZERO" ] && continue              # borrado de rama
+  if [ "$rsha" = "$ZERO" ] || [ -z "$rsha" ]; then
+    BASE="$(git rev-parse --verify --quiet origin/main || true)"   # rama nueva
+  else
+    BASE="$rsha"
+  fi
+  [ -z "$BASE" ] && continue
+  CAMBIOS="$(git diff --name-only "$BASE" "$lsha" 2>/dev/null || true)"
+  for f in $FUENTES; do
+    case "$CAMBIOS" in
+      *"$f"*) MODO="--strict" ;;
+    esac
+  done
+done
 
-node tools/verificar-router.mjs || {
-  echo "✗ Contrato del router incumplido. Corre 'node tools/verificar-router.mjs' para ver cuál módulo. Push abortado."
+if [ -n "$MODO" ]; then
+  echo "▶ Este push mueve una fuente de umbrales → guardas en modo --strict."
+else
+  echo "▶ Guardas Sophie (pre-push)…"
+fi
+
+node tools/guardas.mjs $MODO || {
+  echo "✗ Guardas en rojo. Corre 'npm run guardas' para ver cuál. Push abortado."
   exit 1
 }
 

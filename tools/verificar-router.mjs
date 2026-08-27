@@ -20,14 +20,22 @@
    MIGRAR A UN MODELO NUEVO:
      1) cambia MODELOS aquí abajo,
      2) cambia el ID en los 6 chat.js,
-     3) corre `node tools/verificar-router.mjs` hasta que dé OK.
+     3) corre `node tools/verificar-router.mjs --strict` hasta OK.
+        (--strict porque una migración a medias es justo lo que
+        esta guarda existe para atrapar: sin él, un módulo que no
+        tengas clonado se omite y no lo verías.)
 
    Uso:
-     node tools/verificar-router.mjs
+     node tools/verificar-router.mjs            (lenient)
+     node tools/verificar-router.mjs --strict   (exige los 6)
+
    Sale con código 1 si algún módulo no cumple el contrato.
+   Si un chat.js no está montado, esa comprobación se OMITE y el
+   cierre lo dice: "PARCIAL", nunca "OK — los 6 cumplen".
    ============================================================ */
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { repoHermano, crearReporte, cerrar } from "./guarda-comun.mjs";
 
 /* ---------- fuente única del contrato ---------- */
 
@@ -62,30 +70,20 @@ const CONTRATO = {
 /* ---------- utilidades ---------- */
 
 function rutaChat(m) {
-  const cands = [
-    `/workspace/sophie-${m}/netlify/edge-functions/chat.js`,
-    `../sophie-${m}/netlify/edge-functions/chat.js`,
-  ];
-  return cands.find(existsSync) || null;
+  return repoHermano(`sophie-${m}`, "netlify/edge-functions/chat.js").ruta;
 }
 
 // El ternario del router: Haiku en la rama THEN, Sonnet en la ELSE. Acepta
 // tanto MODELS.x como el string literal, y tolera saltos de línea.
 const RE_DEFAULT_SONNET = /\?\s*(MODELS\.haiku|"claude-haiku-4-5-20251001")\s*:\s*(MODELS\.sonnet|"claude-sonnet-4-6")/;
 
-const ESTRICTO = process.argv.includes("--strict");
-let fallos = 0;
-const lineas = [];
-function ok(msg) { lineas.push("  ✓ " + msg); }
-function fail(msg) { lineas.push("  ✗ " + msg); fallos++; }
-// Repo no montado localmente: no bloquea (el hook corre en checkouts parciales);
-// con --strict (CI, todos los repos presentes) sí cuenta como falla.
-function aviso(msg) { lineas.push("  ⚠ " + msg + (ESTRICTO ? " [--strict → falla]" : " [omitido]")); if (ESTRICTO) fallos++; }
+const rep = crearReporte();
+const { ok, fail, aviso } = rep;
 
 /* ---------- verificación por módulo ---------- */
 
 for (const [m, c] of Object.entries(CONTRATO)) {
-  lineas.push("\n" + m.toUpperCase() + " — regla: " + c.regla);
+  rep.seccion(m.toUpperCase() + " — regla: " + c.regla);
   const ruta = rutaChat(m);
   if (!ruta) { aviso("no encuentro el chat.js (repo no montado)"); continue; }
   const src = readFileSync(ruta, "utf8");
@@ -128,13 +126,10 @@ for (const [m, c] of Object.entries(CONTRATO)) {
 
 /* ---------- reporte ---------- */
 
-console.log("GUARDA DEL ROUTER · modelos oficiales: " + [...IDS_OFICIALES].join("  ·  "));
-console.log(lineas.join("\n"));
-console.log("");
-if (fallos) {
-  console.log("RESULTADO: " + fallos + " incumplimiento(s) del contrato del router.");
-  process.exit(1);
-} else {
-  console.log("RESULTADO: OK — los 6 módulos cumplen el contrato del router.");
-  process.exit(0);
-}
+cerrar(rep, {
+  titulo: "GUARDA DEL ROUTER · modelos oficiales: " + [...IDS_OFICIALES].join("  ·  "),
+  falla: "incumplimiento(s) del contrato del router.",
+  parcial: "que los 6 módulos ruteen al modelo correcto",
+  ok: "los 6 módulos cumplen el contrato del router.",
+  comando: "node tools/verificar-router.mjs",
+});
