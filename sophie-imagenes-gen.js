@@ -237,7 +237,9 @@
     var filas = (d.filas || []).slice(0, 5);
     var cols = [L - M * 2 - 760, 380, 380];
     var x0 = M, x1 = M + cols[0], x2 = x1 + cols[1];
-    var alto = Math.min(170, (L - M - y - 130) / (filas.length + 1));
+    // Sin tope: la tabla reparte el alto disponible entre sus filas y llena el
+    // lienzo. Un tope fijo dejaba medio encuadre vacío con pocas filas.
+    var alto = (L - M - y) / (filas.length + 1);
 
     caja(g, x1 - 20, y, cols[1] + 40, alto * (filas.length + 1) + 20, g.t.realce);
 
