@@ -77,7 +77,18 @@
     // CTR de cementerio: muchas impresiones, nadie hace clic.
     // Señal de imagen principal o de relevancia, no de puja.
     MIN_IMP_CTR: 1000,
-    CTR_MINIMO: 0.30
+    CTR_MINIMO: 0.30,
+
+    // Rigor estadístico: z del intervalo de Wilson. 1.28 ≈ 90% de confianza
+    // de un lado. Más alto = más conservador (exige más evidencia antes de
+    // negar o cosechar). Es la palanca de "qué tan seguro antes de actuar".
+    Z_CONFIANZA: 1.28,
+
+    // Prior Bayesiano: "fuerza" del prior en clics equivalentes. El CVR de la
+    // cuenta pesa como si fueran ~12 clics de evidencia previa; con menos clics
+    // que esto el prior manda, con más manda el término. 0 = desactiva el prior
+    // y usa Wilson puro (cada término en el vacío).
+    PRIOR_FUERZA: 12
   };
 
   /* ============================================================
@@ -85,6 +96,73 @@
      ============================================================ */
   function n(v, d) { v = parseFloat(v); return isFinite(v) ? v : (d || 0); }
   function r2(v) { return Math.round(v * 100) / 100; }
+
+  /* ============================================================
+     RIGOR ESTADISTICO · Intervalo de Wilson para una proporcion
+     El CVR (ordenes/clics) es una proporcion medida en una muestra
+     ruidosa. En vez de creerle al punto (3/10 = "30%") comparamos la
+     BANDA de confianza contra el CVR de equilibrio:
+       - negar solo si el TECHO del CVR sigue por debajo del equilibrio
+         (aun en el mejor caso pierde),
+       - cosechar solo si el PISO del CVR ya supera el equilibrio
+         (aun en el peor caso gana).
+     Wilson se porta bien con n chico y cerca de 0/1, donde la
+     aproximacion normal se rompe. z = nivel de confianza (1.28 ~ 90%
+     de un lado): mas alto = mas conservador = mas evidencia exigida.
+     ============================================================ */
+  function wilson(succ, trials, z) {
+    trials = n(trials, 0); succ = n(succ, 0);
+    if (trials <= 0) return { lo: 0, hi: 1 };
+    z = z || 1.28;
+    var p = succ / trials, z2 = z * z;
+    var denom = 1 + z2 / trials;
+    var centro = p + z2 / (2 * trials);
+    var margen = z * Math.sqrt(p * (1 - p) / trials + z2 / (4 * trials * trials));
+    return {
+      lo: Math.max(0, (centro - margen) / denom),
+      hi: Math.min(1, (centro + margen) / denom)
+    };
+  }
+
+  // Clics de 0 ventas necesarios para negar con confianza, dado el CVR de
+  // equilibrio: el techo de Wilson de 0/n es z²/(n+z²); se despeja n para que
+  // caiga por debajo de beCVR. Sirve para decirle al estudiante "faltan ~M clics".
+  function clicsParaNegar(beCVR, z) {
+    z = z || 1.28; var z2 = z * z;
+    if (!(beCVR > 0) || beCVR >= 1) return 0;
+    return Math.max(1, Math.ceil(z2 * (1 - beCVR) / beCVR));
+  }
+
+  /* ============================================================
+     PRIOR BAYESIANO (Empirical Bayes · shrinkage hacia la cuenta)
+     Wilson juzga cada término en el vacío. Pero sabemos la conversión
+     TÍPICA de la cuenta (baseCVR = órdenes/clics del reporte). La
+     usamos como PRIOR: cada término arranca cerca de esa base y se
+     despega conforme acumula evidencia propia. Así:
+       - poca data -> el intervalo se ENCOGE hacia la base (decide antes,
+         no condena por ruido, no premia un 2/2 de suerte),
+       - mucha data -> el término manda (el prior se desvanece).
+     Prior Beta(a0,b0) con media = baseCVR y fuerza k = "clics
+     equivalentes". Posterior Beta(a0+ord, b0+clics-ord); intervalo por
+     aproximación normal a la Beta (media ± z·desv), que es cerrada,
+     estable y suficiente cerca de la frontera de decisión. Si no hay
+     base útil (cuenta sin conversiones), cae a Wilson (no informativo).
+     ============================================================ */
+  function intervalo(succ, trials, baseCVR, k, z) {
+    if (!(baseCVR > 0) || !(k > 0)) return wilson(succ, trials, z);   // sin prior útil
+    z = z || 1.28;
+    var a = baseCVR * k + succ;
+    var b = (1 - baseCVR) * k + (trials - succ);
+    var tot = a + b;
+    var media = a / tot;
+    var desv = Math.sqrt(a * b / (tot * tot * (tot + 1)));
+    return {
+      lo: Math.max(0, media - z * desv),
+      hi: Math.min(1, media + z * desv),
+      media: media,
+      base: baseCVR
+    };
+  }
 
   // ¿El término ya vive en una campaña exacta? Se lee de las claves
   // de src, que vienen como "Nombre de campaña [match type]".
@@ -143,6 +221,26 @@
   /* ============================================================
      CLASIFICADOR
      ============================================================ */
+  // Filas que NO son busquedas de un cliente sino EXPRESIONES DE SEGMENTACION de
+  // Amazon: grupos de la Auto (close/loose-match, substitutes, complements), temas
+  // (keyword-group="..."), o targets de producto/categoria (asin="...", category="...").
+  // Amazon las mete como "termino" cuando el gasto no se atribuye a una query. No se
+  // negativizan como keyword ni se cosechan a exacta: se gestionan a nivel de target.
+  var SEG_LABELS = {
+    'close match': 1, 'loose match': 1, 'substitutes': 1, 'complements': 1,
+    'coincidencia cercana': 1, 'coincidencia lejana': 1, 'concordancia amplia': 1, 'concordancia cercana': 1, 'concordancia lejana': 1,
+    'sustitutos': 1, 'substitutos': 1, 'complementarios': 1, 'complementos': 1,
+    'queryhighrelmatches': 1, 'querybroadrelmatches': 1, 'asinsubstituterelated': 1, 'asinaccessoryrelated': 1
+  };
+  function esSegmentacion(term) {
+    var raw = String(term == null ? '' : term).trim();
+    if (!raw || raw === '*' || raw === '-') return true;
+    if (/=\s*"/.test(raw)) return true;                                  // clave="valor"
+    if (/^(keyword-group|audience|product|category)\b/i.test(raw)) return true;
+    var t = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+    return !!SEG_LABELS[t];
+  }
+
   function clasificar(terminos, ctx, opciones) {
     ctx = ctx || {};
     var C = Object.assign({}, CONFIG, opciones || {});
@@ -151,6 +249,12 @@
     var beACOS = n(ctx.breakEvenACOS);          // en porcentaje: 32 = 32%
     var marcas = ctx.marcasCompetidores || [];
     var dias = n(ctx.diasReporte, 0);
+    // Objetivo de la campaña (PPC Mastery V9-V10): reencuadra el veredicto de los
+    // terminos que CONVIERTEN. rentabilidad = default (ACOS/CPA manda); ranking =
+    // se acepta operar hasta break-even para rankear; conquista/PAT = ROAS bajo
+    // esperado. Si no viene, se comporta como antes (rentabilidad).
+    var objetivo = String(ctx.objetivo || 'rentabilidad').toLowerCase();
+    var ventasTotales = n(ctx.ventasTotales, 0);   // ventas TOTALES del producto (orgánicas+ads) -> TACOS
 
     if (precio <= 0 || beACOS <= 0) {
       return {
@@ -169,10 +273,16 @@
     // Clics por orden de la CUENTA: sirve de referencia cuando un
     // término convierte pero tiene muy poca data propia.
     var totClk = 0, totOrd = 0, totSpd = 0, totSal = 0;
+    var baseClk = 0, baseOrd = 0;   // para el prior: excluye filas de segmentación
     lista.forEach(function (t) {
       totClk += n(t.clk); totOrd += n(t.ord); totSpd += n(t.spd); totSal += n(t.sal);
+      if (!esSegmentacion(t.term)) { baseClk += n(t.clk); baseOrd += n(t.ord); }
     });
     var cpoCuenta = totOrd > 0 ? (totClk / totOrd) : 0;
+    // Línea base de conversión de la cuenta: el PRIOR Bayesiano de cada término.
+    // Solo si hay evidencia real (clics y al menos una conversión) y se excluyen
+    // las expresiones de segmentación (no son búsquedas). Si no, null -> Wilson.
+    var baseCVR = (baseClk > 0 && baseOrd > 0) ? (baseOrd / baseClk) : null;
 
     var decisiones = lista.map(function (t) {
       var clk = n(t.clk), ord = n(t.ord), spd = n(t.spd), sal = n(t.sal), imp = n(t.imp);
@@ -180,6 +290,15 @@
       var cvr = clk > 0 ? (ord / clk * 100) : 0;
       var acos = sal > 0 ? (spd / sal * 100) : null;
       var cpo = ord > 0 ? (clk / ord) : 0;          // clics por orden del término
+
+      // Rigor estadístico: banda de confianza del CVR real vs. el CVR de
+      // equilibrio (el CVR que ESTE término necesita para no perder a su CPC).
+      var beCVR = (cpc > 0 && beCPA > 0) ? (cpc / beCPA) : null;   // CVR de equilibrio
+      // Intervalo del CVR real con PRIOR de la cuenta (Empirical Bayes); si no
+      // hay base útil, es Wilson puro. Misma comparación contra beCVR.
+      var ci = intervalo(ord, clk, baseCVR, C.PRIOR_FUERZA, C.Z_CONFIANZA);
+      var confiadoPerdedor = (beCVR !== null) && (ci.hi < beCVR);  // aun en el mejor caso pierde
+      var confiadoGanador  = (beCVR !== null) && (ci.lo >= beCVR); // aun en el peor caso gana
 
       // Techo de puja: lo que puedes pagar por clic y aún llegar al
       // CPA objetivo, dado cuántos clics te cuesta una orden.
@@ -196,6 +315,13 @@
         clicsPorOrden: cpo ? r2(cpo) : null,
         maxCPC: maxCPC === null ? null : r2(maxCPC),
         maxCPCEsReferencia: ord === 0,
+        confianza: {
+          cvrLo: r2(ci.lo * 100),
+          cvrHi: r2(ci.hi * 100),
+          beCVR: beCVR === null ? null : r2(beCVR * 100),
+          baseCuenta: baseCVR === null ? null : r2(baseCVR * 100),
+          conPrior: baseCVR !== null && C.PRIOR_FUERZA > 0
+        },
         campanas: listaCampanas(t.src),
         campanaPrincipal: campanaPrincipal(t.src),
         yaEnExacta: enExacta(t.src),
@@ -204,6 +330,14 @@
         motivo: '',
         requiereJuicio: false
       };
+
+      /* --- Segmentacion (grupo de la Auto, tema o target de producto/categoria): NO es un termino --- */
+      if (esSegmentacion(t.term)) {
+        d.accion = 'SEGMENTACION';
+        d.motivo = 'No es una busqueda de cliente sino una expresion de segmentacion (grupo de la Auto, tema o target de producto/categoria). No se negativiza como keyword ni se cosecha a exacta: se gestiona por puja/pausa, o con negativo de producto/categoria.';
+        d.requiereJuicio = true;
+        return d;
+      }
 
       /* --- Marca de competidor: fuera de los umbrales normales --- */
       if (esMarcaExcluida(t.term, marcas)) {
@@ -217,12 +351,35 @@
       if (ord === 0) {
         var pasaGasto = spd >= beCPA;
         var pasaClics = clk >= C.PISO_CLICS;
+        var ctrTerm = (imp > 0) ? (clk / imp * 100) : null;   // CTR del termino si vino la columna
 
-        if (pasaGasto && pasaClics) {
+        if (pasaGasto && pasaClics && objetivo === 'ranking') {
+          // En lanzamiento se es paciente: puede ser una "priming query" del embudo (V4).
+          d.accion = 'VIGILAR';
+          d.motivo = 'Gastó $' + r2(spd) + ' sin vender, pero el objetivo es RANKING: negar solo si es ' +
+                     'IRRELEVANTE. Si es relevante puede ser priming/intent mismatch (baja la puja o arregla ' +
+                     'el listing), no lo mates.';
+          d.requiereJuicio = true;
+        } else if (pasaClics && confiadoPerdedor) {
+          // RIGOR: no basta con haber gastado el equilibrio; el techo del CVR real
+          // ya cayó por debajo del CVR de equilibrio -> aun con suerte pierde.
           d.accion = 'NEGAR';
-          d.motivo = 'Gastó $' + r2(spd) + ' sin una sola venta. Tu CPA de equilibrio es $' + r2(beCPA) +
-                     ': ya consumió lo que habría dejado una venta rentable, con ' + clk + ' clics de evidencia.';
+          var intent = (ctrTerm !== null && ctrTerm >= 0.40);
+          d.motivo = (intent
+            ? ('CTR ' + r2(ctrTerm) + '% y 0 ventas tras $' + r2(spd) + '. Hacen clic pero no compran: si el ' +
+               'termino es relevante es tu LISTING o PRECIO (intent mismatch); si no, negativo exacto.')
+            : ('Gastó $' + r2(spd) + ' sin una sola venta con ' + clk + ' clics.')) +
+            ' Evidencia: aun en el mejor caso su CVR real (≤' + r2(ci.hi * 100) + '%) no llega a tu equilibrio de ' +
+            r2(beCVR * 100) + '%. Negar ya no es adivinar.';
           d.requiereJuicio = true;  // el modelo decide negar vs. bajar puja según relevancia
+        } else if (pasaGasto && pasaClics && !confiadoPerdedor) {
+          // Gastó el equilibrio, pero con estos clics el intervalo aún no descarta
+          // rentabilidad: podría ser mala suerte. Se protege de negar un ganador.
+          d.accion = 'VIGILAR';
+          d.motivo = 'Gastó $' + r2(spd) + ' sin vender, pero con solo ' + clk + ' clics su CVR real todavía ' +
+                     'podría llegar a ' + r2(ci.hi * 100) + '% — cruza tu equilibrio de ' +
+                     (beCVR === null ? 'n/d' : r2(beCVR * 100) + '%') + '. Aún es mala suerte plausible: espera a ~' +
+                     clicsParaNegar(beCVR, C.Z_CONFIANZA) + ' clics antes de negar.';
         } else if (pasaGasto && !pasaClics) {
           d.accion = 'VIGILAR';
           d.motivo = 'Ya pasó el gasto de equilibrio ($' + r2(spd) + ' contra $' + r2(beCPA) +
@@ -238,13 +395,55 @@
         return d;
       }
 
-      /* --- Con órdenes --- */
+      /* --- Con órdenes: el término CONVIERTE. Aquí el objetivo manda. --- */
       var rentable = acos !== null && acos <= beACOS;
+      // Techo de puja a break-even puro (sin margen): lo que se usa en RANKING,
+      // donde se acepta operar hasta el equilibrio con tal de ganar posición.
+      var maxCPCbe = cpo > 0 ? (beCPA / cpo) : null;
 
-      if (ord >= C.MIN_ORDENES_COSECHA && rentable && !d.yaEnExacta) {
+      // Conquista/PAT: ROAS bajo es esperado. Solo se alerta si pierde más de lo que entra.
+      if (objetivo === 'conquista') {
+        var roas = spd > 0 ? (sal / spd) : null;
+        if (roas !== null && roas < 1) {
+          d.accion = 'BAJAR_PUJA';
+          d.motivo = 'Conquista cara: ROAS ' + r2(roas) + ' (gastas más de lo que entra). Baja la puja o pausa, ' +
+                     'salvo que el producto tenga LTV alto (consumible / subscribe & save) que lo justifique.';
+          if (maxCPC !== null) d.pujaSugerida = r2(maxCPC);
+          return d;
+        }
+        d.accion = 'MANTENER';
+        d.motivo = 'Conquista/PAT: ROAS ' + (roas === null ? 'n/d' : r2(roas)) + '. Un ACOS alto es esperado aquí; ' +
+                   'mantén si absorbes el margen, tomas venta al competidor o hay LTV. No se juzga con el break-even normal.';
+        return d;
+      }
+
+      // Cosecha en RANKING: no exige rentabilidad (basta que convierta de verdad,
+      // no de chiripa: >= MIN órdenes y >= piso de clics). Aislar para rankear.
+      if (objetivo === 'ranking' && ord >= C.MIN_ORDENES_COSECHA && clk >= C.PISO_CLICS && !d.yaEnExacta) {
         d.accion = 'COSECHAR';
-        d.motivo = ord + ' órdenes con ACOS de ' + r2(acos) + '%, por debajo de tu equilibrio de ' + r2(beACOS) +
-                   '%. Va a campaña exacta propia, y se niega en exacto en la campaña de origen para que no compitan.';
+        d.motivo = ord + ' órdenes (CVR ' + r2(cvr) + '%, IC ' + r2(ci.lo * 100) + '–' + r2(ci.hi * 100) +
+                   '%). Aíslalo en campaña exacta + Top-of-Search para rankear, y niégalo en exacto en la de origen.';
+        return d;
+      }
+
+      // Cosecha en RENTABILIDAD: solo si estamos CONFIADOS de que gana. Con pocas
+      // órdenes el CVR observado puede ser suerte; se exige que el PISO del
+      // intervalo ya supere el equilibrio antes de comprometer una campaña propia.
+      if (objetivo !== 'ranking' && ord >= C.MIN_ORDENES_COSECHA && rentable && !d.yaEnExacta) {
+        if (confiadoGanador) {
+          d.accion = 'COSECHAR';
+          d.motivo = ord + ' órdenes, ACOS ' + r2(acos) + '% y CVR real de al menos ' + r2(ci.lo * 100) +
+                     '% (sobre tu equilibrio de ' + (beCVR === null ? 'n/d' : r2(beCVR * 100) + '%') +
+                     '): es un ganador confirmado, no suerte. A campaña exacta propia, y niégalo en la de origen.';
+          return d;
+        }
+        // Convierte y es rentable, pero la muestra aún es fina: no lo aísles todavía.
+        d.accion = 'VIGILAR';
+        d.motivo = 'Va muy bien (' + ord + ' órdenes, ACOS ' + r2(acos) + '%), pero con esta muestra su CVR real ' +
+                   'aún cruza tu equilibrio (IC ' + r2(ci.lo * 100) + '–' + r2(ci.hi * 100) + '%, equilibrio ' +
+                   (beCVR === null ? 'n/d' : r2(beCVR * 100) + '%') + '). Confírmalo una semana más antes de aislarlo ' +
+                   'a exacta: cosechar en falso te compromete presupuesto en algo que quizá fue suerte.';
+        d.requiereJuicio = true;
         return d;
       }
 
@@ -257,19 +456,36 @@
         return d;
       }
 
-      if (maxCPC !== null && cpc > maxCPC) {
+      // Techo de puja según objetivo: con margen (rentabilidad) o a break-even (ranking).
+      var techo = (objetivo === 'ranking') ? maxCPCbe : maxCPC;
+
+      if (techo !== null && cpc > techo) {
+        if (objetivo === 'ranking') {
+          // No se mata un término que convierte; solo se avisa si está MUY caro.
+          if (cpc > techo * 1.5) {
+            d.accion = 'BAJAR_PUJA';
+            d.motivo = 'Convierte pero pagas $' + r2(cpc) + ' por clic contra un break-even de $' + r2(techo) +
+                       '. Para rankear rentable, baja la puja o sube el CVR (listing, precio, reseñas).';
+            d.pujaSugerida = r2(techo);
+            return d;
+          }
+          d.accion = 'MANTENER';
+          d.motivo = 'Convierte a $' + r2(cpc) + ' por clic (break-even $' + r2(techo) + '). En ranking está bien ' +
+                     'invertir cerca del equilibrio para ganar posición.';
+          return d;
+        }
         d.accion = 'BAJAR_PUJA';
         d.motivo = 'Convierte cada ' + r2(cpo) + ' clics. A tu CPA objetivo de $' + r2(targetCPA) +
-                   ' puedes pagar hasta $' + r2(maxCPC) + ' por clic, y estás pagando $' + r2(cpc) + '.';
-        d.pujaSugerida = r2(maxCPC);
+                   ' puedes pagar hasta $' + r2(techo) + ' por clic, y estás pagando $' + r2(cpc) + '.';
+        d.pujaSugerida = r2(techo);
         return d;
       }
 
-      if (maxCPC !== null && cpc < maxCPC * C.HOLGURA_SUBIR) {
+      if (techo !== null && cpc < techo * C.HOLGURA_SUBIR) {
         d.accion = 'SUBIR_PUJA';
-        d.motivo = 'Convierte cada ' + r2(cpo) + ' clics y pagas $' + r2(cpc) + ' por clic, con techo en $' + r2(maxCPC) +
+        d.motivo = 'Convierte cada ' + r2(cpo) + ' clics y pagas $' + r2(cpc) + ' por clic, con techo en $' + r2(techo) +
                    '. Hay espacio para ganar más impresiones sin salir de rentabilidad.';
-        d.pujaSugerida = r2(Math.min(maxCPC, cpc * 1.10));  // pasos de 10%, nunca saltos
+        d.pujaSugerida = r2(Math.min(techo, cpc * 1.10));  // pasos de 10%, nunca saltos
         return d;
       }
 
@@ -297,7 +513,11 @@
       ventas: r2(totSal),
       ordenes: totOrd,
       acosCuenta: totSal > 0 ? r2(totSpd / totSal * 100) : null,
+      // TACOS = gasto en ads / ventas TOTALES del producto (orgánicas + ads). El KPI norte.
+      tacos: ventasTotales > 0 ? r2(totSpd / ventasTotales * 100) : null,
       clicsPorOrdenCuenta: cpoCuenta ? r2(cpoCuenta) : null,
+      cvrBaseCuenta: baseCVR === null ? null : r2(baseCVR * 100),   // prior Bayesiano
+      priorFuerza: C.PRIOR_FUERZA,
       gastoDesperdiciado: r2(desperdicio),
       pctDesperdiciado: totSpd > 0 ? r2(desperdicio / totSpd * 100) : 0,
       gastoRecuperableAhora: r2(gastoANegar)
@@ -314,7 +534,8 @@
         breakEvenCPA: r2(beCPA),
         targetACOS: r2(targetACOS),
         targetCPA: r2(targetCPA),
-        pisoClics: C.PISO_CLICS
+        pisoClics: C.PISO_CLICS,
+        objetivo: objetivo
       },
       resumen: resumen,
       decisiones: decisiones
@@ -330,18 +551,25 @@
     if (!res || !res.ok) return 'MOTOR PPC: ' + ((res && res.error) || 'sin resultado');
     limite = limite || 25;
     var e = res.economia, s = res.resumen;
+    var OBJ_TXT = {
+      rentabilidad: 'RENTABILIDAD (producto maduro: ACOS/CPA manda; el norte real es el TACOS)',
+      ranking: 'RANKING/LANZAMIENTO (se acepta operar hasta break-even; un termino que CONVIERTE aunque su ACOS pase el equilibrio es victoria, no algo que pausar)',
+      conquista: 'CONQUISTA/PAT (ROAS bajo esperado; se justifica por LTV o por tomar venta al competidor)'
+    };
     var out = 'MOTOR PPC — DECISIONES YA CALCULADAS POR LA APLICACION\n';
+    out += 'Objetivo de la campaña: ' + (OBJ_TXT[e.objetivo] || OBJ_TXT.rentabilidad) + '\n';
     out += 'Economia del estudiante: precio $' + e.precio + ' | break-even ACOS ' + e.breakEvenACOS +
            '% | CPA de equilibrio $' + e.breakEvenCPA + ' | CPA objetivo $' + e.targetCPA +
            ' (ACOS objetivo ' + e.targetACOS + '%)\n';
     out += 'Cuenta: gasto $' + s.gasto + ' | ventas $' + s.ventas + ' | ordenes ' + s.ordenes +
-           ' | ACOS ' + (s.acosCuenta === null ? 'n/d' : s.acosCuenta + '%') +
+           ' | ACOS ads ' + (s.acosCuenta === null ? 'n/d' : s.acosCuenta + '%') +
+           (s.tacos !== null && s.tacos !== undefined ? ' | TACOS ' + s.tacos + '% (el norte)' : ' | TACOS n/d (pide ventas totales)') +
            ' | clics por orden ' + (s.clicsPorOrdenCuenta || 'n/d') + '\n';
     out += 'Desperdicio: $' + s.gastoDesperdiciado + ' (' + s.pctDesperdiciado + '% del gasto). ' +
            'Recuperable negando ya: $' + s.gastoRecuperableAhora +
            (s.proyeccionMensual ? ' (~$' + s.proyeccionMensual + '/mes al ritmo actual)' : '') + '\n\n';
 
-    var orden = ['NEGAR', 'COSECHAR', 'NEGAR_EN_ORIGEN', 'BAJAR_PUJA', 'SUBIR_PUJA', 'REVISAR_LISTING', 'REVISAR_MARCA', 'VIGILAR'];
+    var orden = ['NEGAR', 'COSECHAR', 'SEGMENTACION', 'NEGAR_EN_ORIGEN', 'BAJAR_PUJA', 'SUBIR_PUJA', 'REVISAR_LISTING', 'REVISAR_MARCA', 'VIGILAR'];
     orden.forEach(function (acc) {
       var g = res.decisiones.filter(function (d) { return d.accion === acc; });
       if (!g.length) return;
@@ -357,18 +585,28 @@
       out += '\n';
     });
 
+    out += 'RECUERDA AL ESTUDIANTE: el ACOS de ads es DIRECCIONAL; el norte es el TACOS y los dolares de ' +
+           'utilidad. Un termino con ACOS alto puede estar bien si las ventas organicas lo compensan (TACOS sano) ' +
+           'o si el objetivo es rankear. Nunca mandes a pausar/negativizar un termino que CONVIERTE solo porque su ' +
+           'ACOS supera el break-even: mira primero el objetivo y el TACOS.\n\n';
     out += 'INSTRUCCION: estas decisiones ya estan calculadas y NO se recalculan. Tu trabajo es explicar ' +
            'las de mayor impacto, nombrar la campaña exacta donde se ejecuta cada una, y escribir el bloque ' +
            'de negaciones para copiar. En NEGAR y REVISAR_LISTING usa tu juicio de RELEVANCIA: si el termino ' +
-           'es irrelevante al producto se niega; si es relevante pero caro, se baja la puja en vez de negarlo.';
+           'es irrelevante al producto se niega; si es relevante pero caro, se baja la puja en vez de negarlo. ' +
+           'Las filas SEGMENTACION NO son terminos de busqueda (son grupos de la Auto o targets de producto/' +
+           'categoria): NUNCA las metas en el bloque de negaciones ni las mandes a manual exacta; explica que se ' +
+           'gestionan por puja/pausa del grupo, o con negativo de PRODUCTO/CATEGORIA, no de keyword.';
     return out;
   }
 
   global.SophiePPC = {
-    version: '1.0',
+    version: '1.3',
     config: CONFIG,
     clasificar: clasificar,
-    texto: texto
+    texto: texto,
+    wilson: wilson,             // intervalo de confianza (no informativo) de una proporción
+    intervalo: intervalo,       // intervalo con prior Bayesiano (Empirical Bayes)
+    clicsParaNegar: clicsParaNegar
   };
 
 })(typeof window !== 'undefined' ? window : this);

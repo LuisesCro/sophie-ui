@@ -291,11 +291,63 @@
     return exceso.sort(function (a, b) { return b.veces - a.veces; });
   }
 
-  // Marcadores de español: acentos, ñ, y vocabulario frecuente del nicho.
-  var ES_COMUNES = ['kit','set','para','ninos','ninas','adultos','mujer','hombre','regalo','casa','cocina',
-    'bano','jardin','oficina','viaje','bebe','mascota','perro','gato','organizador','soporte','juego',
-    'tabla','bolsa','estuche','manualidades','bordado','tejido','hilo','aguja','lana','madera','acero',
-    'cuero','algodon','vidrio','plastico','bambu','portatil','plegable','ajustable','antideslizante'];
+
+  // Anglicismos lexicalizados que SÍ se buscan en México. En un listing mexicano
+  // el backend es justo donde deben ir: pesan 1 byte por carácter y el título de
+  // 75 caracteres es demasiado escaso para gastarlo en variantes en inglés.
+  var ANGLICISMOS_MX = ['gaming','smartwatch','airfryer','air fryer','laptop','case','tablet',
+    'kit','pack','set','bluetooth','wireless','powerbank','power bank','skincare','fitness',
+    'jeans','hoodie','gadget','mouse','tripie','usb','led','hd','smart','wifi','outdoor',
+    'shampoo','spray','gel','stand','clip','organizer','holder','cover','strap','charger'];
+  function terminosIngles(txt) {
+    var t = String(txt || '').toLowerCase(), out = [];
+    for (var i = 0; i < ANGLICISMOS_MX.length; i++) {
+      var w = ANGLICISMOS_MX[i];
+      if (t.indexOf(w) >= 0 && out.indexOf(w) < 0) out.push(w);
+    }
+    return out;
+  }
+  function esMercadoMX() {
+    try { return !!(typeof window !== 'undefined' && window.CzMercado && window.CzMercado.actual() === 'mx'); }
+    catch (e) { return false; }
+  }
+
+  // Marcadores de español: acentos, ñ, y vocabulario frecuente en listings de
+  // Amazon en español. La lista cubre varios nichos (hogar, baño, iluminación,
+  // bienestar, cocina, manualidades) para no castigar a un producto solo porque
+  // su vocabulario no estaba contemplado. Se guarda SIN acentos: la detección
+  // ya reconoce por separado cualquier palabra acentuada.
+  // Solo palabras que se escriben distinto en inglés (español inequívoco), para
+  // no dar por español un backend en inglés lleno de cognados idénticos
+  // (natural, control, cable, metal, spa…). El acento se detecta aparte.
+  var ES_COMUNES = [
+    // estructura / genéricos
+    'kit','set','para','juego','unidad','unidades','pieza','piezas',
+    // audiencia
+    'ninos','ninas','nino','nina','adultos','adulto','mujer','mujeres','hombre','hombres','bebe','bebes',
+    'familia','pareja','abuela','abuelo','mama','papa','principiantes','principiante',
+    // ocasión / uso
+    'regalo','regalos','navidad','cumpleanos','aniversario','viaje','viajes','hogar','casa','fiesta',
+    // espacios del hogar
+    'cocina','bano','banos','jardin','oficina','sala','comedor','dormitorio','habitacion','cuarto',
+    'lavabo','ducha','escritorio','mesita','pared','techo','exterior','terraza',
+    // iluminación / el nicho de este ejemplo
+    'luz','luces','lampara','lamparas','foco','focos','vela','velas','veladora','iluminacion',
+    'bombilla','farol','linterna','nocturna','ambiente','ambiental','calida','calido','brillo',
+    // electrónica / atributos comunes (solo formas claramente españolas)
+    'recargable','inalambrico','portatil','plegable','ajustable','impermeable','resistente',
+    'bateria','cargador','remoto','silencioso',
+    // bienestar
+    'relajacion','relajante','masajeador','masaje','descanso','bienestar','aromaterapia',
+    'meditacion','antiestres','terapia','comodo','suave',
+    // materiales
+    'madera','bambu','acero','cuero','algodon','vidrio','plastico','ceramica','silicona',
+    'tela','lino',
+    // objetos / cocina / manualidades (nichos previos)
+    'organizador','soporte','tabla','bolsa','estuche','botella','taza','caja','cesta','maceta',
+    'manualidades','bordado','tejido','hilo','aguja','lana','pincel','pintura','decoracion','adorno',
+    'antideslizante','decorativo','elegante','duradero'
+  ];
 
   function terminosEspanol(backend) {
     var palabras = String(backend || '').toLowerCase().split(/\s+/).filter(Boolean);
@@ -424,9 +476,20 @@
       bBytes + '/249 bytes' + (bBytes > LIMITES.backend.max
         ? ' — un byte de más des-indexa TODO el campo, en silencio'
         : bHolgado ? '' : ' — muy al límite, deja margen en 240'));
-    var es = terminosEspanol(L.backend);
-    back += add('Backend', 'Mínimo 5 términos en español', es.length >= 5 ? 4 : 0, 4, es.length >= 5,
-      es.length + ' detectados' + (es.length ? ': ' + es.slice(0, 6).join(', ') : ''));
+    /* El criterio se invierte según el mercado. En un listing de USA el español es
+       el nicho secundario y sumar términos en español gana alcance. En México el
+       listing YA es español entero: lo que falta ahí son los anglicismos que el
+       comprador mexicano igual teclea (laptop, bluetooth, kit, gaming...). */
+    if (esMercadoMX()) {
+      var ang = terminosIngles(L.backend);
+      back += add('Backend', 'Mínimo 5 anglicismos que se buscan en México', ang.length >= 5 ? 4 : 0, 4, ang.length >= 5,
+        ang.length + ' detectados' + (ang.length ? ': ' + ang.slice(0, 6).join(', ') : '') +
+        ' — en México el listing ya es español; el backend es para las variantes en inglés');
+    } else {
+      var es = terminosEspanol(L.backend);
+      back += add('Backend', 'Mínimo 5 términos en español', es.length >= 5 ? 4 : 0, 4, es.length >= 5,
+        es.length + ' detectados' + (es.length ? ': ' + es.slice(0, 6).join(', ') : ''));
+    }
     var conVisible = solapan(L.titulo + ' ' + L.itemHighlights, L.backend);
     back += add('Backend', 'Sin repetir palabras del título ni de Item Highlights',
       conVisible.length > 2 ? 0 : 3, 3, conVisible.length <= 2,
@@ -581,8 +644,176 @@
     };
   }
 
+  /* ============================================================
+     4 · CIERRE DEL BUCLE Y AUTO-REPARACIÓN MECÁNICA
+     Lo mecánico (bytes, formato, diccionario) lo resuelve el motor,
+     no el modelo. Dos piezas:
+       - auditoriaParaModelo: convierte el score en instrucciones exactas
+         para que Sophie corrija con números reales, no adivinando.
+       - repararBackend: arregla determinísticamente el backend, que es
+         una bolsa de keywords (sin prosa), así que es seguro reescribirlo.
+     ============================================================ */
+
+  // Texto compacto con la verdad exacta del auditor, para inyectar al modelo.
+  function auditoriaParaModelo(s) {
+    if (!s) return '';
+    var m = s.medidas || {};
+    var cab = 'AUDITORÍA EXACTA DE LA APP — usa estos números reales, NO estimes ni cuentes a mano.\n' +
+      'Score actual: ' + s.total + '/100.\n' +
+      'Medidas: título ' + m.tituloChars + '/75 chars · Item Highlights ' + m.itemHighlightsChars +
+      '/125 chars · viñetas ' + (m.vinetasIndexado ? m.vinetasIndexado.totalBytes : '?') + '/1000 bytes · ' +
+      'backend ' + m.backendBytes + '/249 bytes · descripción ' + m.descripcionChars + '/2000 chars · ' +
+      'español detectado en backend (' + (m.espanolDetectado || []).length + '): ' +
+      ((m.espanolDetectado || []).join(', ') || 'ninguno') + '.\n';
+    if (!s.fallos || !s.fallos.length) {
+      return cab + 'No falla ningún criterio. Cierra con el resumen pegable final.';
+    }
+    var lineas = s.fallos.map(function (f) {
+      return '✗ ' + f.seccion + ' · ' + f.criterio + ' (' + f.puntos + '/' + f.max + ' pts)' +
+        (f.nota ? ' → ' + f.nota : '');
+    });
+    return cab + 'Criterios que FALLAN (' + s.fallos.length + '), corrígelos TODOS de una vez sin romper los que ya pasan:\n' +
+      lineas.join('\n') +
+      '\n\nRecordatorios del auditor: los encabezados de viñeta antes de " - " solo pueden llevar ' +
+      'MAYÚSCULAS, dígitos, & y espacios (nada de comas, puntos ni apóstrofes). En el backend, cada ' +
+      'acento vale 2 bytes; el español se detecta por acento o por palabra común, así que conserva los ' +
+      'acentos en las palabras en español. Entrega los campos corregidos listos para pegar.';
+  }
+
+  // Repara determinísticamente el backend (bolsa de keywords, sin prosa):
+  // quita duplicados del título/Item Highlights, garantiza ≥5 términos en
+  // español y recorta a ≤ objetivo bytes. Devuelve el backend corregido y qué
+  // cambió, o null si ya estaba bien.
+  var ES_RELLENO = ['regalo','hogar','decoracion','luz','ambiente','relajacion','bano','viaje','navidad','adultos'];
+  function repararBackend(listing) {
+    var L = listing || {};
+    var original = String(L.backend || '');
+    if (!original.trim()) return null;
+    var objetivo = LIMITES.backend.objetivo; // 240, deja margen bajo el techo de 249
+
+    // 1) tokeniza respetando el orden, quita duplicados internos
+    var vistas = {}, tokens = [];
+    original.split(/\s+/).filter(Boolean).forEach(function (w) {
+      var k = w.toLowerCase();
+      if (!vistas[k]) { vistas[k] = 1; tokens.push(w); }
+    });
+
+    // 2) quita palabras que ya aparecen en título o Item Highlights (>3 letras)
+    var visibles = {};
+    (String(L.titulo || '') + ' ' + String(L.itemHighlights || '')).toLowerCase()
+      .split(/\s+/).forEach(function (w) {
+        var x = w.replace(/[^a-z0-9]/g, ''); if (x.length > 3) visibles[x] = 1;
+      });
+    tokens = tokens.filter(function (w) {
+      var x = w.toLowerCase().replace(/[^a-z0-9áéíóúñü]/g, '');
+      return !(x.length > 3 && visibles[x]);
+    });
+
+    // 3) garantiza ≥5 términos en español: si faltan, agrega de la lista de relleno
+    function contarEs() { return terminosEspanol(tokens.join(' ')).length; }
+    for (var i = 0; i < ES_RELLENO.length && contarEs() < 5; i++) {
+      var cand = ES_RELLENO[i];
+      if (!tokens.some(function (w) { return w.toLowerCase() === cand; })) tokens.push(cand);
+    }
+
+    // 4) recorta a ≤ objetivo bytes quitando desde el final (el orden ya prioriza
+    //    lo más importante al inicio), pero protege 5 términos en español.
+    function bajarBytes() {
+      while (bytes(tokens.join(' ')) > objetivo && tokens.length > 1) {
+        // busca desde el final una palabra que NO sea de las últimas 5 en español
+        var quitado = false;
+        for (var j = tokens.length - 1; j >= 0; j--) {
+          var esEs = terminosEspanol(tokens[j]).length > 0;
+          if (!esEs || contarEs() > 5) { tokens.splice(j, 1); quitado = true; break; }
+        }
+        if (!quitado) tokens.pop();
+      }
+    }
+    bajarBytes();
+
+    var reparado = tokens.join(' ');
+    var cambio = reparado !== original.trim();
+    return {
+      backend: reparado,
+      bytes: bytes(reparado),
+      espanol: terminosEspanol(reparado),
+      cambio: cambio
+    };
+  }
+
+  // Repara determinísticamente el formato de las viñetas: normaliza el separador
+  // a ' - ', limpia el encabezado (antes del primer ' - ') para que solo lleve
+  // MAYÚSCULAS, dígitos, & y espacios —quita comas, puntos y apóstrofes, que son
+  // lo que rompe el criterio de formato— y cambia los guiones largos (—/–, 3
+  // bytes) por guión simple (1 byte) en todo el texto para ahorrar bytes. No
+  // recorta prosa: eso lo decide el modelo. Devuelve las viñetas corregidas.
+  function repararVinetas(vinetas) {
+    if (!Array.isArray(vinetas) || !vinetas.length) return null;
+    var cambio = false;
+    var reparadas = vinetas.map(function (v) {
+      var s = String(v || '').trim();
+      // guiones largos → guión simple con espacios (ahorra bytes, separador válido)
+      var out = s.replace(/\s*[—–]\s*/g, ' - ');
+      // separa encabezado y resto en el PRIMER ' - '
+      var m = out.match(/^([\s\S]*?)\s-\s([\s\S]*)$/);
+      if (m) {
+        var head = m[1].toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ0-9&\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        out = head + ' - ' + m[2].replace(/\s+/g, ' ').trim();
+      } else {
+        out = out.replace(/\s+/g, ' ').trim();
+      }
+      if (out !== s) cambio = true;
+      return out;
+    });
+    return { vinetas: reparadas, cambio: cambio, indexado: indexadoVinetas(reparadas) };
+  }
+
+  // Cierra el bucle también en los pasos de construcción (5-8): revisa las
+  // medidas exactas del listing parcial y devuelve SOLO los campos que se
+  // salieron de su límite, en instrucciones directas para el modelo. Devuelve
+  // '' si todo lo presente está dentro de límites (no hay nada que corregir).
+  function medidasParaModelo(listing) {
+    var L = listing || {};
+    var probs = [];
+    if (L.titulo !== undefined) {
+      var tc = chars(L.titulo);
+      if (tc > LIMITES.titulo.max) probs.push('Título: ' + tc + '/75 chars — recórtalo a 75 o menos SIN quitar la keyword P1 del inicio ni la marca.');
+    }
+    if (L.itemHighlights !== undefined) {
+      var ic = chars(L.itemHighlights);
+      if (ic > LIMITES.itemHighlights.max) probs.push('Item Highlights: ' + ic + '/125 chars — recórtalo a 125 o menos.');
+      else if (ic === 0) probs.push('Item Highlights vacío — llénalo (hasta 125 chars) con atributos y las P1 que no cupieron en el título.');
+    }
+    if (Array.isArray(L.vinetas) && L.vinetas.length) {
+      L.vinetas.forEach(function (v, i) {
+        var c = chars(v);
+        if (c > LIMITES.vineta.max) probs.push('Viñeta ' + (i + 1) + ': ' + c + '/250 chars — recórtala.');
+      });
+      var idx = indexadoVinetas(L.vinetas);
+      if (idx.totalBytes > LIMITES.vinetasIndexado.max)
+        probs.push('Viñetas juntas: ' + idx.totalBytes + '/1000 bytes — recorta ~' + (idx.totalBytes - 950) + ' bytes de relleno (deja margen a 950).');
+    }
+    if (L.backend !== undefined && L.backend) {
+      var bb = bytes(L.backend);
+      if (bb > LIMITES.backend.max) probs.push('Backend: ' + bb + '/249 bytes — recorta ' + (bb - LIMITES.backend.objetivo) + ' bytes (apunta a 240).');
+      var esn = terminosEspanol(L.backend).length;
+      if (esn < 5) probs.push('Backend: solo ' + esn + ' términos en español (mínimo 5) — agrega palabras claramente españolas y CON acento (luz, baño, ducha, lámpara, relajación…).');
+      var rep = solapan(L.titulo + ' ' + L.itemHighlights, L.backend);
+      if (rep.length > 2) probs.push('Backend repite del título/Item Highlights: ' + rep.slice(0, 4).join(', ') + ' — quítalas, Amazon indexa una vez por sección.');
+    }
+    if (L.descripcion !== undefined && L.descripcion) {
+      var dc = chars(L.descripcion);
+      if (dc > LIMITES.descripcion.max) probs.push('Descripción: ' + dc + '/2000 chars — recórtala a 2000 o menos.');
+      else if (dc < LIMITES.descripcion.min) probs.push('Descripción: ' + dc + '/2000 chars — muy corta, mínimo 1000.');
+    }
+    if (!probs.length) return '';
+    return 'MEDIDAS EXACTAS DE LA APP — usa estos números reales, NO estimes ni cuentes a mano.\n' +
+      'Corrige SOLO estos campos que se salieron del límite y vuelve a mostrarlos ya corregidos, sin tocar lo demás:\n' +
+      probs.map(function (p) { return '✗ ' + p; }).join('\n');
+  }
+
   global.SophieKeywords = {
-    version: '2.0',
+    version: '2.3',
     vigenteDesde: '2026-07-27',
     limites: LIMITES,
     umbrales: UMBRALES,
@@ -595,7 +826,11 @@
     indexadoVinetas: indexadoVinetas,
     frasesProhibidas: frasesProhibidas,
     palabrasRepetidas: palabrasRepetidas,
-    terminosEspanol: terminosEspanol
+    terminosEspanol: terminosEspanol,
+    auditoriaParaModelo: auditoriaParaModelo,
+    medidasParaModelo: medidasParaModelo,
+    repararBackend: repararBackend,
+    repararVinetas: repararVinetas
   };
 
 })(window);
