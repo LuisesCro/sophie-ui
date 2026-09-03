@@ -306,17 +306,71 @@
     ]
   };
 
+
+  /* ============================================================
+     MODO COMPATIBILIDAD · productos de repuesto
+     ------------------------------------------------------------
+     Aplica a productos cuya demanda NO es descriptiva sino de
+     COMPATIBILIDAD: el comprador busca un código o el aparato al
+     que le sirve. Tóner y tinta (CF283A, TN-1060), autopartes,
+     fundas y micas por modelo de celular, filtros, correas de
+     reloj, baterías, refacciones de electrodoméstico.
+
+     Qué cambia y por qué: quien teclea "CF283A" ya tiene la
+     impresora y viene a comprar. La intención es de compra, no de
+     exploración, así que la conversión es muy superior a la de un
+     nicho descriptivo y un volumen bajo NO significa poca demanda.
+     Aplicar el umbral normal daría NO GO a códigos rentables.
+
+     ⚠️ Estos factores son de CRITERIO, no medidos: no tengo datos
+     de conversión por código para calibrarlos. Se eligió dividir
+     el umbral de volumen entre 3, que es conservador. Valídalos
+     con ventas reales antes de darlos por firmes.
+     ============================================================ */
+
+  var UMBRALES_COMPAT = {
+    us: {
+      1: { umbral_num: 1500, alerta_num: 1000,
+           umbral: 'SV ≥ 1,500 por código + tendencia estable',
+           nota_compat: 'Umbral reducido: la búsqueda por código es de intención de compra.' },
+      7: { umbral_num: 15, alerta_num: 8,
+           umbral: '≥ 15 modelos o códigos compatibles',
+           nota_compat: 'En un producto de repuesto las puertas de entrada no son sinónimos: son los APARATOS a los que le sirve. Un cartucho que cubre ocho impresoras tiene ocho rutas de venta.' }
+    },
+    mx: {
+      1: { umbral_num: 150, alerta_num: 100,
+           umbral: 'SV ≥ 150 por código + tendencia estable',
+           nota_compat: 'Umbral reducido sobre el de México (500) por la misma razón: intención de compra.' },
+      7: { umbral_num: 10, alerta_num: 6,
+           umbral: '≥ 10 modelos o códigos compatibles',
+           nota_compat: 'Cuenta los aparatos compatibles, no los sinónimos.' }
+    }
+  };
+
+  /* Criterio que MANDA en este modo: el 13 (barreras de entrada). Los repuestos
+     compatibles viven cerca de patentes, chips propietarios y marcas registradas.
+     Verificarlo ANTES de comprar inventario, no al final. */
+  var NOTA_COMPAT_13 = 'MODO COMPATIBILIDAD: este criterio pasa a ser el primero, no el último. Los repuestos compatibles conviven con patentes vigentes, chips propietarios y marcas en Brand Registry, y ahí es donde se pierde el inventario. Antes de comprar: revisa patentes del consumible y del chip, si la marca original restringe la categoría, y si está gated en Seller Central.';
+
   /* Devuelve la lista de criterios con los umbrales del mercado pedido.
      'us' (o sin argumento) devuelve los canónicos, sin copiar nada. */
-  function criteriosDe(mercado) {
-    if (String(mercado || 'us').toLowerCase() !== 'mx') return CRITERIOS;
+  function criteriosDe(mercado, opts) {
+    var mx = String(mercado || 'us').toLowerCase() === 'mx';
+    var compat = !!(opts && opts.compatibilidad);
+    if (!mx && !compat) return CRITERIOS;          // caso de siempre: misma referencia
+    var capaCompat = compat ? (UMBRALES_COMPAT[mx ? 'mx' : 'us'] || {}) : {};
     return CRITERIOS.map(function (c) {
-      var ov = UMBRALES_MX[c.id];
-      if (!ov) return c;
+      var ovMx = mx ? UMBRALES_MX[c.id] : null;
+      var ovCo = capaCompat[c.id];
+      if (!ovMx && !ovCo && !(compat && c.id === 13)) return c;
       var copia = {}, k;
       for (k in c) if (Object.prototype.hasOwnProperty.call(c, k)) copia[k] = c[k];
-      for (k in ov) if (Object.prototype.hasOwnProperty.call(ov, k)) copia[k] = ov[k];
-      copia.mercado = 'mx';
+      if (ovMx) for (k in ovMx) if (Object.prototype.hasOwnProperty.call(ovMx, k)) copia[k] = ovMx[k];
+      // La capa de compatibilidad va DESPUÉS de la de mercado: es la más específica.
+      if (ovCo) for (k in ovCo) if (Object.prototype.hasOwnProperty.call(ovCo, k)) copia[k] = ovCo[k];
+      if (compat && c.id === 13) copia.nota_compat = NOTA_COMPAT_13;
+      if (mx) copia.mercado = 'mx';
+      if (compat) copia.compatibilidad = true;
       return copia;
     });
   }
@@ -434,6 +488,7 @@
     criteriosDe: criteriosDe,
     filtrosDe: filtrosDe,
     umbralesMX: UMBRALES_MX,
+    umbralesCompat: UMBRALES_COMPAT,
     mercados: ['us', 'mx'],
     // Capa 2 · Intent-First (criterios 14–18 + matriz). La taxonomía de
     // clusters se reexpone desde cz-intent-core.js (fuente única compartida).

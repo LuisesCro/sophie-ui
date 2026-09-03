@@ -123,8 +123,13 @@
 
   /* ---------- evaluación completa ---------- */
 
-  function evaluar(datos, juicios) {
-    var filas = C.lista.map(function (c) { return evaluarUno(c, datos, juicios); });
+  /* opts = { mercado:'us'|'mx', compatibilidad:true }. Sin opts se comporta
+     exactamente como antes: la lista canónica de USA, misma referencia. */
+  function evaluar(datos, juicios, opts) {
+    var lista = (typeof C.criteriosDe === 'function')
+      ? C.criteriosDe((opts && opts.mercado) || 'us', opts)
+      : C.lista;
+    var filas = lista.map(function (c) { return evaluarUno(c, datos, juicios); });
 
     var aprobados = filas.filter(function (f) { return f.estado === 'pass'; }).length;
     var total = filas.length;
