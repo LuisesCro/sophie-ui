@@ -223,6 +223,103 @@
   };
 
   /* ============================================================
+     CAPA DE MERCADO · AMAZON MÉXICO
+     ------------------------------------------------------------
+     Los umbrales de arriba son de Amazon USA y NO sirven en México:
+     aplicarlos daría NO GO a casi todo producto viable. Esta capa
+     los sustituye para 'mx' sin tocar los de USA, que siguen siendo
+     los canónicos que valida tools/verificar-metodologia.mjs.
+
+     CALIBRACIÓN (medida, no inventada):
+      · Volumen de búsqueda ≈ 10x menor que USA. Medido con Helium 10
+        sobre marcas idénticas en los dos marketplaces: owala 180,456 vs
+        2,493,936 (13.8x) · ipad 172,177 vs 1,563,582 (9.1x).
+      · Reseñas: la barrera es mucho más baja. En tres nichos reales de
+        MX (botella de agua, organizador de cocina, juguetes para perro,
+        n≈190 c/u) entre 29% y 48% de los productos compiten con menos
+        de 100 reseñas.
+      · Precio: mediana real de esos nichos MXN 215–375, p75 hasta 521.
+      · Ingreso: mediana por producto MXN 6,882 / 32,857 / 63,082 al mes.
+
+     MXN 299 es el umbral que gobierna el mercado: envío gratis sin Prime,
+     MSI sin costo para el vendedor y subsidio de comisiones. MXN 499 es
+     donde arranca la banda cara de FBA.
+     ============================================================ */
+
+  var UMBRALES_MX = {
+    1: { umbral_num: 500, alerta_num: 300,
+         umbral: 'SV ≥ 500 + tendencia estable o alcista',
+         nota_mx: 'En México el volumen es ~10x menor que en USA. Una keyword de 500 búsquedas aquí equivale a ~5,000 allá: no la descartes con el criterio gringo.' },
+
+    2: { umbral_num: 25000, alerta_num: 15000,
+         umbral: 'Average Revenue ≥ MXN 25,000 /mes',
+         nota_mx: 'Equivale a ~USD 1,400. El umbral de USA (USD 4,500 ≈ MXN 81,000) dejaría fuera casi todo nicho mexicano sano.' },
+
+    /* 3 (concentración) no cambia: es estructural, no depende del mercado. */
+
+    4: { umbral_num: 150, alerta_num: 250,
+         umbral: 'Average Reviews ≤ 150 · ningún top 3 sobre 300',
+         nota_mx: 'La muralla social mexicana es mucho más baja: entre 29% y 48% del mercado compite con menos de 100 reseñas.' },
+
+    5: { umbral_num: 299, alerta_num: 299,
+         umbral: 'Average Price ≥ MXN 299 (ideal ≥ MXN 499)',
+         nota_mx: 'MXN 299 no es un número redondo: por debajo pierdes envío gratis y Meses Sin Intereses, y 50% de los compradores abandona el carrito sin MSI. EXCEPCIÓN: en Salud y Cuidado personal, Alimentación y Bebidas alcohólicas la tarifa FBA es hasta 6x más barata bajo MXN 499, así que ahí un producto de MXN 150–250 sí puede ser rentable.' },
+
+    7: { umbral_num: 30, alerta_num: 15,
+         umbral: '≥ 30 keywords orgánicas tras filtrar',
+         nota_mx: 'El conteo se mantiene, pero el filtro de volumen en Cerebro baja de 300 a 40 búsquedas.' },
+
+    8: { umbral_num: 30, alerta_num: 20,
+         umbral: 'Margen ≥ 30% antes de PPC · ROI ≥ 100% (sobre ingreso neto de IVA)',
+         nota_mx: 'CRÍTICO: en México el precio de lista YA INCLUYE el IVA 16%. El margen se calcula sobre precio / 1.16, nunca sobre el precio de lista — hacerlo mal infla el margen ~13.8 puntos.' },
+
+    10: { umbral_num: 30, alerta_num: 40,
+          umbral: 'MOQ ≤ 300 · costo aterrizado ≤ 30% del precio',
+          nota_mx: 'China dejó de ser el default en México: el impuesto a paquetería subió de 19% a 33.5% y la reforma de 2026 grava 1,371 fracciones con 5–50%. Origen EE.UU. o Canadá conserva preferencias del T-MEC. Suma siempre el costo del etiquetado NOM al costo aterrizado.' },
+
+    12: { umbral: 'El nicho no está dominado por genéricos de MXN 150–300',
+          nota_mx: 'El competidor a vencer no siempre es chino: en México también compites contra el mismo producto en Mercado Libre.' },
+
+    13: { nota_mx: 'Además de categoría gated y patentes, verifica NOM-050 (etiquetado en español con RFC y domicilio del importador) y, si aplica, COFEPRIS para suplementos y cosméticos.' }
+  };
+
+  var FILTROS_MX = {
+    blackBox: [
+      { campo: 'Search Volume',       min: 500,   max: null, nota: 'sin máximo' },
+      { campo: 'Monthly Sales Units', min: 50,    max: null },
+      { campo: 'Review Count',        min: null,  max: 150 },
+      { campo: 'Monthly Revenue',     min: 25000, max: null, moneda: true },
+      { campo: 'Price',               min: 299,   max: 2500, moneda: true, nota: 'ideal desde MXN 499' },
+      { campo: 'Word Count',          min: 2,     max: null }
+    ],
+    cerebro: [
+      { campo: 'Search Volume',                 min: 40, max: null },
+      { campo: 'Match Type',                    valor: 'Organic' },
+      { campo: 'Number of Organic Competitors', min: 3,  max: 10 },
+      { campo: 'Competitor Organic Rank',       min: 1,  max: 45 }
+    ]
+  };
+
+  /* Devuelve la lista de criterios con los umbrales del mercado pedido.
+     'us' (o sin argumento) devuelve los canónicos, sin copiar nada. */
+  function criteriosDe(mercado) {
+    if (String(mercado || 'us').toLowerCase() !== 'mx') return CRITERIOS;
+    return CRITERIOS.map(function (c) {
+      var ov = UMBRALES_MX[c.id];
+      if (!ov) return c;
+      var copia = {}, k;
+      for (k in c) if (Object.prototype.hasOwnProperty.call(c, k)) copia[k] = c[k];
+      for (k in ov) if (Object.prototype.hasOwnProperty.call(ov, k)) copia[k] = ov[k];
+      copia.mercado = 'mx';
+      return copia;
+    });
+  }
+
+  function filtrosDe(mercado) {
+    return String(mercado || 'us').toLowerCase() === 'mx' ? FILTROS_MX : FILTROS;
+  }
+
+  /* ============================================================
      CAPA 2 · CRITERIOS SEMÁNTICOS (Selección Intent-First 3.0)
      ------------------------------------------------------------
      Van SEPARADOS de CRITERIOS (léxico 1–13) a propósito: el
@@ -321,11 +418,17 @@
   var VETOS = CRITERIOS.filter(function (c) { return c.veto; }).map(function (c) { return c.id; });
 
   global.SophieCriterios = {
-    version: '2.1',
+    version: '2.2',
+    // lista/filtros = Amazon USA (canónicos; son los que valida la guarda).
     lista: CRITERIOS,
     escala: ESCALA,
     filtros: FILTROS,
     vetos: VETOS,
+    // Capa de mercado: mismos 13 criterios, umbrales recalibrados para México.
+    criteriosDe: criteriosDe,
+    filtrosDe: filtrosDe,
+    umbralesMX: UMBRALES_MX,
+    mercados: ['us', 'mx'],
     // Capa 2 · Intent-First (criterios 14–18 + matriz). La taxonomía de
     // clusters se reexpone desde cz-intent-core.js (fuente única compartida).
     semanticos: SEMANTICOS,
