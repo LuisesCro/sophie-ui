@@ -251,23 +251,27 @@
          umbral: 'SV ≥ 500 + tendencia estable o alcista',
          nota_mx: 'En México el volumen es ~10x menor que en USA. Una keyword de 500 búsquedas aquí equivale a ~5,000 allá: no la descartes con el criterio gringo.' },
 
-    2: { umbral_num: 25000, alerta_num: 15000,
-         umbral: 'Average Revenue ≥ MXN 25,000 /mes',
-         nota_mx: 'Equivale a ~USD 1,400. El umbral de USA (USD 4,500 ≈ MXN 81,000) dejaría fuera casi todo nicho mexicano sano.' },
+    2: { umbral_num: 80000, alerta_num: 50000,
+         umbral: 'Average Revenue ≥ MXN 80,000 /mes',
+         nota_mx: 'Medido sobre 15 nichos reales de MX (promedio del top 10 orgánico, que es lo que muestra Xray): rango $35,406–$716,520, mediana $222,884, p25 $71,925. El umbral se pone en el p25 para conservar la misma selectividad que en USA — y cae, por coincidencia, muy cerca de convertir los USD 4,500 gringos. NO bajarlo a MXN 25,000: aprobaría absolutamente todos los nichos medidos.' },
 
     /* 3 (concentración) no cambia: es estructural, no depende del mercado. */
 
-    4: { umbral_num: 150, alerta_num: 250,
-         umbral: 'Average Reviews ≤ 150 · ningún top 3 sobre 300',
-         nota_mx: 'La muralla social mexicana es mucho más baja: entre 29% y 48% del mercado compite con menos de 100 reseñas.' },
+    4: { umbral_num: 2000, alerta_num: 3500,
+         umbral: 'Average Reviews ≤ 2,000 · idealmente mediana del top 10 ≤ 400',
+         /* Metadatos para la Fase 2: el promedio es un mal estadístico aquí y
+            conviene migrar el motor a la mediana. Se deja documentado en vez de
+            cambiar el campo hoy, para no romper el puntaje en producción. */
+         campo_mejor: 'medianaReviewsTop10', umbral_mejor: 400, alerta_mejor: 800,
+         nota_mx: 'OJO con el estadístico: el promedio de reseñas está dominado por outliers y engaña. Medido en MX: "organizador de closet" promedia 782 reseñas pero su mediana es 42; "juguete interactivo para gato" promedia 375 y su mediana es 18. Un solo gigante infla el promedio y hace ver inexpugnable un nicho penetrable. Pide SIEMPRE la mediana del top 10 además del promedio. Contexto: 47% de los 2,304 productos medidos tienen menos de 100 reseñas.' },
 
     5: { umbral_num: 299, alerta_num: 299,
          umbral: 'Average Price ≥ MXN 299 (ideal ≥ MXN 499)',
-         nota_mx: 'MXN 299 no es un número redondo: por debajo pierdes envío gratis y Meses Sin Intereses, y 50% de los compradores abandona el carrito sin MSI. EXCEPCIÓN: en Salud y Cuidado personal, Alimentación y Bebidas alcohólicas la tarifa FBA es hasta 6x más barata bajo MXN 499, así que ahí un producto de MXN 150–250 sí puede ser rentable.' },
+         nota_mx: 'MXN 299 es un piso COMERCIAL, no de rentabilidad — la distinción importa. Calculado con las tarifas oficiales, el punto de equilibrio real para 30% de margen cae en MXN 94 (costo 20), 136 (costo 40), 194 (costo 60) y 279 (costo 100): siempre POR DEBAJO de 299. Lo que manda casi nunca es el margen, sino perder envío gratis y Meses Sin Intereses (50% abandona el carrito sin MSI). Usa SophieFees.precioMinimoMX() para el piso real del producto concreto y toma el mayor de los dos. EXCEPCIÓN: en Salud y Cuidado personal, Alimentación y Bebidas alcohólicas la tarifa FBA es hasta 6x más barata bajo MXN 499 (un sobre de 100 g paga $4.50 en vez de $27), así que ahí sí conviene bajar de 299. Medido: precio promedio del top 10 va de MXN 182 a 858, mediana 308.' },
 
-    7: { umbral_num: 30, alerta_num: 15,
-         umbral: '≥ 30 keywords orgánicas tras filtrar',
-         nota_mx: 'El conteo se mantiene, pero el filtro de volumen en Cerebro baja de 300 a 40 búsquedas.' },
+    7: { umbral_num: 20, alerta_num: 12,
+         umbral: '≥ 20 keywords orgánicas tras filtrar',
+         nota_mx: 'Baja de 30 a 20 porque la cola larga mexicana se agota antes: al medir, 4 de 7 keywords específicas de 3–4 palabras ("organizador de especias giratorio", "almohada cervical memoria", "tapete antiderrapante para tina", "porta cosmeticos de viaje") devolvieron CERO productos en la base de Helium 10 MX. En USA esas mismas búsquedas tienen nicho propio. El filtro de volumen en Cerebro también baja de 300 a 40.' },
 
     8: { umbral_num: 30, alerta_num: 20,
          umbral: 'Margen ≥ 30% antes de PPC · ROI ≥ 100% (sobre ingreso neto de IVA)',
@@ -287,8 +291,8 @@
     blackBox: [
       { campo: 'Search Volume',       min: 500,   max: null, nota: 'sin máximo' },
       { campo: 'Monthly Sales Units', min: 50,    max: null },
-      { campo: 'Review Count',        min: null,  max: 150 },
-      { campo: 'Monthly Revenue',     min: 25000, max: null, moneda: true },
+      { campo: 'Review Count',        min: null,  max: 1000 },
+      { campo: 'Monthly Revenue',     min: 80000, max: null, moneda: true },
       { campo: 'Price',               min: 299,   max: 2500, moneda: true, nota: 'ideal desde MXN 499' },
       { campo: 'Word Count',          min: 2,     max: null }
     ],

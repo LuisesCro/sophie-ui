@@ -334,6 +334,48 @@
     return dm3 * (grande ? tabla.grande : tabla.estandar);
   }
 
+  /* Precio de lista mínimo (MXN) para alcanzar un margen objetivo antes de PPC,
+     dado el costo aterrizado real. Deriva de:
+        margen = [(P − referral(P) − fba(P)) / 1.16 − COGS] / (P / 1.16)
+     => (1 − margen)·P − referral(P) − fba(P) >= 1.16 · COGS
+
+     Sustituye al piso plano de MXN 299 con el piso REAL del producto concreto.
+     Hallazgo al calcularlo con las tarifas oficiales: para costos típicos
+     (MXN 20–100) el piso de rentabilidad cae entre MXN 94 y 279, o sea SIEMPRE
+     por debajo de 299. Conclusión: MXN 299 no es un piso de margen sino
+     COMERCIAL (envío gratis + Meses Sin Intereses). Hay que distinguirlos:
+     el precio final debe ser >= max(este piso, 299 por conversión), salvo en
+     las categorías de tarifa especial, donde bajar de 299 sí puede tener sentido. */
+  function precioMinimoMX(cogs, cat, tier, kg, margen) {
+    var m = (margen == null ? 0.30 : margen), P;
+    for (P = 30; P <= 6000; P += 1) {
+      var ref = referral(P, cat, 'mx');
+      var fba = fbaEstimate(tier, kg, P, 'mx', { cat: cat });
+      if ((1 - m) * P - ref - fba >= 1.16 * cogs) return P;
+    }
+    return null;   // ningún precio razonable alcanza ese margen con ese costo
+  }
+
+  /* Desglose por unidad en MX, en términos NETOS de IVA (los únicos que sirven
+     para medir margen: el IVA que cobras no es tuyo y el de las tarifas es
+     acreditable). Ojo: la comisión se calcula sobre el precio CON IVA, como en
+     el ejemplo oficial de Amazon (399 × 15% = 59.85). */
+  function desgloseMX(precio, cogs, cat, tier, kg) {
+    var ref = referral(precio, cat, 'mx');
+    var fba = fbaEstimate(tier, kg, precio, 'mx', { cat: cat });
+    var neto = precio / 1.16;
+    var utilidad = (precio - ref - fba) / 1.16 - cogs;
+    return {
+      precio: precio, ingresoNeto: neto,
+      referral: ref, fba: fba, cogs: cogs,
+      utilidad: utilidad,
+      margen: neto ? utilidad / neto : 0,
+      roi: cogs ? utilidad / cogs : null,
+      cargaTarifas: precio ? (ref + fba) / precio : 0,
+      aproximado: fbaEsAproximado(tier, kg, 'mx'),
+    };
+  }
+
   /* Cuota mensual de suscripción en MX según ventas del mes anterior. */
   function suscripcionMX(ventasMes, mesesDesdeAlta) {
     var s = SUSCRIPCION_MX;
@@ -381,6 +423,8 @@
     fbaPeakSurcharge: fbaPeakSurcharge,
     almacenamientoMX: almacenamientoMX,
     suscripcionMX: suscripcionMX,
+    precioMinimoMX: precioMinimoMX,
+    desgloseMX: desgloseMX,
     ingresoNeto: ingresoNeto,
     esEstimado: esEstimado,
     narfEstimado: NARF_ESTIMADO,
