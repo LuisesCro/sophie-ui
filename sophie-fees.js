@@ -13,11 +13,16 @@
    Expone window.SophieFees. Cada función recibe el mercado ('us' | 'mx');
    si se omite, usa 'us' — así el comportamiento previo queda intacto.
 
-   ⚠️ MÉXICO: las tablas de MX están marcadas `estimado:true`. Se armaron por
-   triangulación (los dominios de Amazon estaban bloqueados durante la
-   investigación). ANTES DE PRODUCCIÓN hay que validarlas contra
-   vender.amazon.com.mx/precios y la Calculadora de Ingresos de Seller Central.
-   Usa SophieFees.esEstimado('mx') para que la interfaz avise al estudiante.
+   MÉXICO: tarifas OFICIALES verificadas al 3-sep-2026 (fuente:
+   vender.amazon.com.mx/precios). Tres diferencias estructurales contra USA
+   que rompen cualquier cálculo heredado:
+     1. El precio de lista YA INCLUYE IVA 16% → ingreso neto = precio / 1.16
+     2. Las tarifas FBA también se publican CON IVA (en USA no)
+     3. Cuatro bandas de precio (<150 | 150-298.99 | 299-498.99 | >=499),
+        no las tres de USA, y el peso va en KILOGRAMOS, no en onzas.
+   Quedan dos salvedades: el multiplicador NARF es estimado, y en tamaño
+   "grande" arriba de 1 kg la cifra es una cota inferior (usa la Calculadora
+   de Ingresos de Seller Central). Ver fbaEsAproximado().
    ===================================================================== */
 (function (global) {
   'use strict';
@@ -88,60 +93,124 @@
   ];
 
   /* ================== MÉXICO ==================
-     ⚠️ ESTIMADO — pendiente de validar contra Seller Central MX.
-     Contexto que sí está verificado y que cambia la aritmética:
-       · El precio de lista YA INCLUYE IVA 16% → ingreso neto = precio / 1.16
-       · Las tarifas FBA de MX se publican CON IVA incluido (en USA no)
-       · MXN 299 es el umbral de envío gratis, MSI sin costo y subsidio de tarifas
-       · Reforma del 17-feb-2026: comisiones hasta −50% y FBA −51% bajo MXN 299,
-         pero SUBIERON en Salud/Cuidado Personal, Mascotas, Bebé y Alimentación.
-     Las tarifas van en PESOS y por GRAMOS (no onzas): la estructura de tamaños
-     de Amazon MX no es la de USA, por eso `unidadPeso` cambia por mercado.        */
+     ✅ DATOS OFICIALES de Amazon México, verificados al 3-sep-2026.
+     Tarifas FBA actualizadas el 4-jun-2026; ajuste para >1 kg con precio
+     >MXN 299 desde el 6-jul-2026. Fuente: vender.amazon.com.mx/precios
+
+     TODAS las cifras de México INCLUYEN IVA (a diferencia de USA).
+     Y el precio de lista también lo incluye: ingreso neto = precio / 1.16.
+
+     Cuatro bandas de precio (no dos): <150 | 150-298.99 | 299-498.99 | >=499  */
+
   var CATS_MX = [
-    {n:"Todo lo demás", t:"flat", r:0.15, m:0},
-    {n:"Hogar y cocina", t:"flat", r:0.15, m:0},
-    {n:"Deportes y aire libre", t:"flat", r:0.15, m:0},
-    {n:"Belleza, salud y cuidado personal", t:"flat", r:0.15, m:0, nota:"Subió con la reforma feb-2026"},
-    {n:"Productos para bebé", t:"flat", r:0.15, m:0, nota:"Subió con la reforma feb-2026"},
-    {n:"Alimentación y bebidas", t:"flat", r:0.15, m:0, nota:"Subió con la reforma feb-2026"},
-    {n:"Productos para mascotas", t:"flat", r:0.15, m:0, nota:"Subió con la reforma feb-2026"},
-    {n:"Ropa y accesorios", t:"flat", r:0.15, m:0},
-    {n:"Zapatos, bolsos y gafas", t:"flat", r:0.15, m:0},
-    {n:"Juguetes y juegos", t:"flat", r:0.15, m:0},
-    {n:"Bricolaje y herramientas", t:"flat", r:0.15, m:0},
-    {n:"Jardín y exteriores", t:"flat", r:0.15, m:0},
-    {n:"Oficina y papelería", t:"flat", r:0.15, m:0},
-    {n:"Instrumentos musicales", t:"flat", r:0.15, m:0},
-    {n:"Coche y Moto", t:"flat", r:0.12, m:0},
-    {n:"Electrónica", t:"flat", r:0.08, m:0, nota:"Fuentes en conflicto: 8% vs 10%. VALIDAR."},
-    {n:"Informática", t:"flat", r:0.08, m:0},
-    {n:"Videojuegos y consolas", t:"flat", r:0.08, m:0},
-    {n:"Libros, Música y Video", t:"flat", r:0.15, m:0},
-    {n:"Joyería", t:"flat", r:0.20, m:0},
-    {n:"Relojes", t:"flat", r:0.16, m:0},
+    {n:"Todo lo demás", t:"flat", r:0.15, m:8},
+    {n:"Hogar y Cocina", t:"flat", r:0.15, m:8},
+    {n:"Deportes y Aire libre", t:"flat", r:0.15, m:8},
+    {n:"Salud y Cuidado personal", t:"thr", b:[{u:200,r:0.12},{u:1e12,r:0.15}], m:8, fbaEspecial:true},
+    {n:"Belleza", t:"thr", b:[{u:200,r:0.12},{u:1e12,r:0.15}], m:8},
+    {n:"Productos para bebé", t:"flat", r:0.15, m:8},
+    {n:"Alimentación y Comida gourmet", t:"thr", b:[{u:500,r:0.12},{u:1e12,r:0.15}], m:8, fbaEspecial:true},
+    {n:"Bebidas alcohólicas", t:"flat", r:0.08, m:8, fbaEspecial:true},
+    {n:"Juguetes y Juegos", t:"thr", b:[{u:300,r:0.08},{u:1e12,r:0.15}], m:8},
+    {n:"Mascotas", t:"flat", r:0.15, m:8},
+    {n:"Patio y Jardín", t:"flat", r:0.15, m:8},
+    {n:"Herramientas y Mejoras del hogar", t:"flat", r:0.15, m:8},
+    {n:"Herramientas eléctricas", t:"flat", r:0.12, m:8},
+    {n:"Herramientas eléctricas de equipo básico", t:"flat", r:0.12, m:8},
+    {n:"Oficina y Papelería", t:"flat", r:0.10, m:8},
+    {n:"Muebles", t:"flat", r:0.15, m:8},
+    {n:"Colchones", t:"flat", r:0.15, m:8},
+    {n:"Electrodomésticos principales", t:"flat", r:0.15, m:8},
+    {n:"Instrumentos musicales y Producción audiovisual", t:"flat", r:0.15, m:8},
+    {n:"Electrónicos", t:"flat", r:0.10, m:8},
+    {n:"Accesorios para electrónicos", t:"grad", b:[{u:2000,r:0.15},{u:1e12,r:0.08}], m:8},
+    {n:"Computadoras", t:"flat", r:0.10, m:8},
+    {n:"Videoconsolas", t:"flat", r:0.08, m:8},
+    {n:"Videojuegos y Accesorios para juegos", t:"flat", r:0.15, m:8},
+    {n:"Accesorios para dispositivos Amazon", t:"flat", r:0.45, m:8},
+    {n:"Multimedia: Libros, DVD, Música, Software y Video", t:"flat", r:0.15, m:8},
+    {n:"Automotriz y Motocicletas", t:"flat", r:0.12, m:8},
+    {n:"Neumáticos", t:"flat", r:0.10, m:8},
+    {n:"Ropa y Accesorios", t:"flat", r:0.15, m:8},
+    {n:"Calzado", t:"flat", r:0.15, m:8},
+    {n:"Lentes y accesorios", t:"flat", r:0.15, m:8},
+    {n:"Mochilas, Bolsos y Equipaje", t:"flat", r:0.15, m:8},
+    {n:"Joyería", t:"flat", r:0.15, m:8},
+    {n:"Relojes", t:"grad", b:[{u:5000,r:0.16},{u:1e12,r:0.05}], m:8},
+    {n:"Industria, Empresas y Ciencia", t:"flat", r:0.14, m:8},
   ];
 
-  /* Bandas de precio MX: [< MXN 299, ≥ MXN 299] — el 299 manda en todo el mercado. */
-  var FBA_MX = [
-    {g:250,   f:[26, 52]},
-    {g:500,   f:[31, 63]},
-    {g:1000,  f:[38, 77]},
-    {g:2000,  f:[49, 99]},
-    {g:5000,  f:[72, 145]},
-    {g:10000, f:[104, 210]},
-  ];
-  var FBA_MX_EXTRA_KG = 12;   // por kg adicional arriba de 10 kg (estimado)
-  var NARF_MULT = 2.0;        // Remote Fulfillment desde USA ≈ 2x la tarifa local
+  /* Tarifas FBA estándar. Bandas: [<150 | 150-298.99 | 299-498.99 | >=499] */
+  var FBA_MX_STD = {
+    sobre: {
+      filas: [{kg:0.10,f:[27.00,33.00,49.00,60.00]},{kg:0.20,f:[27.20,34.00,50.00,60.40]},
+              {kg:0.30,f:[27.40,35.00,51.00,60.80]},{kg:0.40,f:[27.60,36.00,52.00,61.20]}],
+      exceso:[27.80,37.00,53.00,61.50],   // > 0.40 kg: tarifa plana
+    },
+    estandar: {
+      filas: [{kg:0.10,f:[28.00,33.00,50.00,61.80]},{kg:0.20,f:[28.05,34.00,51.00,63.00]},
+              {kg:0.30,f:[28.10,35.00,52.00,64.00]},{kg:0.40,f:[28.15,36.00,53.00,66.00]},
+              {kg:0.50,f:[28.20,37.00,54.00,67.00]},{kg:0.60,f:[28.25,37.50,55.00,68.30]},
+              {kg:0.70,f:[28.30,38.00,56.00,69.60]},{kg:0.80,f:[28.35,38.50,57.00,71.00]},
+              {kg:0.90,f:[28.40,39.00,58.00,72.00]},{kg:1.00,f:[28.45,39.50,59.00,72.70]}],
+      base:[28.50,40.00,60.00,72.80], inc:[1.15,1.15,1.75,1.50], incCada:0.25,
+    },
+    grande: { base:[32.00,38.00,61.00,75.40], aproximado:true },
+  };
+
+  /* Tabla especial: Salud y Cuidado personal, Alimentación y Bebidas alcohólicas.
+     Mucho más barata bajo MXN 499 — cambia por completo la viabilidad de esas categorías. */
+  var FBA_MX_ESP = {
+    sobre: {
+      filas: [{kg:0.10,f:[4.50,5.50,14.00,60.00]},{kg:0.20,f:[4.60,5.60,14.10,60.40]},
+              {kg:0.30,f:[4.70,5.70,14.20,60.80]},{kg:0.40,f:[4.80,5.80,14.30,61.20]}],
+      exceso:[4.90,5.90,14.40,61.50],
+    },
+    estandar: {
+      filas: [{kg:0.10,f:[5.00,6.00,14.50,61.80]},{kg:0.20,f:[5.10,6.10,14.60,63.00]},
+              {kg:0.30,f:[5.20,6.20,14.70,64.00]},{kg:0.40,f:[5.30,6.30,14.80,66.00]},
+              {kg:0.50,f:[5.40,6.40,14.90,67.00]},{kg:0.60,f:[5.50,6.50,15.00,68.30]},
+              {kg:0.70,f:[5.60,6.60,15.10,69.60]},{kg:0.80,f:[5.70,6.70,15.20,71.00]},
+              {kg:0.90,f:[5.80,6.80,15.30,72.00]},{kg:1.00,f:[5.90,6.90,15.40,72.70]}],
+      base:[6.00,7.00,15.50,72.80], inc:[0.15,0.30,0.45,1.50], incCada:0.25,
+    },
+    grande: { base:[32.00,38.00,61.00,75.40], aproximado:true },
+  };
 
   var TIERS_MX = [
-    {v:"sobre",    n:"Sobre (≤250 g)",            g:250},
-    {v:"paquete_s",n:"Paquete pequeño (≤500 g)",  g:500},
-    {v:"paquete_m",n:"Paquete mediano (≤1 kg)",   g:1000},
-    {v:"paquete_g",n:"Paquete grande (≤2 kg)",    g:2000},
-    {v:"voluminoso",n:"Voluminoso (≤5 kg)",       g:5000},
-    {v:"pesado",   n:"Pesado (más de 5 kg)",      g:10000},
-    {v:"manual",   n:"Ingresar la tarifa a mano", g:0},
+    {v:"sobre",    n:"Sobre (máx. 38 × 27 × 2 cm)"},
+    {v:"estandar", n:"Estándar (máx. 45 × 35 × 20 cm)"},
+    {v:"grande",   n:"Grande (mayor a 45 × 35 × 20 cm)"},
+    {v:"manual",   n:"Ingresar la tarifa a mano"},
   ];
+
+  /* Almacenamiento mensual por dm³ (IVA incluido). Sube de octubre a diciembre. */
+  var ALMACEN_MX = {
+    normal: { estandar:0.36, grande:0.19 },   // enero–septiembre
+    alta:   { estandar:0.53, grande:0.43 },   // octubre–diciembre
+  };
+
+  /* Recargo por inventario de 181+ días (IVA incluido). */
+  var ALMACEN_LARGO_MX = [
+    {dias:210, c:0.30}, {dias:240, c:0.60}, {dias:270, c:0.90}, {dias:300, c:2.56},
+    {dias:330, c:2.73}, {dias:365, c:2.82},
+    {dias:1e9, c:4.76, porUnidad:2.32},       // 366+: el mayor entre dm³ y unidad
+  ];
+
+  /* ⚠️ ÚNICO dato de México aún ESTIMADO: el multiplicador de Remote Fulfillment
+     (NARF), la ruta del vendedor de USA que despacha a México sin RFC. El documento
+     oficial de tarifas no cubre NARF. Se estimó ~2x la tarifa local a partir de
+     ~MXN 122.87 (estándar pequeño NARF) contra ~MXN 52–63 de FBA local.
+     Valídalo en Seller Central → Remote Fulfillment antes de darlo por cierto. */
+  var NARF_MULT = 2.0;
+  var NARF_ESTIMADO = true;
+
+  /* Cuota de suscripción mensual (MXN). */
+  var SUSCRIPCION_MX = {
+    promoMeses: 12, promoCuota: 0,
+    umbralVentas: 26000, cuotaBaja: 75, cuotaAlta: 600,
+    unificadaNorteamericaUSD: 39.99,
+  };
 
   /* ================== TABLA DE MERCADOS ================== */
   var FEES = {
@@ -158,12 +227,14 @@
     mx: {
       codigo:'mx', moneda:'MXN', simbolo:'$', locale:'es-MX',
       iva:0.16, precioIncluyeImpuesto:true,
-      unidadPeso:'g', umbralClave:299, estimado:true,
+      /* El peso va en KILOGRAMOS y Amazon usa el mayor entre peso unitario y
+         peso dimensional (el viejo "peso del embalaje" ya no aplica aparte). */
+      unidadPeso:'kg', umbralClave:299, estimado:false,
+      vigencia:'Tarifas oficiales al 3-sep-2026 (FBA actualizado 4-jun-2026; >1 kg y >MXN 299 desde 6-jul-2026).',
       cats:CATS_MX, tiers:TIERS_MX,
-      /* Bandas MX: [< MXN 299] | [≥ MXN 299]. El 299 manda en todo el mercado. */
-      banda: function (p) { return p < 299 ? 0 : 1; },
-      notaEstimado:'Tarifas de México estimadas por triangulación. Valida en ' +
-                   'vender.amazon.com.mx/precios y en la Calculadora de Ingresos de Seller Central.',
+      almacen:ALMACEN_MX, almacenLargo:ALMACEN_LARGO_MX, suscripcion:SUSCRIPCION_MX,
+      /* Cuatro bandas: [<150] | [150–298.99] | [299–498.99] | [>=499] */
+      banda: function (p) { return p < 150 ? 0 : (p < 299 ? 1 : (p < 499 ? 2 : 3)); },
     },
   };
 
@@ -197,8 +268,12 @@
     return mkt(mercado).banda(precio);
   }
 
-  /* Tarifa FBA estimada.
-     US: (tier, oz, precio). MX: (tier, gramos, precio, 'mx', {narf:true}). */
+  /* Tarifa FBA.
+     US: (tier, ONZAS, precio).
+     MX: (tier, KILOGRAMOS, precio, 'mx', {especial:true, narf:true})
+         `especial` = Salud y Cuidado personal, Alimentación o Bebidas alcohólicas
+         (tienen tabla logística propia, mucho más barata bajo MXN 499).
+         Puedes pasar la categoría en vez del flag: {cat: CATS_MX[i]}. */
   function fbaEstimate(tier, peso, precio, mercado, opts) {
     var f = mkt(mercado), b = fbaBand(precio, mercado), i;
 
@@ -218,16 +293,52 @@
       return 0;
     }
 
-    /* México: por gramos, dos bandas (bajo/sobre MXN 299). */
+    /* México: peso en kg, cuatro bandas de precio, tabla normal o especial. */
     if (tier === 'manual') return 0;
-    var tarifa = null;
-    for (i = 0; i < FBA_MX.length; i++) { if (peso <= FBA_MX[i].g) { tarifa = FBA_MX[i].f[b]; break; } }
-    if (tarifa === null) {
-      var ult = FBA_MX[FBA_MX.length - 1];
-      tarifa = ult.f[b] + Math.ceil((peso - ult.g) / 1000) * FBA_MX_EXTRA_KG;
+    var especial = !!(opts && (opts.especial || (opts.cat && opts.cat.fbaEspecial)));
+    var t = (especial ? FBA_MX_ESP : FBA_MX_STD)[tier];
+    if (!t) return 0;
+
+    var tarifa;
+    if (tier === 'grande') {
+      /* Amazon publica incrementos por 0.5 kg con escalas distintas hasta 50, 100
+         y +100 kg que no están en la tabla pública. Arriba de 1 kg esto es solo
+         una cota inferior: usa la Calculadora de Ingresos de Seller Central. */
+      tarifa = t.base[b];
+    } else {
+      tarifa = null;
+      for (i = 0; i < t.filas.length; i++) { if (peso <= t.filas[i].kg) { tarifa = t.filas[i].f[b]; break; } }
+      if (tarifa === null) {
+        if (t.exceso) {
+          tarifa = t.exceso[b];                    // Sobre: tarifa plana arriba de 0.40 kg
+        } else {
+          var tope = t.filas[t.filas.length - 1].kg;
+          tarifa = t.base[b] + Math.ceil((peso - tope) / t.incCada) * t.inc[b];
+        }
+      }
     }
     if (opts && opts.narf) tarifa *= NARF_MULT;   // Remote Fulfillment desde cuenta de USA
     return tarifa;
+  }
+
+  /* ¿La cifra de FBA es solo aproximada? (MX tamaño grande arriba de 1 kg) */
+  function fbaEsAproximado(tier, peso, mercado) {
+    return mkt(mercado).codigo === 'mx' && tier === 'grande' && peso > 1;
+  }
+
+  /* Almacenamiento mensual en MX: dm³ × tarifa del periodo.
+     mes: 1–12. De octubre a diciembre la tarifa sube. */
+  function almacenamientoMX(dm3, mes, grande) {
+    var alta = (mes >= 10 && mes <= 12);
+    var tabla = alta ? ALMACEN_MX.alta : ALMACEN_MX.normal;
+    return dm3 * (grande ? tabla.grande : tabla.estandar);
+  }
+
+  /* Cuota mensual de suscripción en MX según ventas del mes anterior. */
+  function suscripcionMX(ventasMes, mesesDesdeAlta) {
+    var s = SUSCRIPCION_MX;
+    if (mesesDesdeAlta != null && mesesDesdeAlta < s.promoMeses) return s.promoCuota;
+    return (ventasMes < s.umbralVentas) ? s.cuotaBaja : s.cuotaAlta;
   }
 
   /* Recargo de temporada alta. US: 15 oct – 14 ene. MX: almacenamiento sube oct–dic. */
@@ -266,8 +377,12 @@
     referral: referral,
     fbaBand: fbaBand,
     fbaEstimate: fbaEstimate,
+    fbaEsAproximado: fbaEsAproximado,
     fbaPeakSurcharge: fbaPeakSurcharge,
+    almacenamientoMX: almacenamientoMX,
+    suscripcionMX: suscripcionMX,
     ingresoNeto: ingresoNeto,
     esEstimado: esEstimado,
+    narfEstimado: NARF_ESTIMADO,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
