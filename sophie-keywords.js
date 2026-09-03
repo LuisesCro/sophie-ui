@@ -291,6 +291,27 @@
     return exceso.sort(function (a, b) { return b.veces - a.veces; });
   }
 
+
+  // Anglicismos lexicalizados que SÍ se buscan en México. En un listing mexicano
+  // el backend es justo donde deben ir: pesan 1 byte por carácter y el título de
+  // 75 caracteres es demasiado escaso para gastarlo en variantes en inglés.
+  var ANGLICISMOS_MX = ['gaming','smartwatch','airfryer','air fryer','laptop','case','tablet',
+    'kit','pack','set','bluetooth','wireless','powerbank','power bank','skincare','fitness',
+    'jeans','hoodie','gadget','mouse','tripie','usb','led','hd','smart','wifi','outdoor',
+    'shampoo','spray','gel','stand','clip','organizer','holder','cover','strap','charger'];
+  function terminosIngles(txt) {
+    var t = String(txt || '').toLowerCase(), out = [];
+    for (var i = 0; i < ANGLICISMOS_MX.length; i++) {
+      var w = ANGLICISMOS_MX[i];
+      if (t.indexOf(w) >= 0 && out.indexOf(w) < 0) out.push(w);
+    }
+    return out;
+  }
+  function esMercadoMX() {
+    try { return !!(typeof window !== 'undefined' && window.CzMercado && window.CzMercado.actual() === 'mx'); }
+    catch (e) { return false; }
+  }
+
   // Marcadores de español: acentos, ñ, y vocabulario frecuente en listings de
   // Amazon en español. La lista cubre varios nichos (hogar, baño, iluminación,
   // bienestar, cocina, manualidades) para no castigar a un producto solo porque
@@ -455,9 +476,20 @@
       bBytes + '/249 bytes' + (bBytes > LIMITES.backend.max
         ? ' — un byte de más des-indexa TODO el campo, en silencio'
         : bHolgado ? '' : ' — muy al límite, deja margen en 240'));
-    var es = terminosEspanol(L.backend);
-    back += add('Backend', 'Mínimo 5 términos en español', es.length >= 5 ? 4 : 0, 4, es.length >= 5,
-      es.length + ' detectados' + (es.length ? ': ' + es.slice(0, 6).join(', ') : ''));
+    /* El criterio se invierte según el mercado. En un listing de USA el español es
+       el nicho secundario y sumar términos en español gana alcance. En México el
+       listing YA es español entero: lo que falta ahí son los anglicismos que el
+       comprador mexicano igual teclea (laptop, bluetooth, kit, gaming...). */
+    if (esMercadoMX()) {
+      var ang = terminosIngles(L.backend);
+      back += add('Backend', 'Mínimo 5 anglicismos que se buscan en México', ang.length >= 5 ? 4 : 0, 4, ang.length >= 5,
+        ang.length + ' detectados' + (ang.length ? ': ' + ang.slice(0, 6).join(', ') : '') +
+        ' — en México el listing ya es español; el backend es para las variantes en inglés');
+    } else {
+      var es = terminosEspanol(L.backend);
+      back += add('Backend', 'Mínimo 5 términos en español', es.length >= 5 ? 4 : 0, 4, es.length >= 5,
+        es.length + ' detectados' + (es.length ? ': ' + es.slice(0, 6).join(', ') : ''));
+    }
     var conVisible = solapan(L.titulo + ' ' + L.itemHighlights, L.backend);
     back += add('Backend', 'Sin repetir palabras del título ni de Item Highlights',
       conVisible.length > 2 ? 0 : 3, 3, conVisible.length <= 2,
