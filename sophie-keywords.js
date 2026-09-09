@@ -43,10 +43,23 @@
      1 · CLASIFICADOR DE KEYWORDS — MÉTODO CREZCAMOS
      ============================================================ */
 
+  /* Los iq_min se recalibraron el 9-sep-2026 contra datos reales de Cerebro.
+     Antes eran 15 / 8 / 5, sobre el supuesto de que el IQ Score se movía en
+     decenas. No es así: el IQ es volumen de búsqueda ÷ productos compitiendo,
+     y en la práctica su mediana ronda 0.11. Con los umbrales viejos, de 57
+     keywords reales de un nicho se clasificaba UNA; el resto quedaba fuera y
+     el estudiante veía una pantalla vacía sin entender por qué.
+
+     Los nuevos salen de los percentiles 90 / 70 / 45 de la distribución real,
+     medidos en dos nichos sin relación entre sí (bandeja de bañera, n=222, y
+     bandas de resistencia, n=364). Los dos coincidieron en el percentil 90
+     (2.12 y 2.33), que es lo que da confianza en el 2.0 de P1.
+
+     Si algún día vuelves a tocarlos, mídelos antes: no los deduzcas. */
   var UMBRALES = {
-    P1: { sv_min: 5000, sv_max: Infinity, rank_max: 15, iq_min: 15, destino: 'TÍTULO / ITEM HIGHLIGHTS' },
-    P2: { sv_min: 1000, sv_max: 4999,     rank_max: 30, iq_min: 8,  destino: 'VIÑETAS' },
-    P3: { sv_min: 300,  sv_max: 999,      rank_max: Infinity, iq_min: 5, destino: 'BACKEND' }
+    P1: { sv_min: 5000, sv_max: Infinity, rank_max: 15, iq_min: 2.0, destino: 'TÍTULO / ITEM HIGHLIGHTS' },
+    P2: { sv_min: 1000, sv_max: 4999,     rank_max: 30, iq_min: 0.8, destino: 'VIÑETAS' },
+    P3: { sv_min: 300,  sv_max: 999,      rank_max: Infinity, iq_min: 0.3, destino: 'BACKEND' }
   };
 
   // Relevancia multi-ASIN: no cambia los umbrales, informa los bordes.
@@ -192,7 +205,7 @@
     var avisos = [];
     if (grupos.P1.length < 5) {
       avisos.push('Solo ' + grupos.P1.length + ' keywords P1. Puede ser un nicho pequeño (está bien), ' +
-        'filtros muy estrictos en Cerebro (prueba bajar el IQ Score a 10), o que la keyword principal ' +
+        'filtros muy estrictos en Cerebro (prueba bajar el IQ Score a 0.2), o que la keyword principal ' +
         'no tenga la demanda que suponíamos.');
     }
     if (p.filas.length < 20) {
