@@ -105,5 +105,16 @@
     } else {
       montar();
     }
+
+    // Sophie Imágenes V2 · Fase 1. Solo la ruta /imagenes necesita esta capa.
+    // Se carga después del HTML del módulo para poder leer #app y conectar el
+    // expediente compartido sin obligar a duplicar lógica en index.html.
+    if (p === "/imagenes" || p.indexOf("/imagenes/") === 0) {
+      var ctx = document.createElement("script");
+      ctx.src = "https://ui.crezcamosonline.com/sophie-imagenes-context.js";
+      ctx.defer = true;
+      ctx.setAttribute("data-sophie", "imagenes-context-v2");
+      document.head.appendChild(ctx);
+    }
   } catch (e) { /* nunca romper la página del módulo */ }
 })();
