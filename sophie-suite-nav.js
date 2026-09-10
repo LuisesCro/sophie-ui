@@ -106,15 +106,23 @@
       montar();
     }
 
-    // Sophie Imágenes V2 · Fase 1. Solo la ruta /imagenes necesita esta capa.
-    // Se carga después del HTML del módulo para poder leer #app y conectar el
-    // expediente compartido sin obligar a duplicar lógica en index.html.
+    // Sophie Imágenes V2. Solo /imagenes carga las capas de estrategia.
+    // Orden: motor determinístico → contexto compartido → cliente de research.
     if (p === "/imagenes" || p.indexOf("/imagenes/") === 0) {
-      var ctx = document.createElement("script");
-      ctx.src = "https://ui.crezcamosonline.com/sophie-imagenes-context.js";
-      ctx.defer = true;
-      ctx.setAttribute("data-sophie", "imagenes-context-v2");
-      document.head.appendChild(ctx);
+      function cargar(src, tag) {
+        return new Promise(function (resolve) {
+          var s = document.createElement("script");
+          s.src = src;
+          s.defer = true;
+          s.setAttribute("data-sophie", tag);
+          s.onload = function () { resolve(true); };
+          s.onerror = function () { resolve(false); };
+          document.head.appendChild(s);
+        });
+      }
+      cargar("https://ui.crezcamosonline.com/sophie-image-strategy.js", "image-strategy-v2")
+        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-imagenes-context.js", "imagenes-context-v2"); })
+        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-imagenes-research.js", "imagenes-research-v2"); });
     }
   } catch (e) { /* nunca romper la página del módulo */ }
 })();
