@@ -7,11 +7,33 @@
   if (typeof document === 'undefined' || !global.fetch) return;
 
   var API = 'https://sophie-imagenes.crezcamosonline.com/api/strategy';
+  var CUENTA_API = 'https://sophie.crezcamosonline.com/api/cuenta';
   var KEY_CLAVE = 'sophie_imagenes_clave';
 
   function esObjeto(v){ return !!v && typeof v === 'object' && !Array.isArray(v); }
   function lista(v,max){ var a=Array.isArray(v)?v:[]; return max==null?a:a.slice(0,max); }
-  function code(){ try{return localStorage.getItem(KEY_CLAVE)||'';}catch(e){return '';} }
+  function leerCookieSesion(){
+    try{
+      var m=document.cookie.match(/(?:^|; )crz_sesion=([^;]*)/);
+      if(!m)return null;
+      var s=JSON.parse(decodeURIComponent(m[1]));
+      return s&&s.email&&s.token?s:null;
+    }catch(e){return null;}
+  }
+  function codeLocal(){ try{return localStorage.getItem(KEY_CLAVE)||'';}catch(e){return '';} }
+
+  async function resolverCode(){
+    var local=codeLocal();
+    if(local)return local;
+    var ses=leerCookieSesion();
+    if(!ses)return '';
+    try{
+      var r=await fetch(CUENTA_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'llave',email:ses.email,token:ses.token})});
+      var d=null; try{d=await r.json();}catch(e){}
+      if(r.ok&&d&&d.ok&&d.llave)return String(d.llave);
+    }catch(e){}
+    return '';
+  }
 
   async function esperarContexto(){
     if(!global.SophieImagenesContext) return null;
@@ -42,10 +64,7 @@
     if(!base) return {ok:false,error:'sin_contexto'};
     if(!global.SophieImageStrategy) return {ok:false,error:'motor_no_cargado'};
 
-    var llave=code();
-    if(!llave && global.SophieImagenesContext){
-      try{await global.SophieImagenesContext.refrescar(); llave=code();}catch(e){}
-    }
+    var llave=await resolverCode();
     if(!llave) return {ok:false,error:'sin_acceso'};
 
     var input=construirInput(base,extra);
@@ -80,8 +99,9 @@
   }
 
   global.SophieImagenesResearch={
-    version:'2.0-phase2',
+    version:'2.0-phase2.1',
     analizar:analizar,
-    construirInput:construirInput
+    construirInput:construirInput,
+    resolverCode:resolverCode
   };
 })(typeof window!=='undefined'?window:this);
