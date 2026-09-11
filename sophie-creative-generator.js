@@ -91,5 +91,19 @@ function wrap(ctx,text,maxWidth){var words=T(text,300).split(/\s+/),lines=[],lin
 function renderIndex(index,opts){if(!canvasAvailable())return null;opts=O(opts)?opts:{};var items=A(index&&index.items).slice(0,6);if(items.length<4)return null;var c=document.createElement('canvas');c.width=c.height=2000;var x=c.getContext('2d'),M=130,W=1740;x.fillStyle='#FFFFFF';x.fillRect(0,0,2000,2000);x.textBaseline='top';x.fillStyle='#14171A';x.font='800 96px Helvetica,Arial,sans-serif';var headline=T(index&&index.headline,100)||((items.length)+' Reasons You’ll Love '+T(opts.producto||'This Product',80));var hl=wrap(x,headline,W);hl.slice(0,2).forEach(function(line,i){x.fillText(line,M,M+i*112)});var y=M+hl.slice(0,2).length*112+48;var gap=22,rowH=(2000-M-y-gap*(items.length-1))/items.length;items.forEach(function(it,i){x.fillStyle=i===0?'#EEF3FF':'#F2F4F7';if(x.roundRect){x.beginPath();x.roundRect(M,y,W,rowH,28);x.fill()}else x.fillRect(M,y,W,rowH);x.fillStyle='#1A6BFF';x.beginPath();x.arc(M+95,y+rowH/2,58,0,Math.PI*2);x.fill();x.fillStyle='#FFFFFF';x.font='800 64px Helvetica,Arial,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(String(i+1),M+95,y+rowH/2+2);x.textAlign='left';x.textBaseline='top';x.fillStyle='#14171A';x.font='800 66px Helvetica,Arial,sans-serif';var lines=wrap(x,T(it.headline,70),W-300).slice(0,2),step=78,yy=y+rowH/2-(lines.length*step)/2+5;lines.forEach(function(line,k){x.fillText(line,M+205,yy+k*step)});y+=rowH+gap});return c}
 function previewDataUrl(index,opts){var c=renderIndex(index,opts);return c?c.toDataURL('image/png'):''}
 
-g.SophieCreativeGenerator={version:'2.0',modes:MODE,build:build,normalize:normalize,validate:validate,score:score,manifest:manifest,renderIndex:renderIndex,previewDataUrl:previewDataUrl,canvasAvailable:canvasAvailable};
+var ACTIVE_PROVIDER=null;
+function registerProvider(provider){
+  if(!provider||typeof provider.generateImage!=='function')throw new Error('Proveedor inválido: generateImage() es requerido.');
+  ACTIVE_PROVIDER=provider;return true;
+}
+function getProvider(){return ACTIVE_PROVIDER}
+async function generateAsset(asset,sourceImages){
+  asset=O(asset)?asset:{};
+  if(asset.status!=='ready')throw new Error('El asset no está listo para generación.');
+  if(asset.mode!=='image_generation')throw new Error('Este asset no usa generación externa.');
+  if(!ACTIVE_PROVIDER)throw new Error('No hay proveedor de imágenes configurado.');
+  return ACTIVE_PROVIDER.generateImage({prompt:asset.prompt,negativePrompt:asset.negativePrompt,sourceImages:A(sourceImages),width:2000,height:2000,mode:asset.type,preserveProduct:true});
+}
+
+g.SophieCreativeGenerator={version:'2.1',modes:MODE,build:build,normalize:normalize,validate:validate,score:score,manifest:manifest,renderIndex:renderIndex,previewDataUrl:previewDataUrl,canvasAvailable:canvasAvailable,registerProvider:registerProvider,getProvider:getProvider,generateAsset:generateAsset};
 })(typeof window!=='undefined'?window:this);
