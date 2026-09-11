@@ -41,4 +41,14 @@ node tools/test-parsers.mjs || {
   exit 1
 }
 
+node tools/test-intencion.mjs || {
+  echo "✗ Tests de intención (capa 2) fallando. Corre 'node tools/test-intencion.mjs'. Push abortado."
+  exit 1
+}
+
+node tools/test-cobertura.mjs || {
+  echo "✗ Tests de cobertura semántica (Listing) fallando. Corre 'node tools/test-cobertura.mjs'. Push abortado."
+  exit 1
+}
+
 echo "✓ Guardas + tests OK — push permitido."

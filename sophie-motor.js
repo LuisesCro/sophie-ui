@@ -123,8 +123,13 @@
 
   /* ---------- evaluación completa ---------- */
 
-  function evaluar(datos, juicios) {
-    var filas = C.lista.map(function (c) { return evaluarUno(c, datos, juicios); });
+  /* opts = { mercado:'us'|'mx', compatibilidad:true }. Sin opts se comporta
+     exactamente como antes: la lista canónica de USA, misma referencia. */
+  function evaluar(datos, juicios, opts) {
+    var lista = (typeof C.criteriosDe === 'function')
+      ? C.criteriosDe((opts && opts.mercado) || 'us', opts)
+      : C.lista;
+    var filas = lista.map(function (c) { return evaluarUno(c, datos, juicios); });
 
     var aprobados = filas.filter(function (f) { return f.estado === 'pass'; }).length;
     var total = filas.length;
@@ -245,6 +250,12 @@
       clienteTarget: extra.clienteTarget || '',
       insightsReviews: extra.insightsReviews || [],
       categoriaSugerida: extra.categoriaSugerida || '',
+      // El ÁNGULO de intención elegido en la Capa 2 (Producto). Es el hilo que
+      // viaja a Listing/Ads/Lanzamiento: allí se audita la cobertura contra él.
+      // Ver SophieIntencion.anguloExpediente().
+      clustersElegidos: Array.isArray(extra.clustersElegidos) ? extra.clustersElegidos : [],
+      anguloRecomendacion: extra.anguloRecomendacion || extra.recomendacion || '',
+      doloresC17: Array.isArray(extra.doloresC17) ? extra.doloresC17 : [],
       // Esto es lo que se acumula y nadie te puede copiar.
       scorecard: r.filas.map(function (f) {
         return { id: f.id, estado: f.estado, valor: f.valor };

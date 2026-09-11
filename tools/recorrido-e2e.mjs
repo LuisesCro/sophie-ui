@@ -65,6 +65,7 @@ function cargar(archivo) {
   }
 }
 
+cargar("cz-intent-core.js");      // CzIntentCore (motor de intención compartido)
 cargar("sophie-criterios.js");    // SophieCriterios (fuente de verdad)
 cargar("sophie-render.js");       // Sophie (motor de render; registra listeners al cargar)
 cargar("sophie-motor.js");        // SophieMotor (GO/NO-GO, lee SophieCriterios)
@@ -79,11 +80,14 @@ cargar("sophie-ppc.js");          // SophiePPC (Cosecha y Poda / Ads)
 cargar("sophie-rescate.js");      // SophieRescate (diagnóstico de rescate)
 cargar("sophie-lanzamiento.js");  // SophieLanzamiento (semáforo + reorden)
 cargar("sophie-puerta.js");       // SophiePuerta (gate entre módulos por veredicto)
+cargar("sophie-intencion.js");    // SophieIntencion (Capa 2 + anguloExpediente)
+cargar("sophie-cobertura.js");    // SophieCobertura (audita el ángulo en Listing)
 
 const {
   SophieCriterios, Sophie, SophieMotor, SophieKeywords, SophieCotizaciones,
   SophiePasos, SophieAnalisis, SophieListing, SophieProveedores,
   SophieCandidatos, SophiePPC, SophieRescate, SophieLanzamiento, SophiePuerta,
+  SophieIntencion, SophieCobertura,
 } = win;
 
 /* ---------- arnés de aserciones (mismo estilo que test-parsers) ---------- */
@@ -400,17 +404,53 @@ grupo("Ads/PPC · SophiePPC.clasificar — acciones por término");
 
 const PPC_CTX = { precio: 30, breakEvenACOS: 33 };
 
-t("término que gastó el CPA de equilibrio sin ventas → NEGAR", () => {
+/* Estos casos esperaban NEGAR y COSECHAR con muestras de 10-12 clics. Dejaron
+   de cumplirse cuando el motor incorporó rigor estadístico (intervalo de Wilson
+   y prior bayesiano): con esa evidencia tan escasa el CVR real del término aún
+   cruza el punto de equilibrio, así que cortar o escalar sería decidir sobre
+   ruido. El motor tiene razón y las expectativas se quedaron viejas.
+
+   No basta con cambiar el veredicto esperado: eso dejaría sin cobertura los dos
+   veredictos que más importan. Cada caso se parte en dos — la muestra pequeña
+   que debe esperar, y la muestra suficiente que sí debe decidir — y se fija el
+   borde exacto, para que un cambio futuro en Z_CONFIANZA o PRIOR_FUERZA se note
+   aquí en vez de en las recomendaciones de un estudiante. */
+
+t("gastó el equilibrio sin vender, pero con 12 clics → VIGILAR (aún es mala suerte plausible)", () => {
   const r = SophiePPC.clasificar(
     [{ term: "cheap gadget", imp: 500, clk: 12, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }],
     PPC_CTX);
   eq(r.ok, true, "ok");
+  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+  // El motivo debe decir cuántos clics faltan: si no, el estudiante no sabe qué esperar.
+  eq(/clics antes de negar/.test(r.decisiones[0].motivo || ""), true, "el motivo dice cuándo volver");
+});
+
+t("el MISMO término con 15 clics y cero ventas → NEGAR (ya hay evidencia)", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "cheap gadget", imp: 620, clk: 15, spd: 15, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 15, ord: 0 } } }],
+    PPC_CTX);
   eq(r.decisiones[0].accion, "NEGAR", "acción");
 });
 
-t("término rentable fuera de exacta → COSECHAR", () => {
+t("borde de negación: 14 clics todavía no, 15 sí", () => {
+  const caso = (clk) => SophiePPC.clasificar(
+    [{ term: "cheap gadget", imp: clk * 42, clk, spd: clk, sal: 0, ord: 0, src: { "Auto [broad]": { spd: clk, ord: 0 } } }],
+    PPC_CTX).decisiones[0].accion;
+  eq(caso(14), "VIGILAR", "14 clics");
+  eq(caso(15), "NEGAR", "15 clics");
+});
+
+t("término rentable fuera de exacta con 10 clics → VIGILAR (muestra corta para escalar)", () => {
   const r = SophiePPC.clasificar(
     [{ term: "garlic press", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
+    PPC_CTX);
+  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+});
+
+t("el MISMO término con 30 clics y 9 órdenes → COSECHAR", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "garlic press", imp: 3000, clk: 30, spd: 59.94, sal: 299.7, ord: 9, src: { "Auto [broad]": { spd: 59.94, ord: 9 } } }],
     PPC_CTX);
   eq(r.decisiones[0].accion, "COSECHAR", "acción");
 });
@@ -628,6 +668,38 @@ t("VIAJE DE CICLO DE VIDA: un producto que entró ESTRELLA puede caer a Rescate,
   // El mismo producto que fue GO ahora NO es RESCATAR ingenuo: el motor escala.
   ok(rescate.veredicto === "PIVOTAR" || rescate.veredicto === "LIQUIDAR", "un GO puede degradarse a PIVOTAR/LIQUIDAR (dio " + rescate.veredicto + ")");
   eq(rescate.escalaMentoria, true, "un veredicto que no es RESCATAR siempre escala a mentoría");
+});
+
+t("HILO DEL ÁNGULO: lo elegido en Producto viaja en el expediente y Listing lo audita contra el texto real", () => {
+  // La costura nueva de la Capa 2 (cosmo-rufus). El estudiante elige su ángulo
+  // UNA vez en Producto; ese ángulo tiene que llegar entero hasta Listing para
+  // que la cobertura semántica se mida contra ÉL, no contra los 6 clusters.
+
+  // 1) En Producto, el modelo confirma el ángulo: 3 clusters de intención + dolores C17.
+  const veredicto = SophieIntencion.veredictoSemantico({
+    lexico: "GO CON AJUSTES", c14_huerfanos: 3, c15_pct: 33, c16_huecos: 2, c17_dolores: 3, c18_si: 3,
+    clustersElegidos: ["problema", "ocasion", "uso"],
+    dolores: ["las tablas de plástico se rayan", "no sé si es segura para carne cruda"],
+    nota: "Entrar como tabla premium reversible para cocina seria.",
+  });
+  eq(veredicto.clustersElegidos.length, 3, "el veredicto confirma el ángulo del estudiante");
+  const ang = SophieIntencion.anguloExpediente(null, veredicto);
+
+  // 2) El ángulo se guarda en el expediente — el hilo que viaja por la Ruta.
+  const exp = SophieMotor.aExpediente(SophieMotor.evaluar(ESTRELLA), {}, {
+    keyword: LISTING_BUENO.keywordP1,
+    clustersElegidos: ang.clustersElegidos, doloresC17: ang.doloresC17, recomendacion: ang.recomendacion,
+  });
+  ok(exp.clustersElegidos.indexOf("problema") !== -1, "el expediente lleva el ángulo");
+  eq(exp.doloresC17.length, 2, "y arrastra los dolores del C17");
+
+  // 3) Aguas abajo, Listing lee el ángulo del expediente y AUDITA el texto real.
+  const cob = SophieCobertura.evaluar(LISTING_BUENO, exp.clustersElegidos);
+  eq(cob.total, 3, "Listing audita exactamente los 3 clusters del ángulo, no los 6");
+  const porId = (id) => cob.porCluster.filter((c) => c.id === id)[0];
+  ok(porId("problema").cubierto, "el atributo (bambú) SÍ está cubierto en el listing");
+  ok(!porId("ocasion").cubierto, "el ángulo de regalo NO está en el texto → hueco que Rufus no lee");
+  ok(cob.faltantes.indexOf("ocasion") !== -1, "el hueco queda señalado como faltante");
 });
 
 /* ============================================================

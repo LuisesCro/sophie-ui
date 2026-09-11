@@ -220,6 +220,33 @@ html, body {
 }
 .landing.opts-locked .s-opt { opacity: .4; }
 
+/* Opciones CON descripción.
+   El vocabulario original solo contemplaba una línea de texto por opción, así
+   que cuando una opción necesitaba explicarse el modelo improvisaba: metía la
+   explicación FUERA de la caja, desalineada y sin color de tema (se veía casi
+   negra sobre el fondo oscuro). Ahora la explicación tiene lugar propio.
+   Los !important son deliberados: neutralizan los `style="color:…"` sueltos
+   que el modelo a veces escribe copiando la paleta clara. */
+.landing .s-opt .s-opt-txt {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+}
+.landing .s-opt b,
+.landing .s-opt strong { font-weight: 700; color: #fff; }
+.landing .s-opt small,
+.landing .s-opt em,
+.landing .s-opt .s-opt-d {
+  font-size: 12.5px; font-weight: 400; line-height: 1.45;
+  color: var(--texto-2) !important; font-style: normal;
+}
+/* Red de seguridad: si aun así queda texto suelto dentro del grid de opciones,
+   que al menos se lea. */
+.landing .s-grid > small,
+.landing .s-grid > span:not(.s-num),
+.landing .s-grid > p {
+  color: var(--texto-2) !important;
+  font-size: 12.5px; line-height: 1.45; margin: -2px 0 6px;
+}
+
 .landing .s-list li {
   font-size: 14.5px; color: var(--so-tx-2);
   padding: 11px 0; border-bottom: 1px solid var(--so-line-2);
