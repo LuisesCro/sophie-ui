@@ -89,6 +89,7 @@
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creative-brief-ui.js", "creative-brief-ui-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creative-generator.js", "creative-generator-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creative-generator-ui.js", "creative-generator-ui-v2"); })
+        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-imagen-proveedor.js", "imagen-proveedor-v1"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-visual-qa.js", "visual-qa-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-visual-qa-client.js", "visual-qa-client-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-visual-qa-ui.js", "visual-qa-ui-v2"); })
