@@ -97,12 +97,15 @@ function registerProvider(provider){
   ACTIVE_PROVIDER=provider;return true;
 }
 function getProvider(){return ACTIVE_PROVIDER}
-async function generateAsset(asset,sourceImages){
+// opts.quality ('draft' | 'pro') es opcional y llega hasta el proveedor, que es
+// quien la traduce a tamaño y a costo. Sin ella el proveedor decide, así que
+// quien ya llamaba con dos argumentos sigue funcionando igual.
+async function generateAsset(asset,sourceImages,opts){
   asset=O(asset)?asset:{};
   if(asset.status!=='ready')throw new Error('El asset no está listo para generación.');
   if(asset.mode!=='image_generation')throw new Error('Este asset no usa generación externa.');
   if(!ACTIVE_PROVIDER)throw new Error('No hay proveedor de imágenes configurado.');
-  return ACTIVE_PROVIDER.generateImage({prompt:asset.prompt,negativePrompt:asset.negativePrompt,sourceImages:A(sourceImages),width:2000,height:2000,mode:asset.type,preserveProduct:true});
+  return ACTIVE_PROVIDER.generateImage({prompt:asset.prompt,negativePrompt:asset.negativePrompt,sourceImages:A(sourceImages),width:2000,height:2000,mode:asset.type,preserveProduct:true,quality:O(opts)?opts.quality:undefined});
 }
 
 g.SophieCreativeGenerator={version:'2.1',modes:MODE,build:build,normalize:normalize,validate:validate,score:score,manifest:manifest,renderIndex:renderIndex,previewDataUrl:previewDataUrl,canvasAvailable:canvasAvailable,registerProvider:registerProvider,getProvider:getProvider,generateAsset:generateAsset};
