@@ -309,12 +309,14 @@
 
     var bar = document.createElement('div');
     bar.id = 'sophie-imagenes-sin-contexto';
-    // order:-1 porque las barras de la V2 se montan DESPUÉS que esta y cada una
+    // order:-10 porque las capas de la V2 se montan DESPUÉS que esta y cada una
     // se inserta como primer hijo, así que en el DOM este aviso acaba enterrado
-    // bajo la pared de botones apagados que viene justamente a explicar. #app es
-    // un flex en columna: el orden visual lo decide `order`, no el DOM.
+    // bajo los pasos apagados que viene justamente a explicar. #app es un flex
+    // en columna: el orden visual lo decide `order`, no el DOM. El tema reparte
+    // -4 al contexto, -3 al flujo y -2 a los créditos; -10 lo deja por encima
+    // de todos ellos, que es donde tiene que leerse.
     bar.style.cssText =
-      'order:-1;flex:none;background:#FFF8EC;border-bottom:1px solid #F3E3C2;' +
+      'order:-10;flex:none;background:#FFF8EC;border-bottom:1px solid #F3E3C2;' +
       'padding:12px 16px;z-index:36';
 
     bar.innerHTML =

@@ -66,19 +66,104 @@
         border-color:rgba(99,224,161,.28)!important;
       }
 
-      /* ===== Pipeline superior ===== */
-      #sir-launch,#sii-launch,#svs-launch,#scb-launch,#scg-launch,#svq-launch{
-        position:relative!important;
+      /* ===== Orden de la cabecera =====
+         #app es un flex en columna y cada capa se inserta como primer hijo
+         según va cargando, así que el orden dependía de quién llegara antes.
+         Fijarlo aquí lo vuelve estable: qué producto → en qué paso vas →
+         cuántos créditos te quedan → la conversación. Todos negativos para
+         quedar por encima de #messages y #bar, que van en 0. */
+      #sophie-imagenes-contexto{order:-4!important}
+      #si-flujo{order:-3!important}
+      #scw{order:-2!important}
+
+      /* ===== Pipeline superior =====
+         Seis barras a lo ancho se comían más de 400px antes de que empezara
+         la conversación. Van agrupadas en una sola franja: cada paso es una
+         pastilla, el subtítulo sobra —el nombre ya lo dice— y el botón solo
+         aparece en el paso que de verdad puedes tocar. */
+      #si-flujo{
         flex:none!important;
         background:linear-gradient(90deg,var(--si-navy-850),var(--si-navy-800))!important;
-        border:0!important;
         border-bottom:1px solid var(--si-line)!important;
-        padding:0 18px!important;
+        box-shadow:0 10px 28px rgba(4,15,42,.14)!important;
+        overflow-x:auto!important;
+        overflow-y:hidden!important;
+        scrollbar-width:thin!important;
+      }
+      #si-flujo-in{
+        display:flex!important;
+        align-items:center!important;
+        /* Envuelve en vez de desbordar: con dos pasos abiertos a la vez la fila
+           pasa de 1040px y el último —QA— quedaba cortado contra el borde. */
+        flex-wrap:wrap!important;
+        gap:6px!important;
+        max-width:1040px!important;
+        margin:0 auto!important;
+        padding:7px 18px!important;
+      }
+      /* Si todavía no ha cargado ningún paso, la franja no debe dejar un hueco. */
+      #si-flujo:not(:has(.sir-in,.sii-in,.svs-in,.scb-in,.scg-in,.svq-in)){display:none!important}
+
+      #si-flujo>#si-flujo-in>div{
+        position:relative!important;
+        flex:0 0 auto!important;
+        background:transparent!important;
+        border:0!important;
+        padding:0!important;
+        box-shadow:none!important;
         color:var(--si-text)!important;
+      }
+      /* La franja naranja lateral servía para separar barras apiladas.
+         En pastillas sobra: el borde de cada una ya hace ese trabajo. */
+      #si-flujo>#si-flujo-in>div:before{display:none!important}
+
+      #si-flujo .sir-in,#si-flujo .sii-in,#si-flujo .svs-in,
+      #si-flujo .scb-in,#si-flujo .scg-in,#si-flujo .svq-in{
+        max-width:none!important;
+        min-height:0!important;
+        margin:0!important;
+        padding:5px 9px!important;
+        gap:7px!important;
+        background:rgba(255,255,255,.05)!important;
+        border:1px solid var(--si-line)!important;
+        border-radius:11px!important;
+      }
+      #si-flujo .sir-sub,#si-flujo .sii-sub,#si-flujo .svs-sub,
+      #si-flujo .scb-sub,#si-flujo .scg-sub,#si-flujo .svq-sub{display:none!important}
+      #si-flujo .sir-title,#si-flujo .sii-title,#si-flujo .svs-title,
+      #si-flujo .scb-title,#si-flujo .scg-title,#si-flujo .svq-title{
+        font-size:11.6px!important;
+        white-space:nowrap!important;
+      }
+      /* Un paso bloqueado se lee, pero no compite por la atención. */
+      #si-flujo>#si-flujo-in>div:has(button:disabled){opacity:.5!important}
+      #si-flujo>#si-flujo-in>div:has(button:disabled) .sir-in,
+      #si-flujo>#si-flujo-in>div:has(button:disabled) .sii-in,
+      #si-flujo>#si-flujo-in>div:has(button:disabled) .svs-in,
+      #si-flujo>#si-flujo-in>div:has(button:disabled) .scb-in,
+      #si-flujo>#si-flujo-in>div:has(button:disabled) .scg-in,
+      #si-flujo>#si-flujo-in>div:has(button:disabled) .svq-in{background:transparent!important}
+      /* El botón del paso bloqueado no se puede pulsar: ocupar sitio es ruido. */
+      #si-flujo button:disabled{display:none!important}
+      #si-flujo .sir-btn,#si-flujo .sii-btn,#si-flujo .svs-btn,
+      #si-flujo .scb-btn,#si-flujo .scg-btn,#si-flujo .svq-btn{
+        min-width:0!important;
+        padding:5px 9px!important;
+        font-size:11px!important;
+      }
+      /* Un paso ya terminado lleva su distintivo verde y se puede volver a
+         abrir, pero no es lo siguiente que hay que hacer. En naranja se deja
+         solo el paso actual: si no, dos botones idénticos compiten y la franja
+         deja de decir por dónde vas. */
+      #si-flujo>#si-flujo-in>div:has([class$="-badge"]) button{
+        background:rgba(255,255,255,.07)!important;
+        color:#d6e2fb!important;
+        border:1px solid var(--si-line)!important;
         box-shadow:none!important;
       }
-      #sir-launch{border-top:1px solid rgba(255,255,255,.025)!important}
-      #svq-launch{box-shadow:0 10px 28px rgba(4,15,42,.14)!important}
+      #si-flujo>#si-flujo-in>div:has([class$="-badge"]) button:hover{
+        background:rgba(255,255,255,.13)!important;
+      }
 
       .sir-in,.sii-in,.svs-in,.scb-in,.scg-in,.svq-in{
         max-width:1040px!important;
@@ -181,7 +266,66 @@
     document.documentElement.setAttribute('data-sophie-imagenes-theme','unified-v1');
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
-  else install();
-  g.SophieImagenesTheme = { version:'1.0', install:install };
+  /* ------------------------------------------------------------------
+     Agrupado de la franja de flujo.
+
+     Cada una de las seis librerías se monta sola y se inserta como primer
+     hijo de #app, así que apiladas ocupaban toda la parte de arriba y en un
+     orden que dependía de cuál cargara antes. Aquí solo se mueven de sitio:
+     no se toca su marcado, ni sus manejadores, ni su estado. Cada librería
+     puede seguir haciendo remove() + insertBefore() cuando cambia de estado;
+     el observador las vuelve a recoger.
+     ------------------------------------------------------------------ */
+  var PASOS = ['sir-launch','sii-launch','svs-launch','scb-launch','scg-launch','svq-launch'];
+  var agrupando = false;
+
+  function agrupar() {
+    if (agrupando) return;
+    var app = document.getElementById('app');
+    if (!app) return;
+
+    var sueltos = PASOS.filter(function (id) {
+      var el = document.getElementById(id);
+      return el && el.parentNode === app;
+    });
+    if (!sueltos.length) return;   // nada nuevo que recoger
+
+    agrupando = true;
+    try {
+      var franja = document.getElementById('si-flujo');
+      if (!franja) {
+        franja = document.createElement('div');
+        franja.id = 'si-flujo';
+        var dentro = document.createElement('div');
+        dentro.id = 'si-flujo-in';
+        franja.appendChild(dentro);
+        app.insertBefore(franja, app.firstChild);
+      }
+      var caja = document.getElementById('si-flujo-in');
+      if (caja) {
+        // Se recorren todos, no solo los sueltos: así el orden queda siempre
+        // el del proceso —Research, Index, Stack, Briefs, Producción, QA—
+        // y no el del azar de la carga.
+        PASOS.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) caja.appendChild(el);
+        });
+      }
+    } finally {
+      agrupando = false;
+    }
+  }
+
+  function observar() {
+    var app = document.getElementById('app');
+    if (!app || typeof MutationObserver === 'undefined') return;
+    agrupar();
+    new MutationObserver(agrupar).observe(app, { childList: true });
+  }
+
+  function arrancar() { install(); observar(); }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar);
+  else arrancar();
+  g.SophieImagenesTheme = { version:'1.1', install:install, agrupar:agrupar };
 })(typeof window !== 'undefined' ? window : this);
