@@ -1,11 +1,5 @@
 /* =====================================================================
    sophie-suite-nav.js — Botón flotante "Volver a Sophie"
-   ---------------------------------------------------------------------
-   Aparece SOLO cuando un módulo corre DENTRO de la app unificada
-   (app.crezcamosonline.com/<modulo>/...), para que quien entre a un
-   módulo por error pueda volver al lanzador de un clic.
-
-   En el sitio standalone del módulo (su propio dominio, ruta "/") no hace nada.
    ===================================================================== */
 (function () {
   try {
@@ -73,7 +67,9 @@
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-visual-stack.js", "visual-stack-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-visual-stack-ui.js", "visual-stack-ui-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creative-brief.js", "creative-brief-v2"); })
-        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creative-brief-ui.js", "creative-brief-ui-v2"); });
+        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creative-brief-ui.js", "creative-brief-ui-v2"); })
+        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creative-generator.js", "creative-generator-v2"); })
+        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creative-generator-ui.js", "creative-generator-ui-v2"); });
     }
   } catch (e) {}
 })();
