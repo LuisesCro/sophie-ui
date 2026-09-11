@@ -272,9 +272,76 @@
     }
   }
 
+  // Cuando el contexto no se puede establecer, el módulo se quedaba mudo. Las
+  // barras de la V2 se montan apagadas —necesitan expediente— y la de Research,
+  // que es la puerta de entrada a toda la cadena, ni siquiera aparece. El
+  // resultado era una pared de botones grises, sin una sola explicación y sin
+  // manera de avanzar. El motivo ya estaba en estado.error desde el principio;
+  // lo que faltaba es que alguien lo leyera. Esto lo pone en pantalla.
+  var MOTIVOS = {
+    sin_expediente: {
+      titulo: 'Todavía no hay un producto conectado',
+      detalle: 'Sophie Imágenes construye la galería sobre un producto ya validado: de ahí salen los dolores del comprador, las keywords y la verdad del producto. Abre Sophie Producto, termina el análisis y vuelve aquí.',
+      accion: 'Ir a Sophie Producto',
+      url: 'https://app.crezcamosonline.com/producto/'
+    },
+    sin_acceso: {
+      titulo: 'No pude leer tu llave de acceso',
+      detalle: 'Vuelve a entrar a la app para renovar la sesión y abre Sophie Imágenes otra vez.',
+      accion: 'Volver a la app',
+      url: 'https://app.crezcamosonline.com/'
+    },
+    contexto_error: {
+      titulo: 'No pude conectar con tu expediente',
+      detalle: 'Puede ser un corte momentáneo de conexión. Recarga la página; si sigue igual, escríbenos.',
+      accion: 'Recargar',
+      url: ''
+    }
+  };
+
+  function pintarFaltaContexto(motivo) {
+    var app = document.getElementById('app');
+    if (!app) return;
+    var m = MOTIVOS[motivo] || MOTIVOS.contexto_error;
+
+    var viejo = document.getElementById('sophie-imagenes-sin-contexto');
+    if (viejo) viejo.remove();
+
+    var bar = document.createElement('div');
+    bar.id = 'sophie-imagenes-sin-contexto';
+    // order:-1 porque las barras de la V2 se montan DESPUÉS que esta y cada una
+    // se inserta como primer hijo, así que en el DOM este aviso acaba enterrado
+    // bajo la pared de botones apagados que viene justamente a explicar. #app es
+    // un flex en columna: el orden visual lo decide `order`, no el DOM.
+    bar.style.cssText =
+      'order:-1;flex:none;background:#FFF8EC;border-bottom:1px solid #F3E3C2;' +
+      'padding:12px 16px;z-index:36';
+
+    bar.innerHTML =
+      '<div style="max-width:720px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+        '<div style="flex:1;min-width:220px">' +
+          '<div style="font-size:13px;font-weight:800;color:#8B631A">' + esc(m.titulo) + '</div>' +
+          '<div style="font-size:12.3px;line-height:1.45;color:#8B631A;margin-top:3px">' + esc(m.detalle) + '</div>' +
+        '</div>' +
+        '<button type="button" style="border:0;border-radius:9px;padding:9px 13px;' +
+          'background:#8B631A;color:#fff;font:700 12.5px inherit;cursor:pointer">' + esc(m.accion) + '</button>' +
+      '</div>';
+
+    app.insertBefore(bar, app.firstChild);
+
+    var b = bar.querySelector('button');
+    if (b) b.onclick = function () {
+      if (m.url) global.location.href = m.url; else global.location.reload();
+    };
+  }
+
   function pintarContexto() {
     var app = document.getElementById('app');
     if (!app || !estado.resumen) return;
+
+    // Si veníamos de un aviso, el expediente ya llegó: el aviso sobra.
+    var aviso = document.getElementById('sophie-imagenes-sin-contexto');
+    if (aviso) aviso.remove();
 
     var viejo = document.getElementById('sophie-imagenes-contexto');
     if (viejo) viejo.remove();
@@ -347,6 +414,7 @@
         var code = await obtenerLlave(sesion);
         if (!code) {
           estado.error = 'sin_acceso';
+          pintarFaltaContexto('sin_acceso');
           return null;
         }
 
@@ -376,6 +444,7 @@
 
         if (!exp) {
           estado.error = 'sin_expediente';
+          pintarFaltaContexto('sin_expediente');
           return null;
         }
 
@@ -413,6 +482,7 @@
         return estado.resumen;
       } catch (e) {
         estado.error = 'contexto_error';
+        pintarFaltaContexto('contexto_error');
         return null;
       } finally {
         estado.loading = false;
