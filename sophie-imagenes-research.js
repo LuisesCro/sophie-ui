@@ -1,6 +1,6 @@
 /* ============================================================
    SOPHIE · IMÁGENES v2 — Research Client
-   Une Contexto (Fase 1) + Strategy Engine (Fase 2).
+   Une Contexto + Strategy Engine + Créditos Visuales.
    ============================================================ */
 (function (global) {
   'use strict';
@@ -59,6 +59,14 @@
     };
   }
 
+  async function cobrar(base){
+    if(!global.SophieCreditos)return{ok:true,operationId:null,legacy:true};
+    var c=await global.SophieCreditos.consume('research',{expedienteId:base.expedienteId||''});
+    if(!c.ok)return{ok:false,error:c.error||'creditos',available:c.available,needed:c.needed,wallet:c.wallet};
+    return{ok:true,operationId:c.operationId,wallet:c.wallet};
+  }
+  async function devolver(op){if(op&&global.SophieCreditos)try{await global.SophieCreditos.refundSafe(op,'technical_error')}catch(e){}}
+
   async function analizar(extra){
     var base=await esperarContexto();
     if(!base) return {ok:false,error:'sin_contexto'};
@@ -68,40 +76,35 @@
     if(!llave) return {ok:false,error:'sin_acceso'};
 
     var input=construirInput(base,extra);
+    var credit=await cobrar(base);
+    if(!credit.ok)return Object.assign({ok:false,error:'creditos_insuficientes'},credit);
+
     var r;
     try{
       r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'research',code:llave,context:input})});
-    }catch(e){return {ok:false,error:'red'};}
+    }catch(e){await devolver(credit.operationId);return {ok:false,error:'red'};}
     var d=null; try{d=await r.json();}catch(e){}
-    if(!(r.ok&&d&&d.ok&&d.result)) return {ok:false,error:(d&&d.error)||('http_'+r.status),detail:d&&d.detail};
+    if(!(r.ok&&d&&d.ok&&d.result)){await devolver(credit.operationId);return {ok:false,error:(d&&d.error)||('http_'+r.status),detail:d&&d.detail};}
 
-    var normal=global.SophieImageStrategy.normalizarResearch(d.result);
+    var normal;
+    try{normal=global.SophieImageStrategy.normalizarResearch(d.result);}catch(e){await devolver(credit.operationId);return{ok:false,error:'normalizacion'};}
     normal.meta.generatedAt=new Date().toISOString();
 
     if(global.SophieImagenesContext && global.SophieImagenesContext.guardar){
-      var g=await global.SophieImagenesContext.guardar({
+      var save=await global.SophieImagenesContext.guardar({
         status:'research_ready',
-        sources:{
-          competitors:input.competitors.length>0,
-          reviews:input.reviewClusters.length>0,
-          keywords:!!(input.keywordPrincipal||input.keywords.length)
-        },
+        sources:{competitors:input.competitors.length>0,reviews:input.reviewClusters.length>0,keywords:!!(input.keywordPrincipal||input.keywords.length)},
         research:normal.research,
         angles:normal.angles,
         recommendedAngles:normal.recommendedAngles,
         researchMeta:normal.meta
       });
-      if(!g||!g.ok) return {ok:false,error:'persistencia',research:normal};
+      if(!save||!save.ok){await devolver(credit.operationId);return {ok:false,error:'persistencia',research:normal};}
     }
 
     try{global.dispatchEvent(new CustomEvent('sophie:imagenes-research',{detail:normal}));}catch(e){}
-    return {ok:true,research:normal};
+    return {ok:true,research:normal,creditOperationId:credit.operationId};
   }
 
-  global.SophieImagenesResearch={
-    version:'2.0-phase2.1',
-    analizar:analizar,
-    construirInput:construirInput,
-    resolverCode:resolverCode
-  };
+  global.SophieImagenesResearch={version:'2.0-phase8-credits',analizar:analizar,construirInput:construirInput,resolverCode:resolverCode};
 })(typeof window!=='undefined'?window:this);
