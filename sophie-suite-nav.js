@@ -1,5 +1,5 @@
 /* =====================================================================
-   sophie-suite-nav.js — Botón flotante "Volver a Sophie"
+   sophie-suite-nav.js — Botón flotante "Volver a Sophie" + loader módulos
    ===================================================================== */
 (function () {
   try {
@@ -59,6 +59,8 @@
       }
       cargar("https://ui.crezcamosonline.com/sophie-image-strategy.js", "image-strategy-v2")
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-imagenes-context.js", "imagenes-context-v2"); })
+        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creditos.js", "creditos-visuales-v1"); })
+        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-creditos-ui.js", "creditos-visuales-ui-v1"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-imagenes-research.js", "imagenes-research-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-imagenes-research-ui.js", "imagenes-research-ui-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-imagenes-research-multiline-fix.js", "imagenes-research-multiline-fix-v2"); })
