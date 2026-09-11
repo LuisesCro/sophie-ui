@@ -63,6 +63,7 @@
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-imagenes-research-ui.js", "imagenes-research-ui-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-imagenes-research-multiline-fix.js", "imagenes-research-multiline-fix-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-image-index.js", "image-index-v2"); })
+        .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-image-index-safety.js", "image-index-safety-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-image-index-ui.js", "image-index-ui-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-visual-stack.js", "visual-stack-v2"); })
         .then(function () { return cargar("https://ui.crezcamosonline.com/sophie-visual-stack-ui.js", "visual-stack-ui-v2"); })
