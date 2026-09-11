@@ -20,7 +20,18 @@
     var PREFIJOS = ["/producto", "/proveedores", "/listado", "/imagenes", "/ppc", "/lanzamiento", "/rescate", "/optimizador"];
     var p = location.pathname;
     var enSuite = PREFIJOS.some(function (x) { return p === x || p.indexOf(x + "/") === 0; });
-    if (!enSuite) return;
+
+    // Sophie Imágenes se abre por dos puertas: la ruta /imagenes del lanzador
+    // (app.crezcamosonline.com, que la proxea) y su propio dominio. La V2
+    // —Image Index, Visual Stack, Creative Briefs, Producción, QA y créditos—
+    // tiene que cargar en las dos. Mirando solo la ruta, en el dominio propio
+    // el módulo se quedaba en la versión vieja: el chat y nada más, sin
+    // ninguno de los seis paneles. El regex cubre también los dominios de
+    // previsualización de Netlify (deploy-preview-N--sophie-imagenes...).
+    var esImagenes = p === "/imagenes" || p.indexOf("/imagenes/") === 0 ||
+                     /(^|\.|--)sophie-imagenes\./.test(location.hostname);
+
+    if (!enSuite && !esImagenes) return;
 
     function montar() {
       if (document.getElementById("crez-volver")) return;
@@ -48,9 +59,14 @@
       document.body.appendChild(b);
     }
 
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", montar); else montar();
+    // El botón flotante apunta a "/", que solo es la app unificada cuando
+    // estamos dentro de ella. En el dominio propio de un módulo ese enlace
+    // llevaría al propio módulo, así que ahí no se monta.
+    if (enSuite) {
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", montar); else montar();
+    }
 
-    if (p === "/imagenes" || p.indexOf("/imagenes/") === 0) {
+    if (esImagenes) {
       function cargar(src, tag) {
         return new Promise(function (resolve) {
           var s = document.createElement("script"); s.src = src; s.defer = true; s.setAttribute("data-sophie", tag);
