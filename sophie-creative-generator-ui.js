@@ -25,7 +25,7 @@ function close(){var m=document.getElementById('scg-modal');if(m)m.remove();S.pr
 function statusTag(a){var cls=a.status==='ready'?'ok':a.status==='blocked'?'bad':'warn';var label=a.status==='ready'?'Listo':a.status==='blocked'?'Bloqueado':'Falta input';return'<span class="scg-tag '+cls+'">'+label+'</span>'}
 function row(a){return'<div class="scg-row"><div class="scg-top"><div class="scg-slot">'+E(a.slot)+'</div><div class="scg-main"><b>'+E(a.type.replace(/_/g,' '))+'</b><div>'+statusTag(a)+'<span class="scg-tag">'+E(a.mode)+'</span><span class="scg-tag">2000×2000</span><span class="scg-tag">preserveProduct</span></div><p class="scg-note">'+E(a.objective||'')+'</p></div></div>'+(a.missingInputs&&a.missingInputs.length?'<div class="scg-missing"><b>Falta:</b> '+a.missingInputs.map(E).join(' · ')+'</div>':'')+'<textarea class="scg-prompt" readonly data-prompt="'+E(a.slot)+'">'+E(a.prompt)+'</textarea><div class="scg-negative"><b>Negative prompt:</b> '+E(a.negativePrompt)+'</div><div class="scg-actions"><button class="scg-mini" data-copy="'+E(a.slot)+'">Copiar prompt</button>'+(a.type==='IMAGE_INDEX'&&a.canRender?'<button class="scg-mini" data-preview="'+E(a.slot)+'">Previsualizar Index</button>':'')+(a.canGenerate?'<button class="scg-mini" data-generar="'+E(a.slot)+'" data-calidad="draft">Borrador · 1 cr.</button><button class="scg-mini scg-pro" data-generar="'+E(a.slot)+'" data-calidad="pro">Producción · 2 cr.</button>':'')+'</div><div class="scg-preview" id="scg-preview-'+E(a.slot)+'"></div></div>'}
 function render(){var body=document.getElementById('scg-body');if(!body||!S.pack)return;var v=g.SophieCreativeGenerator.validate(S.pack),q=S.pack.score||{},w=v.warnings||[],readyCount=S.pack.items.filter(function(x){return x.status==='ready'}).length;body.innerHTML='<div class="scg-hero"><div class="scg-card"><h3>Producción evidence-first</h3><p class="scg-note">'+readyCount+' de '+S.pack.items.length+' assets están listos con los datos actuales. Los demás muestran exactamente qué falta antes de generar.</p><p class="scg-note"><b>Regla dura:</b> preservar geometría, proporciones, color, branding y componentes visibles del producto; nunca completar datos faltantes con imaginación.</p></div><div class="scg-card"><div class="scg-q">'+(q.total||0)+'<small>/100</small></div><h3>Production Score</h3><p class="scg-note">Readiness '+(q.readiness||0)+' · Claim '+(q.claimSafety||0)+' · Trace '+(q.traceability||0)+' · Product '+(q.preserveProduct||0)+'</p></div></div>'+(w.length?'<div class="scg-warn">'+w.map(E).join('<br>')+'</div>':'')+'<div class="scg-list">'+S.pack.items.map(row).join('')+'</div><div class="scg-foot"><span class="scg-status" id="scg-status">Preparar producción no genera imágenes externas automáticamente.</span><button class="scg-btn sec" id="scg-manifest">Descargar manifest JSON</button><button class="scg-btn" id="scg-approve">Aprobar Production Pack</button></div>';bind()}
-function bind(){Object.keys(S.generadas).forEach(function(k){pintarGenerada(Number(k))});document.querySelectorAll('[data-copy]').forEach(function(b){b.onclick=function(){var a=S.pack.items[Number(b.dataset.copy)-1];copy(a&&a.prompt,b)}});document.querySelectorAll('[data-preview]').forEach(function(b){b.onclick=function(){preview(Number(b.dataset.preview))}});document.querySelectorAll('[data-generar]').forEach(function(b){b.onclick=function(){confirmar(Number(b.dataset.generar),b.dataset.calidad)}});var man=document.getElementById('scg-manifest');if(man)man.onclick=downloadManifest;var ap=document.getElementById('scg-approve');if(ap)ap.onclick=approve}
+function bind(){recuperarGuardadas();Object.keys(S.generadas).forEach(function(k){pintarGenerada(Number(k))});document.querySelectorAll('[data-copy]').forEach(function(b){b.onclick=function(){var a=S.pack.items[Number(b.dataset.copy)-1];copy(a&&a.prompt,b)}});document.querySelectorAll('[data-preview]').forEach(function(b){b.onclick=function(){preview(Number(b.dataset.preview))}});document.querySelectorAll('[data-generar]').forEach(function(b){b.onclick=function(){confirmar(Number(b.dataset.generar),b.dataset.calidad)}});var man=document.getElementById('scg-manifest');if(man)man.onclick=downloadManifest;var ap=document.getElementById('scg-approve');if(ap)ap.onclick=approve}
 function copy(t,b){if(!t)return;function done(){var old=b.textContent;b.textContent='✓ Copiado';setTimeout(function(){b.textContent=old},900)}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done).catch(function(){});else{var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done()}catch(e){}ta.remove()}}
 function preview(slot){var i=img(),box=document.getElementById('scg-preview-'+slot);if(!box||!i.imageIndex)return;box.innerHTML='';var c=g.SophieCreativeGenerator.renderIndex(i.imageIndex,{producto:(base()||{}).producto||''});if(!c){box.innerHTML='<div class="scg-missing">No hay suficientes razones aprobadas para renderizar.</div>';return}c.id='scg-index-canvas';box.appendChild(c);var d=document.createElement('button');d.className='scg-mini';d.textContent='Descargar PNG';d.style.marginTop='8px';d.onclick=function(){c.toBlob(function(blob){if(!blob)return;var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='sophie-image-index.png';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)},'image/png')};box.appendChild(d)}
 /* ---------------- Generación de imagen ----------------
@@ -57,8 +57,9 @@ async function generar(slot,calidad){
   aviso(slot,'<div class="scg-cost">Generando la imagen… puede tardar unos segundos.</div>');
   try{
     var r=await g.SophieCreativeGenerator.generateAsset(a,context().productPhotos,{quality:calidad});
-    S.generadas[slot]={url:r.url,calidad:calidad};
+    S.generadas[slot]={url:r.url,archivoUrl:r.archivoUrl,calidad:calidad};
     pintarGenerada(slot);
+    await guardarEnExpediente(slot,r,calidad);
     // El saldo cambió: que la barra lo refleje sin recargar la página. Se pide a
     // la UI del wallet, no a SophieCreditos.balance(), porque balance() solo trae
     // el número: quien repinta la barra es su propio refresh().
@@ -66,6 +67,34 @@ async function generar(slot,calidad){
   }catch(e){
     pintarFallo(slot,e,calidad);
   }finally{S.busy=false}
+}
+/* El atributo download solo funciona en el mismo origen. Recién generada la
+   imagen es un data: y baja directa; recuperada del expediente viene de
+   sophie-imagenes.crezcamosonline.com, otro origen, y el navegador ignoraría
+   el download y se limitaría a navegar hasta ella. Por eso primero se trae a
+   un blob —/api/imagen-archivo manda las cabeceras CORS para permitirlo— y se
+   descarga desde ahí. */
+function bajar(href,nombre){
+  var a=document.createElement('a');a.href=href;a.download=nombre;
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){a.remove()},1000);
+}
+async function descargar(url,nombre,boton){
+  if(/^data:/.test(url))return bajar(url,nombre);
+  var texto=boton?boton.textContent:'';
+  if(boton){boton.disabled=true;boton.textContent='Preparando…'}
+  try{
+    var r=await fetch(url);
+    if(!r.ok)throw new Error('no');
+    var b=await r.blob(),u=URL.createObjectURL(b);
+    bajar(u,nombre);
+    setTimeout(function(){URL.revokeObjectURL(u)},4000);
+  }catch(e){
+    // Último recurso: abrirla para que la guarde a mano.
+    g.open(url,'_blank','noopener');
+  }finally{
+    if(boton){boton.disabled=false;boton.textContent=texto}
+  }
 }
 function pintarGenerada(slot){
   var guardada=S.generadas[slot],b=cajaDe(slot);
@@ -76,7 +105,7 @@ function pintarGenerada(slot){
   b.appendChild(im);
   var pie=document.createElement('div');pie.className='scg-actions';
   var d=document.createElement('button');d.className='scg-mini scg-pro';d.textContent='Descargar PNG';
-  d.onclick=function(){var a2=document.createElement('a');a2.href=guardada.url;a2.download='sophie-imagen-'+slot+'.png';document.body.appendChild(a2);a2.click();setTimeout(function(){a2.remove()},1000)};
+  d.onclick=function(){descargar(guardada.url,'sophie-imagen-'+slot+'.png',d)};
   var otra=document.createElement('button');otra.className='scg-mini';otra.textContent='Generar otra';
   otra.onclick=function(){confirmar(slot,guardada.calidad)};
   pie.appendChild(d);pie.appendChild(otra);b.appendChild(pie);
@@ -112,6 +141,42 @@ function estilosGeneracion(){
     '.scg-cost .scg-actions{margin:0}'+
     '.scg-gen{display:block;width:100%;max-width:420px;height:auto;border-radius:12px;border:1px solid #E6E8EC;margin-top:10px}';
   document.head.appendChild(s);
+}
+/* En el expediente va la REFERENCIA, nunca los bytes. Ese JSON se relee y se
+   reescribe entero en cada merge: cinco imágenes de 2000x2000 en base64 serían
+   decenas de megas viajando en cada guardado. El módulo ya toma esa misma
+   decisión en otro sitio —al archivar el hilo sustituye las imágenes por
+   "[imagen adjunta]"—. Los bytes viven en /api/imagen-archivo; aquí solo su id. */
+async function guardarEnExpediente(slot,r,calidad){
+  var a=S.pack&&S.pack.items[slot-1];
+  if(!a||!S.pack||!g.SophieImagenesContext||!g.SophieImagenesContext.guardar)return;
+  if(!r.archivoUrl)return;   // sin archivo guardado no hay nada que recordar
+  a.generated={archivoId:r.archivoId||'',url:r.archivoUrl,quality:calidad,
+    width:r.width||0,height:r.height||0,operationId:r.operationId||'',
+    at:new Date().toISOString()};
+  try{
+    // guardar() no lanza cuando el servidor dice que no: devuelve {ok:false}.
+    // Si solo miráramos la excepción, un fallo real pasaría inadvertido.
+    var res=await g.SophieImagenesContext.guardar({creativeProduction:S.pack});
+    if(!res||!res.ok)throw new Error((res&&res.error)||'no_guardado');
+  }catch(e){
+    // Que no se pueda guardar no invalida la imagen: ya está en pantalla y se
+    // puede descargar. Se avisa sin borrar nada.
+    var b=cajaDe(slot);
+    if(b){var n=document.createElement('p');n.className='scg-note';
+      n.textContent='⚠️ La imagen se generó, pero no se pudo guardar en el expediente. Descárgala.';
+      b.appendChild(n)}
+  }
+}
+
+/* Al reabrir el panel, las imágenes ya pagadas vuelven desde el expediente. */
+function recuperarGuardadas(){
+  if(!S.pack)return;
+  S.pack.items.forEach(function(a){
+    var gen=a&&a.generated;
+    if(gen&&gen.url&&!S.generadas[a.slot])
+      S.generadas[a.slot]={url:gen.url,archivoUrl:gen.url,calidad:gen.quality||'pro'};
+  });
 }
 function downloadManifest(){var data=g.SophieCreativeGenerator.manifest(S.pack);if(!data)return;var blob=new Blob([data],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='sophie-creative-production.json';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)}
 async function approve(){var v=g.SophieCreativeGenerator.validate(S.pack),st=document.getElementById('scg-status'),btn=document.getElementById('scg-approve');if(!v.ok){if(st)st.textContent='⚠️ '+v.errors.join(' ');return}if(S.busy)return;S.busy=true;if(btn){btn.disabled=true;btn.textContent='Guardando…'}try{S.pack=v.production;S.pack.status='approved';S.pack.approvedAt=new Date().toISOString();var r=await g.SophieImagenesContext.guardar({status:'stack_approved',creativeProduction:S.pack,productionPreparedAt:S.pack.approvedAt});if(!r||!r.ok)throw new Error('No se pudo guardar');if(st)st.textContent='✓ Production Pack aprobado y guardado.';if(btn)btn.textContent='✓ Aprobado';setTimeout(close,700)}catch(e){if(st)st.textContent='⚠️ '+T(e&&e.message||e,140);if(btn){btn.disabled=false;btn.textContent='Reintentar aprobación'}}finally{S.busy=false}}

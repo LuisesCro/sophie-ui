@@ -169,6 +169,7 @@
           sesionToken: ses.token,
           operationId: opId,
           expedienteId: exp,
+          slot: peticion.slot,
           quality: q,
           prompt: peticion.prompt,
           negativePrompt: peticion.negativePrompt,
@@ -194,8 +195,11 @@
         return {
           // dataUrl primero: viene del mismo origen y el lienzo puede usarla
           // sin quedar "tainted", que es como el alumno la descarga.
-          url: d.image.dataUrl || d.image.url,
+          url: d.image.dataUrl || d.image.archivoUrl || d.image.url,
           remoteUrl: d.image.url,
+          // Lo que se guarda en el expediente: el id del archivo, no los bytes.
+          archivoId: d.image.archivoId || '',
+          archivoUrl: d.image.archivoUrl || '',
           width: d.image.width,
           height: d.image.height,
           operationId: d.operationId,
