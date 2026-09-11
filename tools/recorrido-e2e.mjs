@@ -404,17 +404,53 @@ grupo("Ads/PPC · SophiePPC.clasificar — acciones por término");
 
 const PPC_CTX = { precio: 30, breakEvenACOS: 33 };
 
-t("término que gastó el CPA de equilibrio sin ventas → NEGAR", () => {
+/* Estos casos esperaban NEGAR y COSECHAR con muestras de 10-12 clics. Dejaron
+   de cumplirse cuando el motor incorporó rigor estadístico (intervalo de Wilson
+   y prior bayesiano): con esa evidencia tan escasa el CVR real del término aún
+   cruza el punto de equilibrio, así que cortar o escalar sería decidir sobre
+   ruido. El motor tiene razón y las expectativas se quedaron viejas.
+
+   No basta con cambiar el veredicto esperado: eso dejaría sin cobertura los dos
+   veredictos que más importan. Cada caso se parte en dos — la muestra pequeña
+   que debe esperar, y la muestra suficiente que sí debe decidir — y se fija el
+   borde exacto, para que un cambio futuro en Z_CONFIANZA o PRIOR_FUERZA se note
+   aquí en vez de en las recomendaciones de un estudiante. */
+
+t("gastó el equilibrio sin vender, pero con 12 clics → VIGILAR (aún es mala suerte plausible)", () => {
   const r = SophiePPC.clasificar(
     [{ term: "cheap gadget", imp: 500, clk: 12, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }],
     PPC_CTX);
   eq(r.ok, true, "ok");
+  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+  // El motivo debe decir cuántos clics faltan: si no, el estudiante no sabe qué esperar.
+  eq(/clics antes de negar/.test(r.decisiones[0].motivo || ""), true, "el motivo dice cuándo volver");
+});
+
+t("el MISMO término con 15 clics y cero ventas → NEGAR (ya hay evidencia)", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "cheap gadget", imp: 620, clk: 15, spd: 15, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 15, ord: 0 } } }],
+    PPC_CTX);
   eq(r.decisiones[0].accion, "NEGAR", "acción");
 });
 
-t("término rentable fuera de exacta → COSECHAR", () => {
+t("borde de negación: 14 clics todavía no, 15 sí", () => {
+  const caso = (clk) => SophiePPC.clasificar(
+    [{ term: "cheap gadget", imp: clk * 42, clk, spd: clk, sal: 0, ord: 0, src: { "Auto [broad]": { spd: clk, ord: 0 } } }],
+    PPC_CTX).decisiones[0].accion;
+  eq(caso(14), "VIGILAR", "14 clics");
+  eq(caso(15), "NEGAR", "15 clics");
+});
+
+t("término rentable fuera de exacta con 10 clics → VIGILAR (muestra corta para escalar)", () => {
   const r = SophiePPC.clasificar(
     [{ term: "garlic press", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
+    PPC_CTX);
+  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+});
+
+t("el MISMO término con 30 clics y 9 órdenes → COSECHAR", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "garlic press", imp: 3000, clk: 30, spd: 59.94, sal: 299.7, ord: 9, src: { "Auto [broad]": { spd: 59.94, ord: 9 } } }],
     PPC_CTX);
   eq(r.decisiones[0].accion, "COSECHAR", "acción");
 });
