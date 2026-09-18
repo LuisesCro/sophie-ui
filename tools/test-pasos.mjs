@@ -102,14 +102,50 @@ caso('sin la señal `datos` se pinta la pantalla manual', () => {
 });
 
 caso('un paso sin variante con datos usa la de siempre, no se rompe', () => {
-  // Los pasos 1 y 2 no cambian: no mandan a ninguna herramienta.
-  const h = P.pantalla(2, { datos: true, vars: {} });
-  ok(h && h.length > 100, 'el paso 2 se rompió con datos:true');
-  ok(P.tieneDatos(2) === false, 'el 2 no debería tener variante');
+  // El paso 1 es la bienvenida: no manda a ninguna herramienta, así que no
+  // necesita variante y tiene que seguir funcionando con datos:true.
+  const h = P.pantalla(1, { datos: true, vars: {} });
+  ok(h && h.length > 100, 'el paso 1 se rompió con datos:true');
+  ok(P.tieneDatos(1) === false, 'el 1 no debería tener variante');
 });
 
 caso('los pasos que el motor dibuja siguen devolviendo null', () => {
   for (const n of [6, 8, 9]) ok(P.pantalla(n, { datos: true }) === null, 'el paso ' + n + ' no es guiado');
+});
+
+
+console.log('\nLas categorías dejan de ser ocho cajones de Black Box');
+
+caso('con datos reales se ofrecen subnichos, no solo la categoría grande', () => {
+  const h = conDatos(2);
+  ok(/Bordado y costura/.test(h), 'no baja al subnicho');
+  ok(/Juegos de mesa/.test(h), 'falta una categoría que Black Box no ofrecía');
+  ok(Object.keys(P.categorias).length > 8, 'siguen siendo ocho: ' + Object.keys(P.categorias).length);
+});
+
+caso('cada categoría abierta trae varios subnichos', () => {
+  for (const c of Object.keys(P.categorias))
+    ok(P.categorias[c].length >= 3, c + ' solo tiene ' + P.categorias[c].length + ' subnicho(s)');
+});
+
+caso('las bloqueadas siguen bloqueadas Y dicen por qué', () => {
+  // Un principiante en esas categorías se juega el pedido entero a un permiso.
+  const h = conDatos(2);
+  for (const c of ['Electronics', 'Grocery', 'Automotive', 'Supplements'])
+    ok(new RegExp(c, 'i').test(h), 'se dejó de bloquear: ' + c);
+  for (const c of Object.keys(P.bloqueadas))
+    ok(P.bloqueadas[c].length > 20, c + ' se bloquea sin explicar por qué');
+});
+
+caso('y no se ofrece ninguna bloqueada como buscable', () => {
+  const abiertas = Object.keys(P.categorias).join(' ').toLowerCase();
+  for (const c of ['electronics', 'grocery', 'automotive'])
+    ok(!abiertas.includes(c), 'una categoría bloqueada está en la lista de buscables: ' + c);
+});
+
+caso('sin datos reales, la pantalla 2 sigue siendo la de las ocho', () => {
+  const h = sinDatos(2);
+  ok(!/Bordado y costura/.test(h), 'le cambió la pantalla a quien no tiene datos');
 });
 
 console.log('\nRESULTADO: ' + pasan + ' pasan · ' + fallan + ' fallan');

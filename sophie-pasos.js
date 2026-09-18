@@ -1,5 +1,5 @@
 /* ============================================================
-   SOPHIE · PASOS GUIADOS v1.1
+   SOPHIE · PASOS GUIADOS v1.2
    Crezcamos Online — ui.crezcamosonline.com/sophie-pasos.js
 
    El guion de los pasos 1, 2, 3, 4, 5 y 7 vive aquí, no en el
@@ -50,7 +50,7 @@
 
   // Con datos reales cambian dos etiquetas: ya no se filtra en Black Box ni se
   // recolecta de Xray. Dejarlas rompia la ilusion antes de leer una sola linea.
-  var ETIQUETAS_DATOS = { 3: 'Buscando candidatos', 5: 'Limpiar la tabla' };
+  var ETIQUETAS_DATOS = { 2: 'Categoria y subnicho', 3: 'Buscando candidatos', 5: 'Limpiar la tabla' };
 
   function cabecera(paso, datos) {
     var m = MAPA[paso] || MAPA[1];
@@ -71,6 +71,48 @@
       return '<div class="s-done">✓ ' + esc(t) + '</div>';
     }).join('');
   }
+
+
+  /* ---------- categorias para el DESCUBRIMIENTO ----------
+
+     Las ocho de la pantalla 2 vienen de Black Box, donde el estudiante elegia UNA
+     de una lista corta. Con `descubrir` la categoria viaja como filtro real a la
+     API, asi que ya no hay razon para limitarse a ocho cajones enormes: se puede
+     buscar en un subnicho concreto, que es donde de verdad se encuentran huecos.
+
+     Las que estan bloqueadas siguen bloqueadas, y no por comodidad: piden
+     certificaciones, tienen regulacion estricta o Amazon las restringe a
+     vendedores nuevos. Un principiante que entra ahi pierde el pedido entero.
+     -------------------------------------------------------- */
+
+  var CATEGORIAS_DESCUBRIR = {
+    // Cada grupo: la categoria de Amazon y los subnichos que se pueden pedir
+    // sueltos. Lo segundo es lo que hace que dos estudiantes con el mismo
+    // interes general acaben en mercados distintos.
+    'Arts, Crafts & Sewing':      ['Bordado y costura', 'Tejido y crochet', 'Scrapbooking', 'Pintura y dibujo', 'Velas y jabones', 'Joyeria artesanal'],
+    'Home & Kitchen':             ['Organizacion del hogar', 'Ropa de cama', 'Bano', 'Decoracion', 'Lavanderia', 'Almacenaje de cocina'],
+    'Kitchen & Dining':           ['Utensilios de coccion', 'Reposteria', 'Cafe y te', 'Vajilla y servir', 'Preparacion de alimentos', 'Barra y coctel'],
+    'Office Products':            ['Escritorio y organizacion', 'Papeleria y agendas', 'Material escolar', 'Archivo', 'Ergonomia'],
+    'Patio, Lawn & Garden':       ['Jardineria de interior', 'Macetas y cultivo', 'Herramienta de jardin', 'Exterior y terraza', 'Compostaje', 'Control de plagas'],
+    'Pet Supplies':               ['Perros: juguetes', 'Perros: aseo', 'Gatos: rascado y juego', 'Comederos y bebederos', 'Aves y pequenos', 'Acuarios'],
+    'Sports & Outdoors':          ['Yoga y fitness en casa', 'Camping', 'Pesca', 'Ciclismo: accesorios', 'Deportes de raqueta', 'Natacion'],
+    'Tools & Home Improvement':   ['Organizacion de taller', 'Medicion', 'Ferreteria y fijaciones', 'Pintura y acabados', 'Seguridad del hogar', 'Fontaneria'],
+    'Toys & Games':               ['Juegos de mesa', 'Puzzles', 'Juguetes educativos', 'Manualidades infantiles', 'Juegos de exterior'],
+    'Musical Instruments':        ['Accesorios de guitarra', 'Percusion', 'Teclados: accesorios', 'Grabacion casera'],
+    'Baby Products (con cuidado)':['Organizacion infantil', 'Habitacion y decoracion', 'Alimentacion: accesorios no regulados']
+  };
+
+  // Categorias que NO se ofrecen, con el motivo. Va aqui y no en un comentario
+  // porque el estudiante tiene derecho a saber por que no aparece la suya.
+  var CATEGORIAS_BLOQUEADAS = {
+    'Electronics':                 'Certificaciones FCC y alta tasa de devolucion por fallo.',
+    'Health & Personal Care':      'Regulacion FDA y restricciones para vendedores nuevos.',
+    'Beauty':                      'Ingredientes regulados y categoria con gating frecuente.',
+    'Grocery & Gourmet Food':      'Caducidad, cadena de frio y permisos sanitarios.',
+    'Automotive':                  'Compatibilidad por vehiculo y responsabilidad por fallo.',
+    'Baby: seguridad':             'Sillas, cunas y arneses exigen certificacion CPSC.',
+    'Supplements':                 'De las categorias mas restringidas de Amazon.'
+  };
 
   /* ---------- banners de logro entre etapas ---------- */
 
@@ -343,6 +385,26 @@
 
   var PASOS_DATOS = {
 
+    /* ---- 2 · Categoria: ya no son ocho cajones, son subnichos ---- */
+    2: function (v) {
+      var h = '<h1>¿Por donde quieres buscar?</h1>' +
+        '<p class="s-lead">Elige una categoria, y si ya sabes por donde van tus intereses, dime tambien el ' +
+        'subnicho. Cuanto mas concreto, mas posibilidades de encontrar un hueco que nadie esta mirando.</p>';
+      h += '<div class="s-card"><p><b>Categorias abiertas</b></p><ul class="s-list">';
+      Object.keys(CATEGORIAS_DESCUBRIR).forEach(function (cat) {
+        h += '<li><b>' + esc(cat) + '</b> — ' + esc(CATEGORIAS_DESCUBRIR[cat].join(' · ')) + '</li>';
+      });
+      h += '</ul></div>';
+      h += '<div class="s-why"><b>Las que no vas a ver, y por que</b><p>' +
+        Object.keys(CATEGORIAS_BLOQUEADAS).map(function (c) {
+          return esc(c) + ': ' + esc(CATEGORIAS_BLOQUEADAS[c]);
+        }).join(' ') +
+        '</p><p class="s-warn">No es que no se pueda vender ahi. Es que un primer producto en esas categorias ' +
+        'se juega el pedido entero a que te aprueben un permiso.</p></div>';
+      h += '<div class="s-cta">Dime la categoria y, si puedes, el subnicho 👇</div>';
+      return h;
+    },
+
     /* ---- 3 · Sophie busca los candidatos (sustituye a Black Box) ---- */
     3: function (v) {
       return '<h1>Voy a buscarte candidatos</h1>' +
@@ -468,14 +530,16 @@
   }
 
   global.SophiePasos = {
-    version: '1.1',
+    version: '1.2',
     mapa: MAPA,
     pantalla: pantalla,
     cabecera: cabecera,
     chips: chips,
     wins: WINS,
     tiene: function (paso) { return !!PASOS[paso]; },
-    tieneDatos: function (paso) { return !!PASOS_DATOS[paso]; }
+    tieneDatos: function (paso) { return !!PASOS_DATOS[paso]; },
+    categorias: CATEGORIAS_DESCUBRIR,
+    bloqueadas: CATEGORIAS_BLOQUEADAS
   };
 
 })(window);
