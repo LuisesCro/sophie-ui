@@ -1,5 +1,5 @@
 /* ============================================================
-   SOPHIE · PASOS GUIADOS v1.0
+   SOPHIE · PASOS GUIADOS v1.1
    Crezcamos Online — ui.crezcamosonline.com/sophie-pasos.js
 
    El guion de los pasos 1, 2, 3, 4, 5 y 7 vive aquí, no en el
@@ -48,8 +48,13 @@
     9: { etiqueta: 'Veredicto final',            pct: 100 }
   };
 
-  function cabecera(paso) {
+  // Con datos reales cambian dos etiquetas: ya no se filtra en Black Box ni se
+  // recolecta de Xray. Dejarlas rompia la ilusion antes de leer una sola linea.
+  var ETIQUETAS_DATOS = { 3: 'Buscando candidatos', 5: 'Limpiar la tabla' };
+
+  function cabecera(paso, datos) {
     var m = MAPA[paso] || MAPA[1];
+    if (datos && ETIQUETAS_DATOS[paso]) m = { etiqueta: ETIQUETAS_DATOS[paso], pct: m.pct };
     return '<div class="s-head">' +
       '<div class="s-brand"><span class="s-logo">🛒</span><div>' +
       '<div class="s-name">Crezcamos Online</div>' +
@@ -320,15 +325,136 @@
     }
   };
 
+
+  /* ---------- pasos CON DATOS REALES (Jungle Scout) ----------
+
+     Los mismos pasos, pero sin mandar al estudiante a recolectar lo que Sophie
+     ya tiene. Solo se usan cuando la pantalla llega con `datos: true`.
+
+     Por que es una TABLA APARTE y no un parche sobre la de arriba: se intento
+     primero decirle al modelo "no le pidas que abra Xray" desde el prompt, y no
+     funciono. Es logico — enfrente tenia esta pantalla, escrita al detalle, con
+     los filtros exactos y las casillas que pegar. Una prohibicion corta no gana
+     contra una instruccion larga y concreta. Habia que quitar la instruccion.
+
+     La de arriba NO se toca: es la unica que sirve para quien no tiene datos
+     reales, que hoy son casi todos.
+     ---------------------------------------------------------- */
+
+  var PASOS_DATOS = {
+
+    /* ---- 3 · Sophie busca los candidatos (sustituye a Black Box) ---- */
+    3: function (v) {
+      return '<h1>Voy a buscarte candidatos</h1>' +
+        '<p class="s-lead">Con <b>[categoria]</b> elegida, yo hago la busqueda. No necesitas abrir ninguna ' +
+        'herramienta.</p>' +
+        '<div class="s-card">' +
+          '<p><b>Lo que voy a filtrar por ti</b></p>' +
+          '<ul class="s-list">' +
+            '<li><b>Precio</b> desde $20 — por debajo de ahi las tarifas de Amazon se comen el margen</li>' +
+            '<li><b>Resenas</b> maximo 500 — los mercados amurallados quedan fuera</li>' +
+            '<li><b>Revenue</b> minimo real, para que el nicho tenga dinero de verdad</li>' +
+            '<li><b>Sin marcas dominantes</b>, que son las que no te dejan entrar</li>' +
+          '</ul>' +
+        '</div>' +
+        '<div class="s-why"><b>Para ajustarlo a ti</b>' +
+          '<p>Dime dos cosas y la busqueda sale distinta: <b>cuanto capital tienes</b> para el primer pedido, y ' +
+          '<b>que te interesa de verdad</b> — un hobby que practicas, un problema que conoces, algo que ya compras.</p>' +
+          '<p class="s-warn">Esto no es relleno. Si treinta estudiantes buscan igual, a los treinta les salen los ' +
+          'mismos productos y acaban compitiendo entre ellos. Tus intereses son lo que hace tu busqueda tuya.</p>' +
+        '</div>' +
+        '<div class="s-cta">Dime tu capital y que temas te interesan 👇</div>';
+    },
+
+    /* ---- 4 · La keyword raiz la confirmo yo ---- */
+    4: function (v) {
+      return '<h1>Confirmemos la keyword real del nicho</h1>' +
+        '<p class="s-lead"><b>[keyword]</b> paso los 3 primeros filtros. Pero esos solo confirman que es limpia y ' +
+        'especifica.</p>' +
+        '<div class="s-card">' +
+          '<p>Todavia no sabemos si es la palabra con la que el mercado <b>realmente compra</b>. Eso se ve mirando por ' +
+          'que palabras compiten varios de tus competidores a la vez, no uno solo.</p>' +
+          '<p><b>Eso lo miro yo.</b> Ya tengo los competidores del nicho y sus keywords: no tienes que abrir nada ni ' +
+          'copiarme datos.</p>' +
+        '</div>' +
+        '<div class="s-why"><b>Por que importa tanto</b>' +
+          '<p>Si mides y optimizas para una palabra que no es la del nicho, todo lo que sigue —el analisis, el ' +
+          'listing, las campanas— apunta al mercado equivocado. Es el error que mas caro sale y casi nadie lo revisa.</p>' +
+        '</div>' +
+        '<div class="s-cta">Dame un momento y te digo cual manda de verdad 👇</div>';
+    },
+
+    /* ---- 5 · La tabla la traigo yo; limpiarla es suyo ---- */
+    5: function (v) {
+      return '<h1>Limpia la tabla del mercado</h1>' +
+        '<p class="s-lead">Aqui estan los competidores de <b>[keyword]</b>. Los traje yo — tu haces lo unico que yo ' +
+        'no puedo hacer.</p>' +
+        '<div class="s-why"><b>Lo que necesito de ti, y por que</b>' +
+          '<p>Mira el <b>PESO</b> y el <b>PRECIO</b> de cada fila. Son las dos senales que delatan al producto que no ' +
+          'compite contigo: en un nicho de accesorios, los sets completos que incluyen el accesorio pesan tres o ' +
+          'cuatro veces mas y cuestan el triple.</p>' +
+          '<p class="s-warn">No puedo decidirlo yo. La pregunta no es cuales se parecen entre si, es cuales compiten ' +
+          'con <b>lo que TU piensas vender</b> — y eso solo lo sabes tu. Si lo decido yo y me equivoco, todos los ' +
+          'promedios del analisis salen de un mercado que no es el tuyo.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>Dime cuales SI son comparables</b></p>' +
+          '<p>Por numero de fila o por ASIN. Con eso calculo el resto.</p>' +
+        '</div>' +
+        '<div class="s-cta">Marcame los que de verdad compiten contigo 👇</div>';
+    },
+
+    /* ---- 7 · Solo lo que ninguna consulta puede ver ---- */
+    7: function (v) {
+      return '<h1>Lo ultimo, y es lo mas valioso</h1>' +
+        '<p class="s-lead">Los numeros del mercado ya los tengo. Faltan cuatro cosas que ningun dato puede ' +
+        'contestarme.</p>' +
+        '<div class="s-card">' +
+          '<p><b>1 · Tu dinero</b></p>' +
+          '<p>Capital disponible para el primer pedido, y el costo del producto en Alibaba si ya cotizaste. Si no has ' +
+          'cotizado, dimelo y lo estimo — pero lo marcamos como estimado.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>2 · Las resenas de 1 y 2 estrellas del lider</b></p>' +
+          '<ul class="s-list">' +
+            '<li>Abre en Amazon el producto que mas vende de tu nicho</li>' +
+            '<li>Filtra las resenas por 1 y 2 estrellas y lee las primeras 15 o 20</li>' +
+            '<li>Dime las quejas que se REPITAN, no las sueltas</li>' +
+            '<li>Y sobre todo: frases tipo "ojala sirviera para…" o "lo compre para X y no funciono"</li>' +
+          '</ul>' +
+          '<p>Esto es gratis y esta en la pagina de Amazon. No necesitas ninguna herramienta.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>3 · Los listings de los 5 primeros</b></p>' +
+          '<p>Abrelos y dime en cuantos falla cada cosa: fotos pobres, titulo sin la keyword, sin contenido A+, ' +
+          'vinetas genericas.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>4 · Las dos barreras que no se ven en los numeros</b></p>' +
+          '<p>Busca si el producto o alguna caracteristica esta patentada, y comprueba en Seller Central si la ' +
+          'categoria esta abierta (boton "Vender este producto") o cerrada ("Solicitar aprobacion").</p>' +
+        '</div>' +
+        '<div class="s-why"><b>Por que esto no te lo quito</b>' +
+          '<p>Los numeros dicen si el mercado sirve. Estos cuatro dicen si <b>TU</b> puedes ganarlo, y son los que ' +
+          'deciden el veredicto. Leer veinte resenas negativas es donde dejas de mirar cifras y empiezas a entender ' +
+          'a un cliente — es lo mas valioso que vas a hacer en todo el proceso.</p>' +
+        '</div>' +
+        '<div class="s-cta">Pegame lo que tengas de los cuatro y cerramos 👇</div>';
+    }
+  };
+
   /* ---------- armado de la pantalla completa ---------- */
 
   // opts: { reaccion, chips: [], vars: {}, win: bool }
   function pantalla(paso, opts) {
     opts = opts || {};
-    var cuerpo = PASOS[paso];
+    // Con datos reales se usa la version que no manda a recolectar. Si ese paso
+    // no tiene variante, cae a la de siempre — y si la senal no llega, tambien.
+    // El fallo seguro es ese: ver la pantalla manual, que es lo que pasa hoy.
+    var cuerpo = (opts.datos && PASOS_DATOS[paso]) || PASOS[paso];
     if (!cuerpo) return null; // no es un paso guiado (6, 8 y 9 los dibuja el motor)
 
-    var html = cabecera(paso) + '<div class="s-body">';
+    var html = cabecera(paso, opts.datos) + '<div class="s-body">';
 
     if (opts.win && WINS[paso]) html += '<div class="s-win">' + WINS[paso] + '</div>';
     if (opts.chips) html += chips(opts.chips);
@@ -342,13 +468,14 @@
   }
 
   global.SophiePasos = {
-    version: '1.0',
+    version: '1.1',
     mapa: MAPA,
     pantalla: pantalla,
     cabecera: cabecera,
     chips: chips,
     wins: WINS,
-    tiene: function (paso) { return !!PASOS[paso]; }
+    tiene: function (paso) { return !!PASOS[paso]; },
+    tieneDatos: function (paso) { return !!PASOS_DATOS[paso]; }
   };
 
 })(window);
