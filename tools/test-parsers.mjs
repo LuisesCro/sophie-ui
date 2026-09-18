@@ -119,9 +119,9 @@ t("sin marcadores → devuelve el texto tal cual (trim)", () => {
 
 grupo("SophieMotor.evaluar — puntaje, vetos y veredicto");
 
-t("datos fuertes → 13 filas y veredicto GO", () => {
+t("datos fuertes → 15 filas y veredicto GO", () => {
   const r = SophieMotor.evaluar(DATOS_GO, JUICIOS_GO);
-  eq(r.filas.length, 13, "nº de filas");
+  eq(r.filas.length, 15, "nº de filas");
   eq(r.estado, "go", "estado");
   eq(r.aprobados, 12, "aprobados (12; C12 en alerta)");
   eq(r.veredicto, "PRODUCTO ESTRELLA", "veredicto");
@@ -154,8 +154,23 @@ t("round-trip real: marcador → detectar → evaluar", () => {
   const marca = "<!--SOPHIE:" + JSON.stringify({ fase: 9, datos: DATOS_GO, juicios: JUICIOS_GO }) + "-->";
   const p = SophieAnalisis.detectar(marca);
   const r = SophieMotor.evaluar(p.datos, p.juicios);
-  eq(r.filas.length, 13, "13 criterios");
+  eq(r.filas.length, 15, "15 criterios");
   eq(r.estado, "go", "veredicto coherente con los datos");
+});
+
+t("C19 y C20 sin dato NO mueven el veredicto de los otros 13", () => {
+  // Son los dos criterios nuevos, y los únicos que dependen de consultas que
+  // el estudiante sin Jungle Scout nunca va a tener. C19 además es un VETO: si
+  // vetara por falta de dato, un análisis manual perfecto acabaría en descarte.
+  // Ese es el fallo que esta prueba existe para que no vuelva.
+  const r = SophieMotor.evaluar(DATOS_GO, JUICIOS_GO);
+  eq(r.estado, "go", "sin dato de C19/C20 el veredicto cambió");
+  eq(r.limitadoPorVeto, false, "C19 vetó sin tener con qué");
+  for (const id of [19, 20]) {
+    const f = r.filas.find((x) => x.id === id);
+    ok(f, "falta la fila del criterio " + id);
+    ok(f.estado !== "fail", "el criterio " + id + " reprueba por no tener dato");
+  }
 });
 
 /* ---------- 4 · SophieGuia.detectar (marcador <!--PASO:-->) ---------- */
@@ -509,7 +524,7 @@ t("sin leer el rank, un P1 legítimo caería a descarte (prueba de que el rank i
 /* ---------- reporte ---------- */
 
 console.log("TESTS DE PARSERS Y MOTORES · Sophie (Producto · Guía · Candidatos · Proveedores · Listing · Rescate · PPC)");
-console.log("parsers: Analisis · Guia · Candidatos · Proveedores · Listing   |   motores: Motor(13 criterios) · Rescate · PPC");
+console.log("parsers: Analisis · Guia · Candidatos · Proveedores · Listing   |   motores: Motor(15 criterios) · Rescate · PPC");
 console.log(salida.join("\n"));
 console.log("");
 console.log("RESULTADO: " + pasan + " pasan · " + fallan + " fallan");

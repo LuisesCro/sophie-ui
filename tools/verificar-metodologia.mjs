@@ -87,6 +87,22 @@ if (!chatPath) {
   const desdeV2 = chat.indexOf("const SYSTEM_PROMPT_V2");
   const activo = desdeV2 >= 0 ? chat.slice(desdeV2) : chat;
 
+  // DOS REGLAS, NO UNA. Hasta aquí esta guarda exigía que el prompt repitiera
+  // TODOS los umbrales. Desde que los criterios estimados llevan banda (±20%,
+  // ±10% en los cocientes) esa regla dejó de ser correcta para ellos: el motor
+  // es quien aplica la banda, y repetir la cifra en el prompt crea dos fuentes
+  // de verdad que se separan en silencio — el día que se ajuste una banda,
+  // Sophie seguiría narrando el número viejo.
+  //
+  // Así que la exigencia depende de la BASE del criterio:
+  //   · medido / propio      → corte exacto, el prompt lo narra → tiene que estar
+  //   · estimado / cociente  → lo decide el motor con banda → NO debe estar
+  //
+  // Nótese que la segunda mitad es tan estricta como la primera: comprueba una
+  // AUSENCIA. Sin ella, alguien podría volver a escribir "3.600" en el prompt y
+  // nadie se enteraría hasta que las dos cifras dejaran de coincidir.
+  const conBanda = (c) => c.base === "estimado" || c.base === "estimado_cociente";
+
   for (const c of calculables) {
     // bloque del criterio: entre "C{id} ·" y "C{id+1} ·"
     const ini = activo.indexOf("C" + c.id + " ·");
@@ -94,6 +110,17 @@ if (!chatPath) {
     let fin = activo.indexOf("C" + (c.id + 1) + " ·", ini + 1);
     if (fin < 0) fin = ini + 600;
     const bloque = activo.slice(ini, fin);
+
+    if (conBanda(c)) {
+      const duplicados = [];
+      if (c.umbral_num != null && numRe(c.umbral_num).test(bloque)) duplicados.push("umbral " + c.umbral_num);
+      if (c.alerta_num != null && numRe(c.alerta_num).test(bloque)) duplicados.push("alerta " + c.alerta_num);
+      if (duplicados.length)
+        fail("C" + c.id + " (" + c.criterio + "): lleva banda y el prompt duplica " +
+             duplicados.join(" y ") + " — el umbral vive en el motor");
+      else ok("C" + c.id + " (" + c.criterio + "): con banda, delegado al motor");
+      continue;
+    }
 
     const faltantes = [];
     if (c.umbral_num != null && !numRe(c.umbral_num).test(bloque)) faltantes.push("umbral " + c.umbral_num);
