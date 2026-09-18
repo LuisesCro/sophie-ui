@@ -148,5 +148,31 @@ caso('sin datos reales, la pantalla 2 sigue siendo la de las ocho', () => {
   ok(!/Bordado y costura/.test(h), 'le cambió la pantalla a quien no tiene datos');
 });
 
+
+console.log('\nLa bienvenida no nombra herramientas');
+
+caso('el paso 1 vale igual con datos y sin ellos', () => {
+  // Lo pinta la app SIN llamar al modelo, así que ahí no se sabe si el
+  // estudiante tiene datos reales. El texto tiene que ser cierto en los dos
+  // casos — antes decía "desde cero en Helium 10", falso para quien los tiene.
+  for (const h of [conDatos(1), sinDatos(1)]) {
+    for (const t of ['Helium 10', 'Black Box', 'Xray', 'Cerebro', 'Jungle Scout'])
+      ok(!new RegExp(t, 'i').test(h), 'la bienvenida nombra ' + t);
+  }
+});
+
+caso('y siguen siendo tres caminos distintos', () => {
+  const h = sinDatos(1);
+  for (const o of ['A', 'B', 'C']) ok(new RegExp('>' + o + '<').test(h), 'falta la opción ' + o);
+});
+
+caso('A ya no suena a no se me ocurrió nada', () => {
+  // Con el descubrimiento cableado es el camino fuerte: partir del mercado da
+  // mejores productos que enamorarse de una idea antes de mirar los números.
+  const h = sinDatos(1);
+  ok(!/No tengo ninguna idea/.test(h), 'sigue planteado como una carencia');
+  ok(/busquemos el producto juntos/.test(h), 'no propone buscar juntos');
+});
+
 console.log('\nRESULTADO: ' + pasan + ' pasan · ' + fallan + ' fallan');
 process.exit(fallan ? 1 : 0);

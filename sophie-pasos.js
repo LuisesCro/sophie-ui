@@ -1,5 +1,5 @@
 /* ============================================================
-   SOPHIE · PASOS GUIADOS v1.2
+   SOPHIE · PASOS GUIADOS v1.3
    Crezcamos Online — ui.crezcamosonline.com/sophie-pasos.js
 
    El guion de los pasos 1, 2, 3, 4, 5 y 7 vive aquí, no en el
@@ -137,7 +137,17 @@
         '<div class="s-card">' +
           '<p>Para empezar, dime en qué punto estás hoy:</p>' +
           '<div class="s-grid">' +
-            '<div class="s-opt"><span class="s-num">A</span> No tengo ninguna idea todavía. Necesito encontrar una desde cero en Helium 10.</div>' +
+            // El texto NO nombra ninguna herramienta, y es a proposito: esta
+            // pantalla la pinta la app sin llamar al modelo, asi que aqui no se
+            // sabe si el estudiante tiene datos reales. Tiene que ser cierta en
+            // los dos casos — antes decia "desde cero en Helium 10", que para
+            // quien tiene Jungle Scout ya era falso.
+            //
+            // Y A deja de sonar a confesion de ignorancia. Con el
+            // descubrimiento cableado es el camino FUERTE, no el de consolacion:
+            // partir sin idea y dejarse guiar por el mercado da mejores
+            // productos que enamorarse de uno antes de mirar los numeros.
+            '<div class="s-opt"><span class="s-num">A</span> Quiero que busquemos el producto juntos, partiendo de lo que me interesa.</div>' +
             '<div class="s-opt"><span class="s-num">B</span> Ya tengo una idea de producto o vi algo que me llamó la atención.</div>' +
             '<div class="s-opt"><span class="s-num">C</span> Ya validé un producto contigo antes y quiero analizar uno nuevo (modo express).</div>' +
           '</div>' +
@@ -530,7 +540,7 @@
   }
 
   global.SophiePasos = {
-    version: '1.2',
+    version: '1.3',
     mapa: MAPA,
     pantalla: pantalla,
     cabecera: cabecera,
