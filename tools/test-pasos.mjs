@@ -139,9 +139,53 @@ console.log('\nLas categorías dejan de ser ocho cajones de Black Box');
 
 caso('con datos reales se ofrecen subnichos, no solo la categoría grande', () => {
   const h = conDatos(2);
-  ok(/Bordado y costura/.test(h), 'no baja al subnicho');
-  ok(/Juegos de mesa/.test(h), 'falta una categoría que Black Box no ofrecía');
+  // El `&` sale escapado en el HTML, que es lo correcto: se compara sobre el
+  // texto desescapado para no estar probando el escapador por accidente.
+  const txt = h.replace(/&amp;/g, '&');
+  ok(/Knitting & Crochet/.test(txt), 'no baja al subnicho');
+  ok(/Board Games/.test(txt), 'falta una categoría que Black Box no ofrecía');
   ok(Object.keys(P.categorias).length > 8, 'siguen siendo ocho: ' + Object.keys(P.categorias).length);
+});
+
+caso('y los nombres van en INGLÉS, porque viajan como filtro a la API', () => {
+  // No es una decisión de estilo: estos nombres se mandan tal cual a la
+  // consulta `descubrir`, contra el catálogo de Amazon USA. "Tejido y crochet"
+  // no existe ahí. Traducirlos para que se lean bonito y mandar otra cosa por
+  // debajo sería enseñar un vocabulario que no sirve el día que busque solo.
+  const todo = Object.keys(P.categorias).join(' | ') +
+               ' | ' + Object.values(P.categorias).flat().join(' | ');
+  // Se permite el acento de Décor, que es como Amazon lo escribe.
+  ok(!/[áéíóúñ¿¡]/.test(todo.replace(/Décor/g, '')), 'hay nombres en español: ' + todo.slice(0, 120));
+  for (const esp of ['Tejido', 'Bordado', 'Juegos de mesa', 'Cocina', 'Jardin'])
+    ok(!todo.includes(esp), 'quedó en español: ' + esp);
+});
+
+caso('se elige PULSANDO, no escribiendo el nombre', () => {
+  // Tecleando, el estudiante se equivoca de nombre, lo escribe en español o
+  // inventa uno que no existe. Las tres cosas mandan un filtro que Amazon no
+  // reconoce y devuelven una búsqueda vacía sin decir por qué.
+  const h = conDatos(2);
+  const picks = h.match(/data-pick="[^"]*"/g) || [];
+  const subn = Object.values(P.categorias).reduce((a, b) => a + b.length, 0);
+  ok(picks.length === subn + Object.keys(P.categorias).length,
+     'hay ' + picks.length + ' botones para ' + subn + ' subnichos y ' +
+     Object.keys(P.categorias).length + ' categorías');
+  // Lo que sale al pulsar tiene que ser el nombre EXACTO, no una frase.
+  ok(h.includes('data-pick="Arts, Crafts &amp; Sewing → Knitting &amp; Crochet"'),
+     'el botón no manda categoría y subnicho');
+  ok(h.includes('data-pick="Toys &amp; Games"'), 'no se puede elegir la categoría entera');
+});
+
+caso('y la página traduce ese clic en un mensaje', () => {
+  // Un botón que nadie escucha no hace nada, y no hacer nada no falla: es el
+  // agujero más difícil de ver de todos los que llevamos.
+  for (const pagina of ['index.html', 'producto-v2.html']) {
+    const f = path.join(AQUI, '..', '..', 'sophie-producto', pagina);
+    if (!fs.existsSync(f)) continue;
+    const H = fs.readFileSync(f, 'utf8');
+    ok(/closest\('\[data-pick\]'\)/.test(H), pagina + ': nadie escucha los botones de categoría');
+    ok(/send\(b\.getAttribute\('data-pick'\), true\)/.test(H), pagina + ': el clic no manda nada');
+  }
 });
 
 caso('cada categoría abierta trae varios subnichos', () => {

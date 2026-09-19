@@ -134,22 +134,31 @@
      vendedores nuevos. Un principiante que entra ahi pierde el pedido entero.
      -------------------------------------------------------- */
 
+  // EN INGLES, Y NO ES UN DETALLE DE ESTILO.
+  //
+  // Estos nombres no son etiquetas: viajan como filtro real a la consulta
+  // `descubrir`, contra el catalogo de Amazon USA. "Tejido y crochet" no existe
+  // ahi; "Knitting & Crochet" si. Traducirlos al español para que se lean
+  // bonito y mandar otra cosa por debajo seria enseñar un vocabulario que no
+  // sirve el dia que el estudiante busque por su cuenta.
   var CATEGORIAS_DESCUBRIR = {
-    // Cada grupo: la categoria de Amazon y los subnichos que se pueden pedir
-    // sueltos. Lo segundo es lo que hace que dos estudiantes con el mismo
-    // interes general acaben en mercados distintos.
-    'Arts, Crafts & Sewing':      ['Bordado y costura', 'Tejido y crochet', 'Scrapbooking', 'Pintura y dibujo', 'Velas y jabones', 'Joyeria artesanal'],
-    'Home & Kitchen':             ['Organizacion del hogar', 'Ropa de cama', 'Bano', 'Decoracion', 'Lavanderia', 'Almacenaje de cocina'],
-    'Kitchen & Dining':           ['Utensilios de coccion', 'Reposteria', 'Cafe y te', 'Vajilla y servir', 'Preparacion de alimentos', 'Barra y coctel'],
-    'Office Products':            ['Escritorio y organizacion', 'Papeleria y agendas', 'Material escolar', 'Archivo', 'Ergonomia'],
-    'Patio, Lawn & Garden':       ['Jardineria de interior', 'Macetas y cultivo', 'Herramienta de jardin', 'Exterior y terraza', 'Compostaje', 'Control de plagas'],
-    'Pet Supplies':               ['Perros: juguetes', 'Perros: aseo', 'Gatos: rascado y juego', 'Comederos y bebederos', 'Aves y pequenos', 'Acuarios'],
-    'Sports & Outdoors':          ['Yoga y fitness en casa', 'Camping', 'Pesca', 'Ciclismo: accesorios', 'Deportes de raqueta', 'Natacion'],
-    'Tools & Home Improvement':   ['Organizacion de taller', 'Medicion', 'Ferreteria y fijaciones', 'Pintura y acabados', 'Seguridad del hogar', 'Fontaneria'],
-    'Toys & Games':               ['Juegos de mesa', 'Puzzles', 'Juguetes educativos', 'Manualidades infantiles', 'Juegos de exterior'],
-    'Musical Instruments':        ['Accesorios de guitarra', 'Percusion', 'Teclados: accesorios', 'Grabacion casera'],
-    'Baby Products (con cuidado)':['Organizacion infantil', 'Habitacion y decoracion', 'Alimentacion: accesorios no regulados']
+    'Arts, Crafts & Sewing':    ['Embroidery & Sewing', 'Knitting & Crochet', 'Scrapbooking', 'Painting & Drawing', 'Candle & Soap Making', 'Jewelry Making'],
+    'Home & Kitchen':           ['Home Organization', 'Bedding', 'Bath', 'Home Décor', 'Laundry', 'Kitchen Storage'],
+    'Kitchen & Dining':         ['Cookware', 'Bakeware', 'Coffee & Tea', 'Dinnerware & Serving', 'Food Prep', 'Bar & Cocktail'],
+    'Office Products':          ['Desk Organization', 'Stationery & Planners', 'School Supplies', 'Filing & Storage', 'Ergonomics'],
+    'Patio, Lawn & Garden':     ['Indoor Gardening', 'Planters & Growing', 'Garden Tools', 'Outdoor & Patio', 'Composting', 'Pest Control'],
+    'Pet Supplies':             ['Dog Toys', 'Dog Grooming', 'Cat Scratching & Play', 'Feeders & Waterers', 'Birds & Small Pets', 'Aquariums'],
+    'Sports & Outdoors':        ['Yoga & Home Fitness', 'Camping', 'Fishing', 'Cycling Accessories', 'Racquet Sports', 'Swimming'],
+    'Tools & Home Improvement': ['Workshop Organization', 'Measuring Tools', 'Hardware & Fasteners', 'Paint & Finishing', 'Home Security', 'Plumbing'],
+    'Toys & Games':             ['Board Games', 'Puzzles', 'Educational Toys', "Kids' Crafts", 'Outdoor Play'],
+    'Musical Instruments':      ['Guitar Accessories', 'Percussion', 'Keyboard Accessories', 'Home Recording'],
+    'Baby Products':            ['Nursery Organization', 'Nursery Décor', 'Feeding Accessories']
   };
+
+  // Baby lleva aviso propio: la categoria esta abierta, pero la mitad de lo que
+  // hay dentro (sillas, cunas, arneses) exige certificacion CPSC y esta en la
+  // lista bloqueada de abajo. Se ofrece acotada, no entera.
+  var CATEGORIAS_OJO = { 'Baby Products': 'Solo organizacion y decoracion. Nada que sujete, alimente o transporte a un bebe: eso exige certificacion.' };
 
   // Categorias que NO se ofrecen, con el motivo. Va aqui y no en un comentario
   // porque el estudiante tiene derecho a saber por que no aparece la suya.
@@ -446,21 +455,39 @@
 
     /* ---- 2 · Categoria: ya no son ocho cajones, son subnichos ---- */
     2: function (v) {
-      var h = '<h1>¿Por donde quieres buscar?</h1>' +
-        '<p class="s-lead">Elige una categoria, y si ya sabes por donde van tus intereses, dime tambien el ' +
-        'subnicho. Cuanto mas concreto, mas posibilidades de encontrar un hueco que nadie esta mirando.</p>';
-      h += '<div class="s-card"><p><b>Categorias abiertas</b></p><ul class="s-list">';
+      // SE ELIGE CON EL DEDO, NO ESCRIBIENDO. Antes esto era una lista dentro de
+      // un parrafo y el estudiante tenia que teclear la categoria: se
+      // equivocaba de nombre, escribia el subnicho en español, o ponia uno que
+      // no existe. Cada una de esas tres cosas manda un filtro que Amazon no
+      // reconoce y devuelve una busqueda vacia sin decir por que.
+      //
+      // Pulsando, lo que sale es exactamente el nombre que entiende la API.
+      var h = '<h1>Elige dónde buscamos</h1>' +
+        '<p class="s-lead">Pulsa el subnicho que te interese. Cuanto más concreto, más posibilidades ' +
+        'de encontrar un hueco que nadie está mirando — y si prefieres abrir el abanico, pulsa la ' +
+        'categoría entera.</p>';
+
       Object.keys(CATEGORIAS_DESCUBRIR).forEach(function (cat) {
-        h += '<li><b>' + esc(cat) + '</b> — ' + esc(CATEGORIAS_DESCUBRIR[cat].join(' · ')) + '</li>';
+        h += '<div class="s-cat">' +
+          '<button type="button" class="s-cat-t" data-pick="' + esc(cat) + '">' +
+            esc(cat) + '<span class="s-cat-all">toda la categoría</span>' +
+          '</button>';
+        if (CATEGORIAS_OJO[cat]) h += '<p class="s-cat-ojo">' + esc(CATEGORIAS_OJO[cat]) + '</p>';
+        h += '<div class="s-cat-s">' +
+          CATEGORIAS_DESCUBRIR[cat].map(function (s) {
+            return '<button type="button" class="s-pick" data-pick="' + esc(cat) + ' → ' + esc(s) + '">' +
+              esc(s) + '</button>';
+          }).join('') +
+          '</div></div>';
       });
-      h += '</ul></div>';
-      h += '<div class="s-why"><b>Las que no vas a ver, y por que</b><p>' +
+
+      h += '<div class="s-why"><b>Las que no vas a ver, y por qué</b><p>' +
         Object.keys(CATEGORIAS_BLOQUEADAS).map(function (c) {
           return esc(c) + ': ' + esc(CATEGORIAS_BLOQUEADAS[c]);
         }).join(' ') +
-        '</p><p class="s-warn">No es que no se pueda vender ahi. Es que un primer producto en esas categorias ' +
-        'se juega el pedido entero a que te aprueben un permiso.</p></div>';
-      h += '<div class="s-cta">Dime la categoria y, si puedes, el subnicho 👇</div>';
+        '</p><p class="s-warn">No es que no se pueda vender ahí. Es que un primer producto en esas ' +
+        'categorías se juega el pedido entero a que te aprueben un permiso.</p></div>';
+      h += '<div class="s-cta">Pulsa una y arrancamos 👇</div>';
       return h;
     },
 
@@ -583,6 +610,7 @@
     var cuerpo = (opts.datos && PASOS_DATOS[paso]) || PASOS[paso];
     if (!cuerpo) return null; // no es un paso guiado (6, 8 y 9 los dibuja el motor)
 
+    if (opts.datos && paso === 2) estiloCategorias();
     var html = cabecera(paso, opts.datos) + '<div class="s-body">';
 
     if (opts.win && WINS[paso]) html += '<div class="s-win">' + WINS[paso] + '</div>';
@@ -594,6 +622,35 @@
     html += vars(cuerpo(opts.vars || {}), opts.vars || {});
     html += '</div>';
     return html;
+  }
+
+  // El estilo del selector viaja con el modulo: es suyo y no existe en la hoja
+  // de la suite. Se inyecta una vez, como hacen los demas modulos.
+  var CSS_CAT = [
+    '.s-cat{margin:11px 0 0;padding:11px 13px;border-radius:13px;',
+    'background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10)}',
+    '.s-cat-t{display:flex;align-items:baseline;gap:9px;width:100%;padding:0;margin:0 0 8px;',
+    'background:none;border:0;cursor:pointer;text-align:left;font:inherit;font-size:13.5px;',
+    'font-weight:800;color:#fff}',
+    '.s-cat-t:hover .s-cat-all{opacity:1}',
+    '.s-cat-all{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;',
+    'color:#f7aa2e;opacity:.55;transition:opacity .15s}',
+    '.s-cat-ojo{margin:-3px 0 8px;font-size:12px;line-height:1.45;color:#f7aa2e}',
+    '.s-cat-s{display:flex;flex-wrap:wrap;gap:6px}',
+    '.s-pick{padding:7px 12px;border-radius:999px;cursor:pointer;font:inherit;font-size:12.5px;',
+    'font-weight:600;color:#cbd6ea;background:rgba(255,255,255,.05);',
+    'border:1px solid rgba(255,255,255,.13);transition:all .14s}',
+    '.s-pick:hover{color:#0b1638;background:#f7aa2e;border-color:#f7aa2e}',
+    '.s-cat-t:focus-visible,.s-pick:focus-visible{outline:2px solid #f7aa2e;outline-offset:2px}'
+  ].join('');
+
+  function estiloCategorias() {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('sophie-cat-css')) return;
+    var s = document.createElement('style');
+    s.id = 'sophie-cat-css';
+    s.textContent = CSS_CAT;
+    (document.head || document.documentElement).appendChild(s);
   }
 
   global.SophiePasos = {
