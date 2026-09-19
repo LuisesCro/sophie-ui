@@ -52,6 +52,55 @@
   // recolecta de Xray. Dejarlas rompia la ilusion antes de leer una sola linea.
   var ETIQUETAS_DATOS = { 2: 'Categoria y subnicho', 3: 'Buscando candidatos', 5: 'Limpiar la tabla' };
 
+  // EL MAPA DEL METODO. Lo que el estudiante aprendia haciendo los clics.
+  //
+  // Automatizar un paso no puede significar dejar de ensenarlo. Cuando la
+  // busqueda la hacia el a mano, el metodo se le quedaba en los dedos; ahora la
+  // hace Sophie y la barra de arriba solo le dice un numero de paso. Esto es lo
+  // que va debajo del numero.
+  //
+  // NOMBRES NEUTRALES A PROPOSITO. `etiqueta` dice la herramienta ("Filtros en
+  // Black Box") porque encabeza una pantalla concreta; `nombre` dice el PASO
+  // DEL METODO, que es el mismo tanto si lo hace el estudiante en Helium 10
+  // como si lo trae Sophie. La herramienta es un detalle de implementacion del
+  // metodo, no al reves — y un mapa que cambiara de nombres segun quien tiene
+  // datos estaria ensenando dos metodos distintos.
+  //
+  // `porque` es el curriculum. No describe el clic: dice por que el metodo hace
+  // ese paso en ese orden, que es lo unico que el estudiante se lleva cuando
+  // deje de usar Sophie.
+  var METODO = {
+    1: { etapa: 1, nombre: 'Por dónde empiezas',
+         que: 'Eliges si partimos de lo que te interesa, de una idea tuya, o de un producto que ya validaste.',
+         porque: 'El punto de partida cambia el riesgo. Partir del mercado da mejores productos que enamorarse de una idea y buscar después los datos que le den la razón.' },
+    2: { etapa: 1, nombre: 'El terreno',
+         que: 'Eliges la categoría y, si puedes, el subnicho.',
+         porque: 'Hay categorías que piden permiso a Amazon. Un primer producto no puede jugarse el pedido entero a que te lo aprueben, así que esas quedan fuera antes de mirar un solo número.' },
+    3: { etapa: 1, nombre: 'Buscar candidatos',
+         que: 'Se filtra el catálogo de Amazon por precio, peso, reseñas, facturación y lo que a ti te interesa.',
+         porque: 'Primero se acota el terreno con números y solo después se mira producto por producto. Al revés uno se queda con el primero que le gustó y ya no lo suelta.' },
+    4: { etapa: 2, nombre: 'Validar la keyword',
+         que: 'Tres filtros: que no la domine una marca, que sea específica, y que traiga productos parecidos entre sí.',
+         porque: 'Si mides el mercado con la palabra equivocada, todo lo que sigue —el análisis, el listing, las campañas— apunta al mercado equivocado. Es el error que más caro sale y casi nadie lo revisa.' },
+    5: { etapa: 3, nombre: 'La tabla limpia',
+         que: 'Se quitan de la tabla los productos que no compiten con lo que tú piensas vender.',
+         porque: 'Los promedios solo valen sobre la tabla limpia. Buscar un accesorio devuelve también los sets que lo incluyen, con otro precio y otro peso: promediar el revoltijo deja todo el análisis mal sin que nadie lo note.' },
+    6: { etapa: 3, nombre: 'Fase 1 — el mercado',
+         que: 'Demanda, ingresos, cómo se reparten, reseñas y precio.',
+         porque: 'Aquí se decide si el mercado existe y si deja entrar gente nueva. Un mercado que no deja entrar no se arregla con un producto mejor.' },
+    7: { etapa: 3, nombre: 'Lo que solo tú puedes traer',
+         que: 'Tu costo de proveedor, tu capital, las reseñas de 1 y 2 estrellas, las patentes y los permisos.',
+         porque: 'Los vetos que ningún dato ve —patente, categoría restringida, costo real, margen— son justo los que quiebran negocios. Por eso esos los traes tú, y no se delegan.' },
+    8: { etapa: 3, nombre: 'Fase 2 — tu negocio',
+         que: 'Margen antes de PPC, ROI, sourcing, capital y barreras de entrada.',
+         porque: 'El mercado puede ser bueno y el negocio malo. Esta fase no pregunta si el nicho sirve: pregunta si TÚ puedes hacerlo, con tu dinero y tu proveedor.' },
+    9: { etapa: 4, nombre: 'Veredicto',
+         que: 'GO o NO GO, con el porqué y el siguiente paso.',
+         porque: 'Un veto no se compensa con criterios verdes. Y un NO GO nunca se queda sin salida: lo que hace abandonar no es el rechazo, es quedarse sin saber qué hacer después.' }
+  };
+
+  var ETAPAS = { 1: 'Investigación', 2: 'Validación', 3: 'Análisis', 4: 'Veredicto' };
+
   function cabecera(paso, datos) {
     var m = MAPA[paso] || MAPA[1];
     if (datos && ETIQUETAS_DATOS[paso]) m = { etiqueta: ETIQUETAS_DATOS[paso], pct: m.pct };
@@ -548,8 +597,10 @@
   }
 
   global.SophiePasos = {
-    version: '1.3',
+    version: '1.4',
     mapa: MAPA,
+    metodo: METODO,
+    etapas: ETAPAS,
     pantalla: pantalla,
     cabecera: cabecera,
     chips: chips,
