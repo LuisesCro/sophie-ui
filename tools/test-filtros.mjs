@@ -34,7 +34,7 @@ async function caso(nombre, fn) {
 }
 
 const win = {};
-for (const f of ['sophie-pasos.js', 'sophie-filtros.js', 'sophie-guia.js'])
+for (const f of ['sophie-pasos.js', 'sophie-filtros.js', 'sophie-guia.js', 'sophie-hallazgos.js'])
   new Function('window', fs.readFileSync(path.join(RAIZ, f), 'utf8'))(win);
 const F = win.SophieFiltros;
 
@@ -153,6 +153,72 @@ await caso('se dice como información, con qué aflojar', () => {
      'no dice QUÉ filtro aflojar, que es lo único accionable');
   const H = fs.readFileSync(path.join(PROD, 'index.html'), 'utf8');
   ok(/if \(d\.vacio\)/.test(H), 'la página trata el vacío como un error y parece que está rota');
+});
+
+console.log('\nLos nombres de campo, contra los de la API DE VERDAD');
+
+// ESTA ES LA PRUEBA QUE FALTABA, y su ausencia costó una pantalla entera.
+//
+// La tabla leía `p.nombre`. La API devuelve `titulo`. Mientras el modelo estuvo
+// en medio, él traducía sin que nadie lo supiera; en cuanto la página empezó a
+// pasar los candidatos directos —que es lo que queríamos— los nombres salieron
+// en blanco y el mensaje decía "Quiero analizar estos productos: · ·".
+//
+// Los bancos no lo vieron porque los ejemplos estaban escritos a mano CON EL
+// CAMPO EQUIVOCADO. Un ejemplo inventado prueba que el código hace lo que el
+// ejemplo dice, no lo que la realidad trae. Así que ahora los nombres de campo
+// se LEEN de jungle.js y el ejemplo se construye con ellos.
+function camposRealesDelCandidato() {
+  const J = fs.readFileSync(path.join(PROD, 'netlify', 'edge-functions', 'jungle.js'), 'utf8');
+  const i = J.indexOf('function resumirDescubrimiento');
+  ok(i !== -1, 'no encontré resumirDescubrimiento: ¿cambió de nombre?');
+  const bloque = J.slice(i, J.indexOf('\n}', i));
+  const campos = [...new Set((bloque.match(/^\s{4,}([a-z_]+):/gm) || [])
+    .map((m) => m.trim().replace(':', '')))];
+  ok(campos.length >= 8, 'solo encontré ' + campos.length + ' campos: el recorte falló');
+  return campos;
+}
+
+await caso('la tabla dibuja el nombre que la API manda de verdad', () => {
+  const campos = camposRealesDelCandidato();
+  ok(campos.includes('titulo'),
+     'la API ya no manda `titulo`. Campos que manda: ' + campos.join(', ') +
+     '. Actualiza `nom()` en sophie-hallazgos.js antes de que la tabla salga en blanco.');
+
+  // El candidato se arma con LOS CAMPOS DE LA API, no con los que me convenga.
+  const crudo = {};
+  for (const c of campos) crudo[c] = null;
+  Object.assign(crudo, {
+    asin: 'B0REAL01', titulo: 'Dog Nail Grinder Kit', marca: 'Acme',
+    precio: 24.99, revenue_30d: 9200, resenas: 118, peso_lb: 1.2,
+  });
+
+  const nombre = win.SophieHallazgos.nombreDe(crudo);
+  ok(nombre === 'Dog Nail Grinder Kit',
+     'la tabla no sabe leer el nombre que manda la API: sacó ' + JSON.stringify(nombre));
+
+  const html = win.SophieHallazgos.html({ productos: [crudo] });
+  ok(html && html.includes('Dog Nail Grinder Kit'), 'el nombre no llega al HTML de la tabla');
+  // Y en la CASILLA, que es el valor que viaja cuando el estudiante pulsa
+  // "Analizar". Ahí es donde se veía el fallo: `value=""`.
+  const casilla = (html.match(/class="s-hz-ck" value="([^"]*)"/) || [])[1];
+  ok(casilla === 'Dog Nail Grinder Kit',
+     'la casilla lleva ' + JSON.stringify(casilla) + '. Con eso el mensaje sale ' +
+     '"Quiero analizar estos productos: · ·" y el estudiante no entiende nada.');
+});
+
+await caso('el servidor normaliza, para que la página no reciba dos nombres', () => {
+  const S = fs.readFileSync(path.join(PROD, 'netlify', 'edge-functions', 'chat.js'), 'utf8');
+  ok(/nombre: c\.nombre \|\| c\.titulo \|\| c\.asin/.test(S),
+     'la página recibiría `titulo` y tendría que saber traducirlo ella');
+});
+
+await caso('y un nombre vacío nunca llega al mensaje', () => {
+  const H = fs.readFileSync(path.join(PROD, 'index.html'), 'utf8');
+  const i = H.indexOf("addEventListener('sophie-analizar'");
+  const bloque = H.slice(i, i + 700);
+  ok(/\.filter\(Boolean\)/.test(bloque),
+     'sin filtrar, un campo perdido vuelve a producir "estos productos: · ·"');
 });
 
 console.log('\nEl tope del día no es una avería');

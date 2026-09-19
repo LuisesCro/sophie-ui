@@ -93,6 +93,28 @@
   // El modelo puede mandar un número o un rango en texto ("$24–51",
   // "230–246"). Los dos son válidos: un producto con variaciones tiene
   // rango de verdad, y redondearlo a un número sería inventar precisión.
+  // EL NOMBRE DEL PRODUCTO VIENE CON DOS NOMBRES, y esa es toda la historia.
+  //
+  // La API de Amazon lo devuelve como `titulo`. Este modulo leia `nombre`,
+  // porque asi se lo pedia el prompt al modelo cuando era el quien armaba el
+  // marcador. Mientras el modelo estuvo en medio, el traducia sin que nadie lo
+  // supiera. En cuanto la pagina empezo a pasar los candidatos DIRECTOS de la
+  // API —que es lo que queriamos— el campo dejo de existir: la tabla salio con
+  // los nombres en blanco y el mensaje "Quiero analizar estos productos: · ·".
+  //
+  // Es el mismo fallo que ya ha pasado cinco veces en este proyecto y siempre
+  // igual: un campo que se cae entre dos capas sin que nada falle. Por eso se
+  // aceptan los dos nombres y hay UN solo sitio donde se decide, en vez de
+  // cuatro `p.nombre` repartidos.
+  //
+  // Y el ASIN como ultimo recurso: un producto sin nombre sigue siendo
+  // identificable, y un mensaje con un ASIN es infinitamente mejor que uno con
+  // un punto y nada al lado.
+  function nom(p) {
+    if (!p) return '';
+    return String(p.nombre || p.titulo || p.title || p.asin || '').trim();
+  }
+
   function celda(v) {
     if (v === null || v === undefined || v === '') return '—';
     // Un punto de corte DESPUES del guion de un rango, para que "$19K-50K"
@@ -146,9 +168,9 @@
       // tiempo, y quien se lleva ocho candidatos a la vez no analiza ninguno.
       '<td class="s-hz-ckc" data-l="Elegir">' +
         '<label class="s-hz-lb"><input type="checkbox" class="s-hz-ck" value="' +
-        esc(p.nombre) + '"><span></span></label></td>' +
+        esc(nom(p)) + '"><span></span></label></td>' +
       '<td data-l="Producto"><div class="s-hz-prod">' + foto(p) +
-        '<div><span class="s-hz-n">' + esc(p.nombre) + '</span>' +
+        '<div><span class="s-hz-n">' + esc(nom(p)) + '</span>' +
         ((p.marca || p.asin) ? '<span class="s-hz-meta">' +
           (p.marca ? esc(p.marca) : '') + (p.marca && p.asin ? ' · ' : '') +
           (p.asin ? '<code>' + esc(p.asin) + '</code>' : '') + '</span>' : '') +
@@ -449,7 +471,7 @@
     var e = estadoDe(f.estado);
     return '<li class="s-hz-f ' + e.clase + '">' +
       '<span class="s-hz-fi">' + e.icono + '</span>' +
-      '<span class="s-hz-fn">' + esc(f.nombre) + '</span>' +
+      '<span class="s-hz-fn">' + esc(nom(f)) + '</span>' +
       (f.nota ? '<span class="s-hz-fx">' + esc(f.nota) + '</span>' : '') +
       '</li>';
   }
@@ -461,7 +483,7 @@
     c = c || {};
     return '<tr>' +
       '<td data-l="Competidor"><div class="s-hz-prod">' + foto(c) +
-        '<div><span class="s-hz-n">' + esc(c.nombre) + '</span>' +
+        '<div><span class="s-hz-n">' + esc(nom(c)) + '</span>' +
         ((c.marca || c.asin) ? '<span class="s-hz-meta">' +
           (c.marca ? esc(c.marca) : '') + (c.marca && c.asin ? ' · ' : '') +
           (c.asin ? '<code>' + esc(c.asin) + '</code>' : '') + '</span>' : '') +
@@ -832,6 +854,7 @@
 
   global.SophieHallazgos = {
     version: '1.0',
+    nombreDe: nom,
     disponible: disponible,
     // La lista de candidatos que Sophie encontró (salida de `descubrir`).
     detectar: detectar,
