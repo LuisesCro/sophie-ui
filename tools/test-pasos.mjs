@@ -174,5 +174,76 @@ caso('A ya no suena a no se me ocurrió nada', () => {
   ok(/busquemos el producto juntos/.test(h), 'no propone buscar juntos');
 });
 
+/* ---------------------------------------------------------------
+   EL PUENTE, que es por donde entra el usuario de verdad.
+
+   Todo lo de arriba llama a SophiePasos.pantalla() DIRECTAMENTE. El
+   navegador no hace eso: el modelo emite <!--PASO:{...}--> y
+   sophie-guia.js lo traduce. Y ese traductor reenviaba reaccion,
+   chips, vars y win… y dejaba caer `datos`.
+
+   Resultado: daba igual que Sophie marcara "datos": true, porque
+   aquí llegaba como si no lo hubiera hecho y se pintaba SIEMPRE la
+   pantalla manual — la que manda a Black Box, a Cerebro y a Xray.
+   Se persiguió en el prompt durante días. No estaba en el prompt.
+
+   Estas pruebas pasaban en verde mientras ocurría, porque entraban
+   por donde no entra el usuario. Una prueba que se salta el trozo
+   que falla no prueba nada del camino real.
+   --------------------------------------------------------------- */
+const SRC_GUIA = fs.readFileSync(path.join(AQUI, '..', 'sophie-guia.js'), 'utf8');
+new Function('window', SRC_GUIA)(win);
+const G = win.SophieGuia;
+const marcador = (paso, datos) => '<!--PASO:' + JSON.stringify({
+  paso, datos, reaccion: 'Perfecto.', vars: { keyword: 'mahjong racks', categoria: 'Toys & Games' },
+}) + '--><!--P:' + paso + '--><!--M:H-->';
+function porElPuente(paso, datos) {
+  const p = G.detectar(marcador(paso, datos));
+  const cont = { innerHTML: '' };
+  ok(p, 'el marcador del paso ' + paso + ' no se detecta');
+  ok(G.pintar(cont, p), 'el puente no pudo pintar el paso ' + paso);
+  return cont.innerHTML;
+}
+
+console.log('\nPor el puente (como lo vive el estudiante), no por la puerta de atrás');
+
+caso('con "datos": true NINGUNA pantalla nombra una herramienta', () => {
+  // Es el fallo exacto que se reportó tres veces. Si el puente vuelve a tirar
+  // el campo, esta prueba lo dice; la de arriba seguiría en verde.
+  for (const n of [2, 3, 4, 5, 7]) {
+    const h = porElPuente(n, true);
+    for (const t of ['Black Box', 'Xray', 'Cerebro', 'Helium 10'])
+      ok(!new RegExp(t, 'i').test(h), 'el paso ' + n + ' sigue nombrando ' + t + ' con datos:true');
+  }
+});
+
+caso('y sin la señal siguen siendo las de siempre', () => {
+  // La otra mitad, que importa igual: la mayoría no tiene datos reales y el
+  // flujo de Helium 10 es el único método que tiene.
+  ok(/Black Box/.test(porElPuente(3, false)), 'el paso 3 perdió Black Box por el puente');
+  ok(/Cerebro/.test(porElPuente(4, false)), 'el paso 4 perdió Cerebro por el puente');
+  ok(/Xray/.test(porElPuente(5, false)), 'el paso 5 perdió Xray por el puente');
+});
+
+caso('el puente reenvía TODOS los campos del marcador, no unos cuantos', () => {
+  // La causa raíz no fue `datos` en particular: fue una lista de campos escrita
+  // a mano que se quedó corta. Se comprueba la lista entera para que el próximo
+  // campo que se añada no se caiga igual.
+  const html = SRC_GUIA.slice(SRC_GUIA.indexOf('function html(payload)'),
+                              SRC_GUIA.indexOf('function pintar'));
+  for (const campo of ['datos', 'reaccion', 'chips', 'vars', 'win'])
+    ok(new RegExp('\\b' + campo + ':').test(html), 'el puente no reenvía `' + campo + '`');
+});
+
+caso('un marcador sin `datos` cae del lado seguro', () => {
+  // Si el modelo olvida la señal, el estudiante ve la pantalla manual, que
+  // funciona. Al revés sería grave: alguien sin datos leyendo "ya te traje
+  // la tabla" y sin tabla ninguna.
+  const p = G.detectar('<!--PASO:{"paso":5}-->');
+  const cont = { innerHTML: '' };
+  G.pintar(cont, p);
+  ok(/Xray/.test(cont.innerHTML), 'sin señal no cae a la versión manual');
+});
+
 console.log('\nRESULTADO: ' + pasan + ' pasan · ' + fallan + ' fallan');
 process.exit(fallan ? 1 : 0);
