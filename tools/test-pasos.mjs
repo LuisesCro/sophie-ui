@@ -98,28 +98,45 @@ caso('las etiquetas del progreso ya no mienten', () => {
 
 console.log('\nSin datos reales: el flujo de Helium 10 intacto');
 
-caso('los cuatro pasos siguen guiando a las herramientas', () => {
-  // La mayoría de los estudiantes no tiene datos reales. Para ellos este flujo
-  // es el único método que existe; romperlo es peor que no haber tocado nada.
-  ok(/Black Box/.test(sinDatos(3)), 'el paso 3 perdió Black Box');
-  ok(/Cerebro/.test(sinDatos(4)), 'el paso 4 perdió Cerebro');
-  ok(/Xray/.test(sinDatos(5)), 'el paso 5 perdió Xray');
-  ok(/estrellas/i.test(sinDatos(7)), 'el paso 7 perdió las reseñas');
+// ESTA PRUEBA DECÍA LO CONTRARIO, y la premisa que la sostenía ya es falsa.
+//
+// Decía: "la mayoría no tiene datos reales, para ellos el flujo de Helium 10 es
+// el único método que existe, romperlo es peor que no tocar nada". Razonable
+// entonces. Pero tener dos versiones de cada pantalla significaba que CUALQUIER
+// cosa que dejara `datos` en false —una variable de entorno sin poner, una
+// sesión sin correo, un campo perdido en un puente— devolvía al estudiante al
+// guion de Helium 10. Y volvió, una y otra vez, semanas después de darlo por
+// quitado. No por un fallo de lógica: porque el guion existía y esperaba.
+//
+// El curso ya no se da con Helium 10. Las pantallas manuales se borraron, y lo
+// que se vigila ahora es justo lo contrario.
+caso('ninguna pantalla nombra una herramienta de pago, con datos o sin ellos', () => {
+  for (let paso = 1; paso <= 9; paso++) {
+    for (const datos of [true, false]) {
+      const h = P.pantalla(paso, { datos, vars: { keyword: 'x', categoria: 'c' } });
+      if (!h) continue;
+      const m = h.match(/Black Box|Helium 10|Cerebro|Xray|Magnet/gi) || [];
+      ok(m.length === 0, 'paso ' + paso + ' (datos=' + datos + ') nombra ' + [...new Set(m)].join(', '));
+    }
+  }
 });
 
-caso('y siguen pidiendo los datos que el estudiante tiene que traer', () => {
-  ok(/Search Volume/.test(sinDatos(5)), 'ya no pide el header');
-  ok(/4,500/.test(sinDatos(3)), 'se perdieron los filtros de Black Box');
+caso('y los pasos siguen enseñando lo que hay que enseñar', () => {
+  ok(/estrellas/i.test(sinDatos(7)), 'el paso 7 perdió las reseñas de 1 y 2 estrellas');
+  ok(/PESO/i.test(sinDatos(5)) && /PRECIO/i.test(sinDatos(5)),
+     'el paso 5 perdió las dos señales que el estudiante tiene que mirar');
+  ok(/capital/i.test(sinDatos(3)), 'el paso 3 dejó de personalizar la búsqueda');
 });
 
 console.log('\nEl fallo, cuando ocurra, cae del lado seguro');
 
-caso('sin la señal `datos` se pinta la pantalla manual', () => {
-  // La señal la emite el modelo en el marcador. Si un dia se le olvida, el
-  // estudiante ve la pantalla de siempre — que funciona. Al revés sería grave:
-  // alguien sin datos reales viendo "ya te traje la tabla".
+caso('sin la señal `datos` NO se cae a ninguna pantalla manual', () => {
+  // Antes la señal decidía qué pantalla se pintaba, y olvidarla mandaba a
+  // Helium 10. Ahora la versión de Jungle Scout es la única: si la señal falta,
+  // se pinta la misma pantalla. La señal ya solo cambia la etiqueta.
   const h = P.pantalla(5, { vars: { keyword: 'x' } });
-  ok(/Xray/.test(h), 'sin señal no cae a la versión manual');
+  const conSenal = P.pantalla(5, { datos: true, vars: { keyword: 'x' } });
+  ok(h === conSenal, 'todavía hay dos versiones de la pantalla 5 según la señal');
 });
 
 caso('un paso sin variante con datos usa la de siempre, no se rompe', () => {
@@ -286,12 +303,16 @@ caso('con "datos": true NINGUNA pantalla nombra una herramienta', () => {
   }
 });
 
-caso('y sin la señal siguen siendo las de siempre', () => {
-  // La otra mitad, que importa igual: la mayoría no tiene datos reales y el
-  // flujo de Helium 10 es el único método que tiene.
-  ok(/Black Box/.test(porElPuente(3, false)), 'el paso 3 perdió Black Box por el puente');
-  ok(/Cerebro/.test(porElPuente(4, false)), 'el paso 4 perdió Cerebro por el puente');
-  ok(/Xray/.test(porElPuente(5, false)), 'el paso 5 perdió Xray por el puente');
+caso('y sin la señal son EXACTAMENTE las mismas', () => {
+  // El puente perdía el campo `datos` y por eso se pintaba la manual. Ese fallo
+  // ya no puede tener consecuencia: pase lo que pase con el campo, la pantalla
+  // que sale es la misma. Un puente roto ya no manda a nadie a Helium 10.
+  for (const paso of [3, 4, 5]) {
+    ok(porElPuente(paso, false) === porElPuente(paso, true),
+       'el paso ' + paso + ' todavía cambia de versión según lo que traiga el puente');
+    ok(!/Black Box|Cerebro|Xray/.test(porElPuente(paso, false)),
+       'el paso ' + paso + ' nombra una herramienta de pago por el puente');
+  }
 });
 
 caso('el puente reenvía TODOS los campos del marcador, no unos cuantos', () => {
@@ -304,14 +325,15 @@ caso('el puente reenvía TODOS los campos del marcador, no unos cuantos', () => 
     ok(new RegExp('\\b' + campo + ':').test(html), 'el puente no reenvía `' + campo + '`');
 });
 
-caso('un marcador sin `datos` cae del lado seguro', () => {
-  // Si el modelo olvida la señal, el estudiante ve la pantalla manual, que
-  // funciona. Al revés sería grave: alguien sin datos leyendo "ya te traje
-  // la tabla" y sin tabla ninguna.
+caso('un marcador sin `datos` ya no puede caer del lado malo', () => {
+  // Era el escenario real: Sophie emite <!--PASO:{"paso":5}--> sin la señal y
+  // el estudiante acababa leyendo instrucciones de Xray. Ahora da igual.
   const p = G.detectar('<!--PASO:{"paso":5}-->');
   const cont = { innerHTML: '' };
   G.pintar(cont, p);
-  ok(/Xray/.test(cont.innerHTML), 'sin señal no cae a la versión manual');
+  ok(!/Black Box|Cerebro|Xray/.test(cont.innerHTML),
+     'un marcador sin señal sigue mandando a una herramienta de pago');
+  ok(/tabla|mercado/i.test(cont.innerHTML), 'no pintó nada útil');
 });
 
 /* ---------------------------------------------------------------

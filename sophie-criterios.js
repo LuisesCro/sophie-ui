@@ -77,7 +77,7 @@
       por_que: 'El volumen mide cuánta gente busca. La tendencia mide si ese interés está creciendo o muriendo. Un mercado estable es predecible: puedes planificar inventario. Un mercado en caída es una trampa, porque cuando llegues con tu producto la demanda ya habrá bajado más.',
       leccion: 'La demanda no se crea en Amazon, se captura.',
       error_comun: 'Mirar el volumen y no mirar la curva. Un nicho con 20,000 búsquedas cayendo vale menos que uno con 6,000 estable.',
-      glosario: ['search volume', 'Black Box']
+      glosario: ['search volume', 'demanda del nicho']
     },
 
     {
@@ -88,7 +88,7 @@
       por_que: 'El ingreso promedio por listing es la estimación de lo que tú podrías generar cuando estés bien posicionado. Si el promedio es bajo, el mercado tiene poco dinero circulando: incluso siendo el mejor vendedor, tu techo de ingresos es bajo.',
       leccion: 'Ser el número uno de un mercado pequeño sigue siendo un mercado pequeño.',
       error_comun: 'Confundir búsquedas con dinero. Un nicho puede tener mucho tráfico y muy poca facturación por competidor.',
-      glosario: ['average revenue', 'Xray']
+      glosario: ['average revenue', 'tabla del mercado']
     },
 
     {
@@ -140,13 +140,13 @@
 
     {
       id: 7, fase: 2, veto: true, alerta_num: 12, base: 'estimado',
-      criterio: 'Demanda en profundidad (Cerebro)',
+      criterio: 'Demanda en profundidad del nicho',
       umbral: '≥ 30 keywords orgánicas tras filtrar',
       campo: 'keywordsCerebro', direccion: 'min', umbral_num: 36,
-      por_que: 'Las keywords orgánicas de Cerebro son las rutas reales por las que los clientes encuentran y compran este tipo de producto. Sesenta keywords significan sesenta caminos distintos para generar ventas: si una baja, quedan cincuenta y nueve. Quince keywords significan que dependes de muy pocas rutas, y cualquier cambio de algoritmo puede tumbarte.',
+      por_que: 'Las keywords orgánicas del nicho son las rutas reales por las que los clientes encuentran y compran este tipo de producto. Sesenta keywords significan sesenta caminos distintos para generar ventas: si una baja, quedan cincuenta y nueve. Quince keywords significan que dependes de muy pocas rutas, y cualquier cambio de algoritmo puede tumbarte.',
       leccion: 'Un nicho robusto tiene muchas puertas de entrada, no una sola.',
-      error_comun: 'Correr Cerebro sobre un solo competidor. El ruido de un ASIN individual no es la demanda del mercado.',
-      glosario: ['Cerebro', 'organic rank', 'COSMO']
+      error_comun: 'Medir la demanda sobre un solo competidor. El ruido de un ASIN individual no es la demanda del mercado: por eso se mira lo que comparten VARIOS competidores a la vez.',
+      glosario: ['keywords orgánicas', 'organic rank', 'COSMO']
     },
 
     {
