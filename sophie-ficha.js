@@ -144,6 +144,31 @@
     return pendiente;
   }
 
+  // ¿LA PANTALLA ESTÁ PIDIENDO ALGO QUE YA SABEMOS?
+  //
+  // Es la otra mitad, y es la que cierra el problema de verdad. Hasta aquí la
+  // ficha servía para que el MODELO no repreguntara: se le mandaban los datos y
+  // se le pedía que no los pidiera dos veces. Eso funciona cuando el modelo hace
+  // caso, y deja de funcionar justo cuando más falta hace — con la conversación
+  // atascada, que es cuando el modelo se repite.
+  //
+  // Esto no le pide nada a nadie: si la pantalla que acaba de salir pregunta por
+  // el capital y el capital está anotado, la aplicación lo sabe con certeza y
+  // puede contestar ella. El bucle deja de ser posible, no menos probable.
+  function pideLoQueYaSe(texto) {
+    var t = String(texto || '');
+    if (datos.capital && PREGUNTA_CAPITAL.test(t)) return 'capital';
+    return '';
+  }
+
+  // La frase con la que la aplicación contesta por el estudiante. En primera
+  // persona y en su idioma, porque va al historial como algo que él dijo.
+  function respuestaPara(campo) {
+    if (campo === 'capital' && datos.capital)
+      return 'Mi capital para el primer pedido es ' + datos.capital + ', ya te lo había dicho.';
+    return '';
+  }
+
   function deUsuario(texto, pregunta) {
     var toco = false;
     var cap = capitalDe(texto);
@@ -187,6 +212,8 @@
     deEleccionCategoria: deEleccionCategoria,
     deUsuario: deUsuario,
     observarPantalla: observarPantalla,
+    pideLoQueYaSe: pideLoQueYaSe,
+    respuestaPara: respuestaPara,
     capitalDe: capitalDe,
     caminoDe: caminoDe,
     resumen: resumen,

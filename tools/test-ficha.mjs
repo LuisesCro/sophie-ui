@@ -220,6 +220,28 @@ caso('con capital en la ficha, el paso 7 lo confirma en vez de pedirlo', () => {
   ok(/Capital disponible/i.test(sinDato), 'sin el dato, tiene que seguir pidiéndolo');
 });
 
+console.log('\nLa aplicación contesta por su cuenta lo que ya sabe');
+
+caso('una pantalla que repregunta el capital se detecta', () => {
+  const f = nueva();
+  f.deUsuario('mi capital es $1,500');
+  ok(f.pideLoQueYaSe('Dime tu capital y qué temas te interesan') === 'capital', 'no lo detecta');
+  ok(f.respuestaPara('capital').includes('$1,500'), 'la respuesta no lleva el dato');
+});
+
+caso('sin el dato anotado NO contesta sola: la pregunta es legítima', () => {
+  const f = nueva();
+  ok(f.pideLoQueYaSe('Dime tu capital') === '', 'contestaría una pregunta que sí había que hacer');
+  ok(f.respuestaPara('capital') === '', 'inventaría una respuesta');
+});
+
+caso('una pantalla que no pregunta eso no dispara nada', () => {
+  const f = nueva();
+  f.deUsuario('mi capital es $1,500');
+  ok(f.pideLoQueYaSe('Elige tu categoría') === '', 'falso positivo');
+  ok(f.pideLoQueYaSe('Aquí están los competidores de dog bowl') === '', 'falso positivo');
+});
+
 console.log('\nY la aplicación deja de repetirse a sí misma');
 
 caso('con capital en la ficha, el paso 3 tampoco lo vuelve a pedir', () => {
@@ -324,6 +346,16 @@ if (fs.existsSync(PROD)) {
     caso(pagina + ': la página observa la pantalla que queda en pie', () => {
       ok(/SophieFicha\.observarPantalla/.test(H),
          'sin esto, un "1500" a secas no significa nada y la pregunta se repite');
+    });
+    caso(pagina + ': contesta sola lo que ya sabe, con tope', () => {
+      ok(/SophieFicha\.pideLoQueYaSe/.test(H), 'nadie detecta que le repreguntan lo ya sabido');
+      ok(/respuestasAuto < 2/.test(H), 'sin tope, la página podría acabar hablando sola');
+      ok(/!yaRespondido\[campo\]/.test(H), 'sin marca por dato, respondería el mismo dos veces');
+    });
+    caso(pagina + ': un módulo que no carga se nota', () => {
+      const libs = (H.match(/var libs = \[[^\]]*\]/s) || [''])[0];
+      ok(/SophieFicha/.test(libs),
+         'si sophie-ficha.js no llega, Sophie vuelve a preguntar el capital y nada lo dice');
     });
     caso(pagina + ': tres pantallas iguales seguidas rompen el ciclo', () => {
       ok(/repetido = \(pg\.paso === ultimoPaso\)/.test(H),
