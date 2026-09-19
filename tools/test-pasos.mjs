@@ -266,5 +266,77 @@ caso('un marcador sin `datos` cae del lado seguro', () => {
   ok(/Xray/.test(cont.innerHTML), 'sin señal no cae a la versión manual');
 });
 
+/* ---------------------------------------------------------------
+   QUIÉN DECIDE QUÉ PANTALLA SE PINTA.
+
+   Tercera vez que sale "sigue apareciendo Black Box" con los datos
+   encendidos. Las dos primeras eran el prompt y el puente. La tercera
+   es más de fondo: la decisión dependía de que SOPHIE se acordara de
+   poner "datos": true en su marcador. Un campo opcional en una
+   instrucción larga, y el precio de olvidarlo es mandar al estudiante
+   a una herramienta que no necesita.
+
+   El servidor SÍ lo sabe, con certeza. Ahora lo manda en cada
+   respuesta como comentario HTML invisible y el front lo usa para
+   forzar la versión correcta, se acuerde el modelo o no.
+
+   Y cuando NO hay datos también lo dice, con el motivo: antes eso
+   degradaba al flujo manual en silencio —que es lo correcto— pero sin
+   que nadie pudiera saber POR QUÉ.
+   --------------------------------------------------------------- */
+console.log('\nLa versión de la pantalla la decide el servidor, no el modelo');
+
+const PROD = path.join(AQUI, '..', '..', 'sophie-producto');
+
+for (const pagina of ['index.html', 'producto-v2.html']) {
+  const f = path.join(PROD, pagina);
+  if (!fs.existsSync(f)) continue;
+  const H = fs.readFileSync(f, 'utf8');
+
+  caso(pagina + ': lee la señal del servidor y la recuerda', () => {
+    ok(/<!--DATOS:\(\[\^>\]\*\)-->/.test(H) || /DATOS:\(\[\^>\]\*\)/.test(H),
+       'no lee el marcador de datos del servidor');
+    ok(/leerSenalDatos\(full\)/.test(H), 'no la lee mientras llega la respuesta');
+    ok(/let datosReales = false;/.test(H), 'no guarda si hay datos reales');
+  });
+
+  caso(pagina + ': la señal MANDA sobre el marcador del modelo', () => {
+    // Es la línea que hace que olvidarlo deje de importar.
+    ok((H.match(/if \(pg && datosReales\) pg\.datos = true;/g) || []).length === 2,
+       'la señal no fuerza la versión con datos al pintar Y al rearmar la sesión');
+  });
+
+  caso(pagina + ': y si NO hay datos, dice por qué en la consola', () => {
+    // Un flujo manual silencioso es correcto y a la vez indiagnosticable: se
+    // pasó una semana buscando en el prompt algo que podía ser sólo que la
+    // sesión no llevaba el correo.
+    ok(/datos reales: /.test(H), 'no deja rastro de si hay datos o no');
+    ok(/motivoSinDatos/.test(H), 'no dice el motivo');
+  });
+}
+
+caso('el servidor manda el motivo, no solo un sí o un no', () => {
+  const S = fs.readFileSync(path.join(PROD, 'netlify', 'edge-functions', 'chat.js'), 'utf8');
+  ok(/<!--DATOS:/.test(S), 'el servidor no manda la señal');
+  for (const m of ['apagada', 'mal-configurada', 'fuera-de-la-lista', 'sin-correo-en-la-sesion'])
+    ok(S.includes(m), 'falta el motivo "' + m + '"');
+  // No puede contar como salida: si contara, un turno que solo trae la señal
+  // pasaría por respuesta y el aviso de "turno en blanco" dejaría de saltar.
+  ok(/try \{ controller\.enqueue\(encoder\.encode\("<!--DATOS:/.test(S),
+     'la señal va por `decir` y falsea el contador de turno vacío');
+});
+
+caso('y el marcador no se cuela en los repliegues de texto', () => {
+  // `limpiar()` quita los invisibles antes de caer al texto plano. Si no
+  // quitara este, el repliegue pintaría un comentario vacío en vez del
+  // mensaje de "no pude preparar esta pantalla".
+  for (const mod of ['sophie-guia.js', 'sophie-candidatos.js', 'sophie-hallazgos.js',
+                     'sophie-intencion.js', 'sophie-analisis.js']) {
+    const s = fs.readFileSync(path.join(AQUI, '..', mod), 'utf8');
+    ok(/\|DATOS\):/.test(s), mod + ' no limpia el marcador de datos');
+  }
+  ok(G.limpiar('hola <!--DATOS:1--><!--P:3-->') === 'hola', 'limpiar() deja la señal a la vista');
+});
+
 console.log('\nRESULTADO: ' + pasan + ' pasan · ' + fallan + ' fallan');
 process.exit(fallan ? 1 : 0);

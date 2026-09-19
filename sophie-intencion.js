@@ -88,7 +88,7 @@
     return String(texto || '')
       .replace(MARCA, '')
       .replace(MARCA_VER, '')
-      .replace(/<!--[PM]:[^>]*-->/g, '')
+      .replace(/<!--(?:[PM]|DATOS):[^>]*-->/g, '')
       .trim();
   }
 

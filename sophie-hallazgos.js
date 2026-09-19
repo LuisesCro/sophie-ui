@@ -84,7 +84,7 @@
   function limpiar(texto) {
     return String(texto || '')
       .replace(MARCA, '')
-      .replace(/<!--[PM]:[^>]*-->/g, '')
+      .replace(/<!--(?:[PM]|DATOS):[^>]*-->/g, '')
       .trim();
   }
 
@@ -347,7 +347,7 @@
   function limpiarValidacion(texto) {
     return String(texto || '')
       .replace(MARCA_V, '')
-      .replace(/<!--[PM]:[^>]*-->/g, '')
+      .replace(/<!--(?:[PM]|DATOS):[^>]*-->/g, '')
       .trim();
   }
 
