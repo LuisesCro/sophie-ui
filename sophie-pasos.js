@@ -429,11 +429,19 @@
             '<li><b>Sin marcas dominantes</b>, que son las que no te dejan entrar</li>' +
           '</ul>' +
         '</div>' +
+        // SIN ADVERTENCIA. Aqui habia un `s-warn` —rojo, con "esto no es
+        // relleno"— explicando que si treinta estudiantes buscan igual acaban
+        // compitiendo entre ellos. Cierto, pero en el paso 3 el estudiante aun
+        // no tiene con que preocuparse: se le estaba dando una alarma antes que
+        // un producto. La personalizacion se consigue PREGUNTANDO bien, no
+        // avisando de lo que pasa si no contesta.
+        //
+        // Las tres defensas anti-clon siguen intactas: viven en el motor
+        // (repartir() con semilla por persona, yaTomados(), y la cache de
+        // descubrimiento por usuario), no en este parrafo.
         '<div class="s-why"><b>Para ajustarlo a ti</b>' +
           '<p>Dime dos cosas y la busqueda sale distinta: <b>cuanto capital tienes</b> para el primer pedido, y ' +
           '<b>que te interesa de verdad</b> — un hobby que practicas, un problema que conoces, algo que ya compras.</p>' +
-          '<p class="s-warn">Esto no es relleno. Si treinta estudiantes buscan igual, a los treinta les salen los ' +
-          'mismos productos y acaban compitiendo entre ellos. Tus intereses son lo que hace tu busqueda tuya.</p>' +
         '</div>' +
         '<div class="s-cta">Dime tu capital y que temas te interesan 👇</div>';
     },

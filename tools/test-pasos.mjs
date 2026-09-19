@@ -45,12 +45,33 @@ caso('y tampoco le piden pegar datos que Sophie ya tiene', () => {
 });
 
 caso('el paso 3 pide lo que hace la búsqueda SUYA, no la de todos', () => {
-  // Si treinta estudiantes buscan con los mismos filtros, a los treinta les
-  // salen los mismos productos y acaban compitiendo entre ellos.
   const h = conDatos(3);
   ok(/capital/i.test(h), 'no pregunta el capital');
   ok(/te interesa de verdad|intereses/i.test(h), 'no pregunta por sus intereses');
-  ok(/compitiendo entre ellos/.test(h), 'no explica POR QUÉ hace falta personalizarla');
+});
+
+caso('y lo pide sin asustarlo', () => {
+  // Aquí había un aviso en rojo ("esto no es relleno… acabarían compitiendo
+  // entre ellos"). Es cierto, pero en el paso 3 el estudiante todavía no tiene
+  // producto: se le daba una alarma antes que un resultado. La personalización
+  // se consigue preguntando bien, no avisando de lo que pasa si no contesta.
+  const h = conDatos(3);
+  ok(!/s-warn/.test(h), 'volvió una advertencia roja al paso 3');
+  ok(!/no es relleno|compitiendo entre ellos/i.test(h), 'volvió el aviso de los treinta estudiantes');
+});
+
+caso('pero las defensas anti-clon NO viven en ese párrafo', () => {
+  // Quitar el texto no puede quitar la protección. Lo que evita que a treinta
+  // estudiantes les salga la misma lista está en el motor —reparto con semilla
+  // por persona, exclusión de lo ya tomado y caché de descubrimiento por
+  // usuario—, no en una advertencia que el alumno puede ignorar.
+  const jungle = path.join(AQUI, '..', '..', 'sophie-producto', 'netlify', 'edge-functions', 'jungle.js');
+  if (!fs.existsSync(jungle)) return; // repo no montado: no bloquea
+  const j = fs.readFileSync(jungle, 'utf8');
+  ok(/function repartir\(/.test(j), 'se perdió el reparto por semilla');
+  ok(/function semillaDe\(/.test(j), 'se perdió la semilla por persona');
+  ok(/function yaTomados\(/.test(j), 'se perdió la exclusión de lo ya tomado');
+  ok(/El descubrimiento cachea POR PERSONA/.test(j), 'la caché de descubrimiento dejó de ser por persona');
 });
 
 caso('el paso 5 le explica por qué limpiar la tabla es suyo y no de Sophie', () => {
