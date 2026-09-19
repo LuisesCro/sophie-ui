@@ -126,10 +126,36 @@
     return m ? m[1].toUpperCase() : '';
   }
 
-  function deUsuario(texto) {
+  // LA PREGUNTA ANTERIOR ES CONTEXTO, Y SIN ELLA UNA CIFRA NO SIGNIFICA NADA.
+  //
+  // "1500" a secas no se puede anotar: podría ser reseñas, revenue o el número
+  // de una lista. Pero si la pantalla que el estudiante acaba de leer preguntaba
+  // por el capital, entonces "1500" es el capital y no hay ambigüedad ninguna.
+  //
+  // Se mira el TEXTO de la pantalla, no el número del paso. Así vale también
+  // cuando Sophie lo pregunta con sus propias palabras, fuera del guion — que
+  // es justo donde se escapaba la segunda pregunta.
+  var pendiente = '';
+  var PREGUNTA_CAPITAL = /capital|presupuest|cu[aá]nto\s+(?:tienes|puedes|vas a)\s+(?:para\s+)?invertir|dinero\s+(?:tienes|disponible)/i;
+
+  function observarPantalla(texto) {
+    var t = String(texto || '');
+    pendiente = (!datos.capital && PREGUNTA_CAPITAL.test(t)) ? 'capital' : '';
+    return pendiente;
+  }
+
+  function deUsuario(texto, pregunta) {
     var toco = false;
     var cap = capitalDe(texto);
-    if (cap && anotar('capital', cap)) toco = true;
+    // Si la pantalla anterior preguntaba por el capital, una cifra a secas vale.
+    if (!cap && (pregunta === 'capital' || (pregunta === undefined && pendiente === 'capital'))) {
+      var m = String(texto || '').match(/^\s*\$?\s*(\d{1,3}(?:[.,]\d{3})+|\d{3,7})\s*(?:usd|d[oó]lares?)?\s*$/i);
+      if (m) {
+        var n = parseInt(String(m[1]).replace(/[.,]/g, ''), 10);
+        if (n >= 100 && n <= 1000000) cap = '$' + n.toLocaleString('en-US');
+      }
+    }
+    if (cap && anotar('capital', cap)) { toco = true; pendiente = ''; }
     var cam = caminoDe(texto);
     if (cam && anotar('camino', cam)) toco = true;
     return toco;
@@ -153,13 +179,14 @@
     return copia;
   }
 
-  function vaciar() { datos = {}; }
+  function vaciar() { datos = {}; pendiente = ''; }
 
   global.SophieFicha = {
     anotar: anotar,
     deMarcador: deMarcador,
     deEleccionCategoria: deEleccionCategoria,
     deUsuario: deUsuario,
+    observarPantalla: observarPantalla,
     capitalDe: capitalDe,
     caminoDe: caminoDe,
     resumen: resumen,

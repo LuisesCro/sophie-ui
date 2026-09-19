@@ -614,6 +614,16 @@
     '.s-hz-n{overflow-wrap:anywhere}',
     '@container (max-width:580px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
     '@media (max-width:580px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
+    // POR QUE LLEVAN `position:relative` LOS PADRES. Esconder algo con
+    // `position:absolute` lo saca de la caja que hace scroll si por encima no
+    // hay ningun elemento posicionado: su bloque contenedor pasa a ser la
+    // pagina entera, y entonces su posicion —que esta abajo del todo del hilo—
+    // ESTIRA el area de scroll del BODY. El sintoma es el que se veia: una
+    // segunda barra vertical que se pasa por debajo de la ventana de Sophie.
+    //
+    // Un `<span>` de un pixel movia 777 px de scroll. Pesa lo mismo contenerlo:
+    // basta con que su padre este posicionado.
+    '.s-hz-ckc{position:relative}',
     '.s-hz-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
 
     /* La casilla y la fila elegida. */
@@ -767,6 +777,7 @@
     // soporte de contenedores tiene que apilar igual: en ese caso el corte por
     // viewport es una aproximacion peor, pero nunca deja un dato fuera.
     '@container (max-width:580px){',
+    '.s-hz{position:relative}',
     '.s-hz thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
     '.s-hz,.s-hz tbody,.s-hz tr,.s-hz td{display:block;width:100%}',
     '.s-hz tbody tr{padding:12px 6px;border-bottom:1px solid var(--hz-line2)}',
@@ -783,6 +794,7 @@
 
     '}',
     '@media (max-width:580px){',
+    '.s-hz{position:relative}',
     '.s-hz thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
     '.s-hz,.s-hz tbody,.s-hz tr,.s-hz td{display:block;width:100%}',
     '.s-hz tbody tr{padding:12px 6px;border-bottom:1px solid var(--hz-line2)}',

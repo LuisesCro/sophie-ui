@@ -165,6 +165,61 @@ caso('un campo que no es del método se ignora', () => {
   ok(f.resumen() === '', 'entró algo que no debía: ' + f.resumen());
 });
 
+console.log('\nLa pregunta anterior como contexto');
+
+caso('tras una pantalla que pide el capital, "1500" a secas SÍ se anota', () => {
+  const f = nueva();
+  f.observarPantalla('Dime tu capital y qué temas te interesan');
+  f.deUsuario('1500');
+  ok(f.todo().capital === '$1,500', 'anotó ' + f.todo().capital);
+});
+
+caso('y "$1,500" con la pregunta delante también, claro', () => {
+  const f = nueva();
+  f.observarPantalla('¿Cuánto capital tienes para el primer pedido?');
+  f.deUsuario('$1,500');
+  ok(f.todo().capital === '$1,500', 'anotó ' + f.todo().capital);
+});
+
+caso('sin esa pantalla delante, "1500" sigue sin anotarse', () => {
+  const f = nueva();
+  f.observarPantalla('Elige tu categoría');
+  f.deUsuario('1500');
+  ok(!f.todo().capital, 'anotó ' + f.todo().capital + ' sin saber de qué hablaba');
+});
+
+caso('la pregunta caduca en cuanto se contesta', () => {
+  const f = nueva();
+  f.observarPantalla('Dime tu capital');
+  f.deUsuario('1500');
+  f.deUsuario('8000');            // ahora está hablando de otra cosa
+  ok(f.todo().capital === '$1,500', 'quedó ' + f.todo().capital);
+});
+
+caso('si el capital ya está, la pregunta no se vuelve a armar', () => {
+  const f = nueva();
+  f.deUsuario('mi capital es $1,500');
+  ok(f.observarPantalla('Capital disponible para el primer pedido') === '',
+     'volvería a aceptar cualquier cifra suelta como capital');
+});
+
+caso('reconoce la pregunta con las palabras de Sophie, no solo las del guion', () => {
+  ok(nueva().observarPantalla('¿Cuánto puedes invertir en tu primer pedido?') === 'capital', 'una');
+  ok(nueva().observarPantalla('¿Qué presupuesto manejas?') === 'capital', 'dos');
+});
+
+console.log('\nEl paso 7 ya no vuelve a pedir el capital');
+
+caso('con capital en la ficha, el paso 7 lo confirma en vez de pedirlo', () => {
+  const g = {};
+  new Function('window', fs.readFileSync(path.join(AQUI, '..', 'sophie-pasos.js'), 'utf8'))(g);
+  const conDato = g.SophiePasos.pantalla(7, { datos: true, vars: { capital: '$1,500' } });
+  ok(conDato.includes('$1,500'), 'no muestra lo que ya sabe');
+  ok(/ya me lo dijiste/i.test(conDato), 'no lo confirma, lo vuelve a pedir');
+  const sinDato = g.SophiePasos.pantalla(7, { datos: true, vars: {} });
+  ok(/Capital disponible/i.test(sinDato), 'sin el dato, tiene que seguir pidiéndolo');
+});
+
 console.log('\nEl resumen que viaja al servidor');
 
 caso('sale en una línea, en el idioma del método', () => {
@@ -253,6 +308,14 @@ if (fs.existsSync(PROD)) {
     });
     caso(pagina + ': el clic de categoría alimenta la ficha', () => {
       ok(/SophieFicha\.deEleccionCategoria/.test(H), 'el dato más fiable de todos se tira');
+    });
+    caso(pagina + ': la página observa la pantalla que queda en pie', () => {
+      ok(/SophieFicha\.observarPantalla/.test(H),
+         'sin esto, un "1500" a secas no significa nada y la pregunta se repite');
+    });
+    caso(pagina + ': lo que la ficha sabe entra en la pantalla siguiente', () => {
+      ok(/pg\.vars = Object\.assign\(\{\}, SophieFicha\.todo\(\), pg\.vars/.test(H),
+         'el paso 7 volvería a pedir el capital en su propio guion');
     });
   }
 

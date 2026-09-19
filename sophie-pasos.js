@@ -578,10 +578,19 @@
       return '<h1>Lo ultimo, y es lo mas valioso</h1>' +
         '<p class="s-lead">Los numeros del mercado ya los tengo. Faltan cuatro cosas que ningun dato puede ' +
         'contestarme.</p>' +
+        // NO VOLVER A PEDIR EL CAPITAL. Lo pide el paso 3 y lo volvia a pedir
+        // aqui, en el guion, no por olvido del modelo. Al estudiante le llegaba
+        // como si no le hubieran escuchado, que es el error que mas confianza
+        // cuesta. Si la ficha lo sabe, se CONFIRMA en una linea; si no, se pide.
         '<div class="s-card">' +
           '<p><b>1 · Tu dinero</b></p>' +
-          '<p>Capital disponible para el primer pedido, y el costo del producto en Alibaba si ya cotizaste. Si no has ' +
-          'cotizado, dimelo y lo estimo — pero lo marcamos como estimado.</p>' +
+          (v && v.capital
+            ? '<p>Tu capital ya me lo dijiste: <b>' + esc(v.capital) + '</b>. Si cambio, dimelo; si no, ' +
+              'sigue.</p>' +
+              '<p>Lo que si me falta es el <b>costo del producto en Alibaba</b>, si ya cotizaste. Si no has ' +
+              'cotizado, dimelo y lo estimo — pero lo marcamos como estimado.</p>'
+            : '<p>Capital disponible para el primer pedido, y el costo del producto en Alibaba si ya cotizaste. ' +
+              'Si no has cotizado, dimelo y lo estimo — pero lo marcamos como estimado.</p>') +
         '</div>' +
         '<div class="s-card">' +
           '<p><b>2 · Las resenas de 1 y 2 estrellas del lider</b></p>' +

@@ -430,7 +430,16 @@ caso('la página lo continúa, con freno para no hablar sola', () => {
     ok(/function seguirSolo/.test(H), pagina + ': no hay quien pida el turno siguiente');
     // El guardia es lo que impide el bucle. Sin él, si Sophie repitiera el mismo
     // paso la página se pondría a hablar consigo misma, gastando llamadas.
-    ok(/if \(paso === ultimoAuto\) return;/.test(H), pagina + ': puede entrar en bucle');
+    ok(/if \(paso === ultimoAuto\) \{ ofrecerSeguir\(\); return; \}/.test(H),
+       pagina + ': puede entrar en bucle');
+    // Y el freno ya no puede dejar un callejón sin salida. Antes, si el turno
+    // anterior aún no había cerrado en ese instante exacto, no pasaba NADA: ni
+    // reintento ni aviso. La pantalla decía "voy a mirarlo ahora mismo" y se
+    // quedaba ahí para siempre. Ahora se reintenta, y si aun así no sale,
+    // aparece un botón.
+    ok(/if \(\+\+intentos > 30\)/.test(H), pagina + ': no reintenta si el turno anterior sigue vivo');
+    ok(/function ofrecerSeguir/.test(H), pagina + ': sin salida visible cuando el reintento falla');
+    ok(/function vigilar/.test(H), pagina + ': nadie vigila si el turno pedido no vuelve');
     ok(/send\('continúa', false\)/.test(H), pagina + ': el turno automático se le muestra al estudiante');
   }
 });
