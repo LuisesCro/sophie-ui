@@ -95,7 +95,10 @@
   // rango de verdad, y redondearlo a un número sería inventar precisión.
   function celda(v) {
     if (v === null || v === undefined || v === '') return '—';
-    return esc(v);
+    // Un punto de corte DESPUES del guion de un rango, para que "$19K-50K"
+    // pueda partirse en dos lineas en vez de ensanchar su columna. `<wbr>` no
+    // pinta nada: solo dice donde se PUEDE partir si hace falta.
+    return esc(v).replace(/([–—-])\s*/g, '$1<wbr>');
   }
 
   // El ratio es la columna que el estudiante tiene que mirar, así que se
@@ -138,6 +141,12 @@
       : '';
 
     var tr = '<tr>' +
+      // LA CASILLA. El estudiante elige aqui que productos analiza — hasta
+      // tres. El tope no es capricho: analizar a fondo cuesta consultas y
+      // tiempo, y quien se lleva ocho candidatos a la vez no analiza ninguno.
+      '<td class="s-hz-ckc" data-l="Elegir">' +
+        '<label class="s-hz-lb"><input type="checkbox" class="s-hz-ck" value="' +
+        esc(p.nombre) + '"><span></span></label></td>' +
       '<td data-l="Producto"><div class="s-hz-prod">' + foto(p) +
         '<div><span class="s-hz-n">' + esc(p.nombre) + '</span>' +
         ((p.marca || p.asin) ? '<span class="s-hz-meta">' +
@@ -147,6 +156,14 @@
       '<td data-l="Precio"   data-num>' + celda(p.precio) + '</td>' +
       '<td data-l="Peso"     data-num>' + peso(p.peso) + '</td>' +
       '<td data-l="Revenue"  data-num>' + celda(p.revenue) + '</td>' +
+      // DOS DATOS POR CELDA, NO DOS COLUMNAS. Once columnas dejaban tres fuera
+      // del borde en una tarjeta de chat: el estudiante no veia ni el ratio ni
+      // los meses, que son los dos que la leyenda de abajo le enseña a leer.
+      // Apilados se ven los cuatro, y el par que va junto queda junto — las
+      // ventas al dia son las del mes divididas, y la estrella no significa
+      // nada sin el numero de resenas que la sostiene.
+      '<td data-l="Vendidas" data-num>' + celda(p.ventas_mes) +
+        '<span class="s-hz-sub">' + (p.ventas_dia ? esc(p.ventas_dia) + '/día' : '') + '</span></td>' +
       '<td data-l="Reseñas"  data-num>' + celda(p.resenas) +
         (p.rating ? '<span class="s-hz-star">' + esc(p.rating) + '★</span>' : '') + '</td>' +
       '<td data-l="Ratio"    data-num>' + ratio(p.ratio) + '</td>' +
@@ -157,7 +174,7 @@
     // envolvía en una columna estrecha —siete líneas para una frase— y dejaba
     // el resto de la fila en blanco: la tabla se rompía justo en el producto
     // que más explicación necesita, que es el que tiene variaciones.
-    if (p.nota) tr += '<tr class="s-hz-nr"><td colspan="7">' + esc(p.nota) + '</td></tr>';
+    if (p.nota) tr += '<tr class="s-hz-nr"><td colspan="9">' + esc(p.nota) + '</td></tr>';
     return tr;
   }
 
@@ -190,6 +207,64 @@
       return global.SophiePasos.cabecera(paso, true);
     }
     return '';
+  }
+
+  /* ---------- elegir productos: hasta tres ---------- */
+
+  // POR QUE UN TOPE. Analizar a fondo cuesta consultas, tiempo y atencion.
+  // Quien se lleva ocho candidatos a la vez no analiza ninguno: los compara por
+  // encima y elige por gusto, que es justo lo que el metodo intenta evitar.
+  var MAX_ELEGIDOS = 3;
+
+  var BARRA_ELECCION =
+    '<div class="s-hz-sel" hidden>' +
+      '<span class="s-hz-selc"></span>' +
+      '<button type="button" class="s-hz-selb">Analizar los elegidos</button>' +
+    '</div>';
+
+  // Se engancha UNA vez por pantalla pintada, delegado: las filas se rehacen
+  // con la tabla y un listener por casilla se quedaria colgando.
+  function engancharEleccion(container) {
+    var sel = container.querySelector('.s-hz-sel');
+    if (!sel) return;
+    var cuenta = sel.querySelector('.s-hz-selc');
+    var boton = sel.querySelector('.s-hz-selb');
+
+    function elegidos() {
+      return Array.prototype.slice.call(container.querySelectorAll('.s-hz-ck:checked'))
+        .map(function (c) { return c.value; });
+    }
+    function refrescar() {
+      var n = elegidos().length;
+      // Al llegar al tope se apagan las demas casillas en vez de dejar que
+      // marque una cuarta y quitarsela despues: un limite que se explica
+      // quitando algo que ya diste se vive como un fallo.
+      Array.prototype.forEach.call(container.querySelectorAll('.s-hz-ck'), function (c) {
+        c.disabled = !c.checked && n >= MAX_ELEGIDOS;
+        var fila = c.closest && c.closest('tr');
+        if (fila) fila.classList.toggle('elegida', c.checked);
+      });
+      sel.hidden = n === 0;
+      cuenta.textContent = n === MAX_ELEGIDOS
+        ? 'Elegiste ' + n + ' — el máximo'
+        : 'Elegiste ' + n + ' de ' + MAX_ELEGIDOS;
+      boton.textContent = n === 1 ? 'Analizar este' : 'Analizar los ' + n;
+    }
+
+    container.addEventListener('change', function (ev) {
+      if (ev.target && ev.target.classList.contains('s-hz-ck')) refrescar();
+    });
+    container.addEventListener('click', function (ev) {
+      if (!ev.target.closest || !ev.target.closest('.s-hz-selb')) return;
+      var lista = elegidos();
+      if (!lista.length) return;
+      // El modulo no sabe hablar con el chat, y no deberia: avisa, y la pagina
+      // decide que hacer. Asi sirve igual en las dos paginas sin conocerlas.
+      container.dispatchEvent(new CustomEvent('sophie-analizar', {
+        bubbles: true, detail: { productos: lista }
+      }));
+    });
+    refrescar();
   }
 
   /* ---------- la franja de cifras (la cabecera de la tabla) ---------- */
@@ -293,12 +368,15 @@
         '<div class="s-hz-wrap">' +
           '<table class="s-hz">' +
             '<thead><tr>' +
+              '<th class="s-hz-ckc"><span class="s-hz-oculto">Elegir</span></th>' +
               '<th>Producto</th><th>Precio</th><th>Peso</th><th>Revenue</th>' +
-              '<th>Reseñas</th><th class="s-hz-th-r">Ratio</th><th>Meses</th>' +
+              '<th>Vendidas</th><th>Reseñas</th>' +
+              '<th class="s-hz-th-r">Ratio</th><th>Meses</th>' +
             '</tr></thead>' +
             '<tbody>' + filas + '</tbody>' +
           '</table>' +
         '</div>' +
+        BARRA_ELECCION +
         LEYENDA +
         metodo(payload.metodo) +
         (payload.cta ? '<div class="s-cta">' + esc(payload.cta) + '</div>' : '') +
@@ -469,8 +547,65 @@
        en movil el `width:100%` de cada celda se suma a su padding y los numeros
        se salen por la derecha — cortados, que es peor que no estar. */
     '.s-hz,.s-hz *,.s-hz-wrap,.s-hz-leyenda,.s-hz-f{box-sizing:border-box}',
+    // ONCE COLUMNAS NO CABEN EN UNA TARJETA DE CHAT. Se desplaza en horizontal,
+    // como la extension: recortar columnas para que quepan seria decidir por el
+    // estudiante cual de los datos le sobra.
     '.s-hz-wrap{margin:14px 0 4px;border:1px solid var(--hz-line);border-radius:14px;',
-    'overflow:hidden;background:var(--hz-card)}',
+    'overflow-x:auto;overflow-y:hidden;background:var(--hz-card);',
+    '-webkit-overflow-scrolling:touch;container-type:inline-size;',
+    // SOMBRAS EN LOS BORDES, y solo cuando hay algo mas que ver. La primera
+    // version se cortaba en seco en "RATIN…" y nada decia que la tabla seguia:
+    // el estudiante daba por hecho que esas columnas no existian.
+    //
+    // Es el truco de `background-attachment: local`: los dos degradados que
+    // tapan viajan CON el contenido y los dos que hacen sombra se quedan
+    // quietos, asi que la sombra solo asoma cuando queda tabla por ese lado.
+    // Sin JavaScript, sin medir nada y sin una barra que ocupe sitio.
+    'background-image:linear-gradient(to right,var(--hz-card) 40%,rgba(0,0,0,0)),',
+    'linear-gradient(to left,var(--hz-card) 40%,rgba(0,0,0,0)),',
+    'radial-gradient(farthest-side at 0 50%,rgba(0,0,0,.34),rgba(0,0,0,0)),',
+    'radial-gradient(farthest-side at 100% 50%,rgba(0,0,0,.34),rgba(0,0,0,0));',
+    'background-position:0 0,100% 0,0 0,100% 0;background-repeat:no-repeat;',
+    'background-size:36px 100%,36px 100%,15px 100%,15px 100%;',
+    'background-attachment:local,local,scroll,scroll}',
+    // Se aprieta lo justo para que en una tarjeta ancha quepa entera y la
+    // sombra ni aparezca; en una estrecha, se desliza.
+    // LOS ANCHOS, MEDIDOS. Se envio dos veces una tabla que no cabia: las
+    // columnas se estiraban por el TEXTO DE LA CABECERA ("Vendidas al mes / al
+    // día" pedia 102px para un numero de cuatro cifras), no por los datos.
+    // Cabeceras de una palabra, la unidad dentro de la celda, y tope al nombre
+    // del producto. Medido en la tarjeta real: 647px de tabla en 676 de hueco.
+    '.s-hz{min-width:0}',
+    // Medido: con 8px de relleno la tabla pedia 689 en un hueco de 676. Las
+    // columnas numericas no necesitan tanto aire —su contenido son cuatro o
+    // cinco caracteres— y bajarlo a 6 deja 28px de margen para el dia que un
+    // rango venga mas largo. La del producto conserva los 8: ahi va la foto.
+    '.s-hz td,.s-hz thead th{padding-left:6px;padding-right:6px}',
+    '.s-hz td:nth-child(2),.s-hz thead th:nth-child(2){padding-left:8px;padding-right:10px}',
+    '.s-hz thead th{white-space:normal}',
+    '.s-hz td:nth-child(2){min-width:132px;max-width:190px}',
+    '.s-hz-n{overflow-wrap:anywhere}',
+    '@container (max-width:700px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
+    '@media (max-width:700px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
+    '.s-hz-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
+
+    /* La casilla y la fila elegida. */
+    '.s-hz-ckc{width:38px;padding-right:0!important}',
+    '.s-hz-lb{display:inline-flex;cursor:pointer;padding:2px}',
+    '.s-hz-ck{width:17px;height:17px;accent-color:var(--hz-or);cursor:pointer;margin:0}',
+    '.s-hz-ck:disabled{cursor:not-allowed;opacity:.35}',
+    '.s-hz tbody tr.elegida{background:rgba(247,170,46,.10)}',
+    '.s-hz tbody tr.elegida td:first-child{box-shadow:inset 3px 0 0 var(--hz-or)}',
+
+    /* La barra de "analizar los elegidos". */
+    '.s-hz-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 0;',
+    'padding:11px 14px;border-radius:13px;background:rgba(247,170,46,.10);',
+    'border:1px solid rgba(247,170,46,.30)}',
+    '.s-hz-sel[hidden]{display:none}',
+    '.s-hz-selc{font-size:13px;font-weight:700;color:var(--hz-or)}',
+    '.s-hz-selb{margin-left:auto;padding:9px 18px;border:0;border-radius:11px;cursor:pointer;',
+    'background:var(--hz-or);color:#0b1638;font:inherit;font-size:13px;font-weight:800}',
+    '.s-hz-selb:hover{filter:brightness(1.07)}',
     '.s-hz{width:100%;border-collapse:collapse;font-size:14px}',
     '.s-hz thead th{text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.09em;',
     'text-transform:uppercase;color:var(--hz-tx3);padding:11px 12px;background:var(--hz-card);',
@@ -478,7 +613,13 @@
     '.s-hz .s-hz-th-r{color:var(--hz-or)}',
     '.s-hz td{padding:12px;border-bottom:1px solid var(--hz-line2);vertical-align:top}',
     '.s-hz tbody tr:last-child td{border-bottom:0}',
-    '.s-hz td[data-num]{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--hz-tx2)}',
+    // SIN `nowrap`. Era eso lo que empujaba la tabla fuera del borde: los
+    // rangos de un producto con variaciones —"$19K-50K", "1.28 - 1.30 lb",
+    // "230-246"— no cabian y, en vez de partirse, ensanchaban su columna
+    // hasta cortar las tres ultimas. Partir un rango en dos lineas no pierde
+    // nada; empujarlo fuera de la pantalla si.
+    '.s-hz td[data-num]{font-variant-numeric:tabular-nums;color:var(--hz-tx2);',
+    'font-size:13px;overflow-wrap:anywhere}',
     '.s-hz-n{font-weight:700;color:var(--hz-tx);line-height:1.35;display:block}',
     /* El ratio (y el peso, en la otra tabla) en naranja: es la columna que hay
        que mirar, y engancha con el bloque naranja de abajo. */
@@ -494,6 +635,8 @@
     '.s-hz-meta{display:block;margin-top:2px;font-size:11.5px;color:var(--hz-tx3);font-weight:600}',
     '.s-hz-meta code{font-size:11px;letter-spacing:.02em;opacity:.85}',
     '.s-hz-star{display:block;font-size:11.5px;color:var(--hz-or);font-weight:700}',
+    '.s-hz-sub{display:block;font-size:11.5px;color:var(--hz-tx3);font-weight:600}',
+    '.s-hz-th2{font-size:9px;letter-spacing:.05em;opacity:.75;font-weight:700}',
 
     /* La franja de cifras, al estilo de la extension pero con la identidad de
        Sophie: navy, naranja y el mismo radio de esquina que el resto. */
@@ -568,7 +711,18 @@
     /* En pantalla estrecha una tabla de seis columnas no se lee: se rompe en
        bloques, uno por producto, con la etiqueta de cada dato al lado. Sigue
        siendo la misma tabla — no hay una segunda version que mantener. */
-    '@media (max-width:620px){',
+    // QUIEN DECIDE: EL ANCHO DE LA TARJETA, NO EL DE LA VENTANA.
+    //
+    // Con `@media` la tabla miraba el viewport y la tarjeta de chat mide
+    // siempre ~676px, sea la ventana de 760 o de 1400. Resultado: en una
+    // ventana ancha el navegador creia que cabia una tabla de columnas dentro
+    // de un hueco de 676 y cortaba las tres ultimas. Eso es lo que se vio.
+    //
+    // `@container` pregunta por el hueco DE VERDAD. Las mismas reglas se emiten
+    // dos veces —una en @container y otra en @media— porque un navegador sin
+    // soporte de contenedores tiene que apilar igual: en ese caso el corte por
+    // viewport es una aproximacion peor, pero nunca deja un dato fuera.
+    '@container (max-width:700px){',
     '.s-hz thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
     '.s-hz,.s-hz tbody,.s-hz tr,.s-hz td{display:block;width:100%}',
     '.s-hz tbody tr{padding:12px 6px;border-bottom:1px solid var(--hz-line2)}',
@@ -576,10 +730,30 @@
     '.s-hz tbody tr.s-hz-nr{padding-top:0;border-bottom:0}',
     '.s-hz td{border:0;padding:3px 8px;display:flex;justify-content:space-between;gap:14px}',
     '.s-hz td:first-child{display:block;padding-bottom:7px}',
+    // En movil la casilla va arriba de su bloque, sola y sin etiqueta: la fila
+    // entera es el producto, asi que "Elegir" no aporta nada y roba una linea.
+    '.s-hz td.s-hz-ckc{display:block;padding:0 8px 4px}',
+    '.s-hz td.s-hz-ckc::before{content:none}',
     '.s-hz td[data-num]::before{content:attr(data-l);font-size:11px;font-weight:800;',
     'letter-spacing:.07em;text-transform:uppercase;color:var(--hz-tx3)}',
-    '}'
-  ].join('');
+
+    '}',
+    '@media (max-width:700px){',
+    '.s-hz thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
+    '.s-hz,.s-hz tbody,.s-hz tr,.s-hz td{display:block;width:100%}',
+    '.s-hz tbody tr{padding:12px 6px;border-bottom:1px solid var(--hz-line2)}',
+    '.s-hz tbody tr:last-child{border-bottom:0}',
+    '.s-hz tbody tr.s-hz-nr{padding-top:0;border-bottom:0}',
+    '.s-hz td{border:0;padding:3px 8px;display:flex;justify-content:space-between;gap:14px}',
+    '.s-hz td:first-child{display:block;padding-bottom:7px}',
+    // En movil la casilla va arriba de su bloque, sola y sin etiqueta: la fila
+    // entera es el producto, asi que "Elegir" no aporta nada y roba una linea.
+    '.s-hz td.s-hz-ckc{display:block;padding:0 8px 4px}',
+    '.s-hz td.s-hz-ckc::before{content:none}',
+    '.s-hz td[data-num]::before{content:attr(data-l);font-size:11px;font-weight:800;',
+    'letter-spacing:.07em;text-transform:uppercase;color:var(--hz-tx3)}',
+
+    '}',  ].join('');
 
   function asegurarEstilo() {
     if (typeof document === 'undefined') return;
@@ -596,6 +770,7 @@
     if (!h || !container) return false;
     asegurarEstilo();
     container.innerHTML = h;
+    try { engancharEleccion(container); } catch (e) { /* la tabla ya esta: se lee igual */ }
     return true;
   }
 

@@ -100,9 +100,13 @@ caso('un campo que falta sale como raya, no como "undefined"', () => {
 caso('los rangos se respetan, no se aplastan a un número', () => {
   // Un producto con variaciones TIENE rango de verdad. Redondearlo sería
   // inventar una precisión que el dato no tiene.
-  const h = H.html(HALL);
+  // El `<wbr>` es un punto de corte invisible que se mete tras el guion para
+  // que un rango pueda partirse en dos lineas en vez de ensanchar su columna.
+  // No cambia lo que se lee, asi que se quita antes de comparar.
+  const h = H.html(HALL).replace(/<wbr>/g, '');
   for (const r of ['$24–51', '$19K–50K', '230–246', '7–39'])
     ok(h.includes(r), 'se perdió el rango ' + r);
+  ok(/\$24–<wbr>51/.test(H.html(HALL)), 'el rango no trae punto de corte: la tabla se desbordará');
 });
 
 console.log('\nLa validación de keyword, igual');
@@ -158,7 +162,12 @@ caso('ningún color de texto va en crudo dentro del CSS', () => {
   // solo error. Hoy las páginas van en oscuro, así que no llegó a producción;
   // el día que una cambie de tema, habría llegado.
   const css = /var CSS = \[([\s\S]*?)\]\.join\(''\);/.exec(SRC)[1];
-  const colores = css.match(/color:\s*#[0-9a-f]{3,6}/gi) || [];
+  // Se excluye el color del TEXTO SOBRE NARANJA: el naranja es fijo (es la
+  // marca, no un token del tema), asi que lo que va encima tambien tiene que
+  // serlo. Con un token heredaria el color del tema y en claro quedaria
+  // naranja sobre naranja.
+  const colores = (css.match(/[^-]color:\s*#[0-9a-f]{3,6}/gi) || [])
+    .filter((c) => !/#0b1638/i.test(c));
   ok(colores.length === 0, 'colores escritos a mano en el CSS: ' + colores.join(', '));
   for (const t of ['--hz-tx', '--hz-tx2', '--hz-tx3', '--hz-or'])
     ok(css.includes(t), 'falta el token ' + t);
@@ -320,6 +329,63 @@ caso('ningún bloque se queda sin la declaración de tokens', () => {
     ok(decl.includes(b), 'el bloque ' + b + ' usa los tokens y no los recibe');
 });
 
+console.log('\nElegir productos: hasta tres');
+
+caso('cada fila trae su casilla, con el nombre como valor', () => {
+  const h = H.html(HALL);
+  ok((h.match(/class="s-hz-ck"/g) || []).length === 3, 'no hay una casilla por producto');
+  ok(h.includes('value="Epoxy Resin Kit 1 Gal"'), 'la casilla no lleva el nombre del producto');
+});
+
+caso('el tope es TRES y está escrito una sola vez', () => {
+  // Si el número viviera en dos sitios —el que apaga las casillas y el que
+  // escribe "de 3"— se separarían y el estudiante leería un límite distinto
+  // del que se le aplica.
+  ok(/var MAX_ELEGIDOS = 3;/.test(SRC), 'el tope no está declarado');
+  ok((SRC.match(/MAX_ELEGIDOS/g) || []).length >= 3, 'el tope se usa en un solo sitio');
+  ok(!/de 3</.test(SRC) && !/'3'/.test(SRC.slice(SRC.indexOf('function engancharEleccion'))),
+     'hay un 3 escrito a mano junto al tope');
+});
+
+caso('al llegar al tope se APAGAN las demás, no se quita la cuarta', () => {
+  // Un límite que se explica quitándole algo que ya te dio se vive como un
+  // fallo de la aplicación, no como una regla.
+  const f = SRC.slice(SRC.indexOf('function refrescar'), SRC.indexOf('container.addEventListener'));
+  ok(/c\.disabled = !c\.checked && n >= MAX_ELEGIDOS/.test(f), 'no apaga las casillas al llegar al tope');
+  ok(!/\.checked = false/.test(f), 'desmarca una casilla que el estudiante ya había marcado');
+});
+
+caso('el módulo avisa, no habla con el chat', () => {
+  // Así sirve igual en las dos páginas sin conocer ninguna.
+  ok(/new CustomEvent\('sophie-analizar'/.test(SRC), 'no emite el evento');
+  ok(/bubbles: true/.test(SRC), 'el evento no sube: la página no lo va a oír');
+  ok(!/SophieChat|window\.send|document\.getElementById\('input'\)/.test(SRC),
+     'el módulo está tocando el chat directamente');
+});
+
+console.log('\nLa tabla entra entera, que es lo que costó dos intentos');
+
+caso('los rangos pueden partirse en vez de desbordar', () => {
+  // La tabla se envió dos veces cortada por la derecha. El ancho no lo forzaban
+  // las cabeceras: lo forzaban los rangos con `white-space:nowrap`.
+  const css = /var CSS = \[([\s\S]*?)\]\.join\(''\);/.exec(SRC)[1];
+  ok(!/white-space:nowrap/.test(css.slice(css.indexOf('data-num'), css.indexOf('data-num') + 200)),
+     'las celdas numéricas vuelven a llevar nowrap');
+  ok(/overflow-wrap:anywhere/.test(css), 'no se permite partir un valor largo');
+});
+
+caso('y la decisión se toma con el ancho de la TARJETA, no de la ventana', () => {
+  // Con `@media` la tabla miraba el viewport. La tarjeta de chat mide ~676px
+  // sea la ventana de 760 o de 1400, así que en pantalla ancha el navegador
+  // creía que cabía y cortaba las tres últimas columnas. Eso es lo que se vio.
+  const css = /var CSS = \[([\s\S]*?)\]\.join\(''\);/.exec(SRC)[1];
+  ok(/container-type:inline-size/.test(css), 'el contenedor no se declara como tal');
+  ok(/@container \(max-width:700px\)/.test(css), 'no hay consulta de contenedor');
+  // Y la copia en @media, para el navegador que no soporte contenedores: sin
+  // ella apilaría nunca y volvería a cortar.
+  ok(/@media \(max-width:700px\)/.test(css), 'no hay repliegue por viewport');
+});
+
 console.log('\nY la página lo llama de verdad');
 
 // UN PINTOR QUE NADIE LLAMA ES UN ARCHIVO MUERTO. Es el mismo agujero que tuvo
@@ -329,6 +395,15 @@ for (const pagina of ['index.html', 'producto-v2.html']) {
   const f = path.join(RAIZ, '..', 'sophie-producto', pagina);
   if (!fs.existsSync(f)) continue;
   const P = fs.readFileSync(f, 'utf8');
+
+  caso(pagina + ': escucha el botón de analizar y lo convierte en mensaje', () => {
+    // El modulo emite el evento y la pagina lo traduce a lo que el estudiante
+    // habria escrito. Sin esta parte, marcar tres productos no hace nada — y
+    // eso no falla, simplemente no pasa nada, que es peor de diagnosticar.
+    ok(/addEventListener\('sophie-analizar'/.test(P), 'no escucha el evento de la tabla');
+    ok(/Quiero analizar est/.test(P), 'no arma el mensaje');
+    ok(/send\(texto, true\)/.test(P), 'no lo manda al chat');
+  });
 
   caso(pagina + ': carga el script y arma las dos pantallas', () => {
     ok(/sophie-hallazgos\.js/.test(P), 'no carga el script');
