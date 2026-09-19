@@ -242,6 +242,96 @@ caso('una pantalla que no pregunta eso no dispara nada', () => {
   ok(f.pideLoQueYaSe('Aquí están los competidores de dog bowl') === '', 'falso positivo');
 });
 
+console.log('\nEl veto: ninguna herramienta de pago llega a la pantalla');
+
+for (const pagina of ['index.html', 'producto-v2.html']) {
+  const p = path.join(AQUI, '..', '..', 'sophie-producto', pagina);
+  if (!fs.existsSync(p)) continue;
+  const H = fs.readFileSync(p, 'utf8');
+
+  caso(pagina + ': el veto corta DURANTE el streaming, no al final', () => {
+    // La prosa se pinta segun llega, asi que filtrar al final dejaria ver el
+    // texto un segundo antes de quitarlo. El estudiante lo leeria igual.
+    ok(/if \(!vetado && VETO\.test\(full\)\)/.test(H), 'no hay veto dentro del bucle de streaming');
+    const pintado = (H.match(/else if \([^)]*\) container\.innerHTML = cleanHTML\(full\);/) || [''])[0];
+    ok(/!vetado/.test(pintado), 'se sigue pintando el texto vetado mientras llega');
+  });
+
+  caso(pagina + ': el turno vetado no entra al historial tal cual', () => {
+    const i = H.indexOf('if (vetado) {');
+    // El push que importa es el del turno, no el de la bienvenida que la
+    // pagina escribe sola antes de que el modelo diga nada.
+    const j = H.indexOf("history.push({ role: 'assistant', content: full });");
+    ok(i !== -1 && i < j,
+       'si se queda en el historial, el modelo lo lee al turno siguiente y lo repite');
+  });
+
+  caso(pagina + ': y la corrección NO nombra lo que quiere evitar', () => {
+    const fn = (H.match(/function rehacerTurno\(\)[\s\S]*?\n  \}/) || [''])[0];
+    ok(fn, 'nadie rehace el turno vetado');
+    ok(!/Helium|Xray|X-Ray|Cerebro|Black Box|Magnet/i.test(fn),
+       'la corrección nombra las herramientas. Ese es el error que costó semanas: ' +
+       'una instrucción que nombra lo que evita lo enseña igual, y esta frase entra ' +
+       'en la conversación como cualquier otra.');
+    ok(/vetos >= 2/.test(H), 'sin tope, podría rehacer el turno sin fin');
+  });
+}
+
+{
+  const H = fs.readFileSync(path.join(AQUI, '..', '..', 'sophie-producto', 'index.html'), 'utf8');
+  const VETO = new Function(H.match(/const VETO = .*/)[0] + '; return VETO;')();
+  const CASOS = [
+    ['Necesito que entres a Helium 10 › X-Ray y me pegues la tabla', true],
+    ['abre Xray y borra los que no se parecen', true],
+    ['corre Cerebro sobre los 10 competidores', true],
+    ['Vamos a buscar tu producto en Black Box', true],
+    ['usa Magnet para las keywords', true],
+    ['Aquí están los competidores de cold brew coffee filters', false],
+    ['Tu keyword pasó los 3 filtros. Ahora limpia la tabla.', false],
+  ];
+  for (const [texto, esperado] of CASOS)
+    caso((esperado ? 'veta: ' : 'deja pasar: ') + '"' + texto.slice(0, 44) + '…"',
+      () => ok(VETO.test(texto) === esperado, 'el veto se equivoca con esta frase'));
+}
+
+console.log('\nLa promesa sin acción: dice que va a hacerlo y se para');
+
+{
+  // La regla vive en la página, así que se extrae de ahí y se ejecuta. Probarla
+  // leyendo el código no sirve: lo que importa es dónde cae cada frase real.
+  const H = fs.readFileSync(path.join(AQUI, '..', '..', 'sophie-producto', 'index.html'), 'utf8');
+  const bloque = (H.match(/const PROMESA = [\s\S]*?\n  \}/) || [''])[0];
+
+  caso('la regla existe en la página', () => {
+    ok(bloque, 'nadie detecta que Sophie prometió algo y no lo hizo');
+    ok(/function seguirPromesa/.test(H), 'se detecta pero no se actúa');
+    ok(/promesas >= 3/.test(H), 'sin tope, la página podría pedir turnos sin fin');
+  });
+
+  if (bloque) {
+    const prometeSinHacer = new Function(bloque + '; return prometeSinHacer;')();
+    const CASOS = [
+      ['Perfecto. Voy a validar la keyword antes de seguir.', true,
+       'es la frase exacta que dejó al estudiante esperando'],
+      ['Necesito traer los datos del nicho antes de avanzar. Dame un segundo.', true,
+       'la otra frase exacta del mismo atasco'],
+      ['Déjame traer los datos del nicho ahora mismo.', true, 'misma forma, otras palabras'],
+      ['¿Con cuál seguimos? Dime el nombre 👇', false,
+       'PREGUNTA algo: la pelota es del estudiante y la página no debe contestar por él'],
+      ['Aquí están los competidores. ¿Cuáles se parecen a lo que piensas vender?', false,
+       'el Filtro 3 lo aprueba el estudiante: adelantarlo rompería el método'],
+      ['Tu keyword pasó los 3 filtros. ' + 'texto largo '.repeat(80), false,
+       'una pantalla larga no es una promesa colgada aunque diga "ahora mismo"'],
+      ['Listo, aquí tienes los 8 candidatos.', false, 'no promete nada, ya lo hizo'],
+    ];
+    for (const [texto, esperado, porque] of CASOS) {
+      caso((esperado ? 'continúa sola: ' : 'NO se mete: ') + '"' + texto.slice(0, 46) + '…"', () => {
+        ok(prometeSinHacer(texto) === esperado, porque);
+      });
+    }
+  }
+}
+
 console.log('\nY la aplicación deja de repetirse a sí misma');
 
 caso('con capital en la ficha, el paso 3 tampoco lo vuelve a pedir', () => {
