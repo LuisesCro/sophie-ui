@@ -33,7 +33,7 @@
 
   // Quita el marcador para que nunca se vea en pantalla.
   function limpiar(texto) {
-    return String(texto || '').replace(MARCA, '').replace(/<!--[PM]:[^>]*-->/g, '').trim();
+    return String(texto || '').replace(MARCA, '').replace(/<!--(?:[PM]|DATOS):[^>]*-->/g, '').trim();
   }
 
   /* ---------- títulos por fase ---------- */
@@ -52,7 +52,13 @@
     var fase = payload.fase || 9;
     var t = TITULOS[fase] || TITULOS[9];
 
-    var r = SophieMotor.evaluar(payload.datos || {}, payload.juicios || {});
+    /* El mercado sale del selector de la página; la compatibilidad la declara
+       Sophie en el marcador cuando detecta un producto de repuesto. */
+    var opts = {
+      mercado: (window.CzMercado ? CzMercado.actual() : 'us'),
+      compatibilidad: !!(payload.compatibilidad || (payload.datos && payload.datos.compatibilidad))
+    };
+    var r = SophieMotor.evaluar(payload.datos || {}, payload.juicios || {}, opts);
 
     // En fase 1 y 2 solo se muestran los criterios de esa fase.
     var filas = fase === 9 ? r.filas : r.filas.filter(function (f) { return f.fase === fase; });

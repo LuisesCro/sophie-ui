@@ -274,6 +274,37 @@
       d.innerHTML = htmlCob;
       host.appendChild(d.firstChild);
     }
+
+    // Correcciones mecánicas LISTAS PARA PEGAR. El backend y las viñetas son los
+    // dos campos que el motor puede reparar sin tocar la intención del copy
+    // (bolsa de keywords y formato de encabezado). Si el motor los mejoró, se los
+    // mostramos ya corregidos para que el estudiante los pegue tal cual.
+    try {
+      var repB = K.repararBackend ? K.repararBackend(L) : null;
+      var repV = K.repararVinetas ? K.repararVinetas(L.vinetas) : null;
+      var partes = '';
+      if (repB && repB.cambio) {
+        partes += '<p class="s-veredicto__razon" style="margin:14px 0 6px"><b>Backend corregido</b> · ' +
+          repB.bytes + '/249 bytes · ' + repB.espanol.length + ' términos en español' +
+          (repB.espanol.length ? ' (' + esc(repB.espanol.slice(0, 8).join(', ')) + ')' : '') + '</p>' +
+          '<pre class="s-copy">' + esc(repB.backend) + '</pre>';
+      }
+      if (repV && repV.cambio) {
+        partes += '<p class="s-veredicto__razon" style="margin:16px 0 6px"><b>Viñetas corregidas</b> · ' +
+          'formato de encabezado listo · ' + repV.indexado.totalBytes + '/1000 bytes indexados' +
+          (repV.indexado.totalBytes > 1000 ? ' — aún hay que recortar relleno' : '') + '</p>' +
+          '<pre class="s-copy">' + esc(repV.vinetas.map(function (v, i) { return (i + 1) + '. ' + v; }).join('\n\n')) + '</pre>';
+      }
+      if (partes) {
+        var dcorr = document.createElement('div');
+        dcorr.innerHTML = '<section class="s-card">' +
+          '<p class="s-card__eyebrow">Correcciones listas para pegar</p>' +
+          '<p class="s-veredicto__razon" style="margin:0 0 4px">El motor ya arregló lo mecánico (formato de viñetas, bytes, términos en español y palabras repetidas del título). Copia estos campos tal cual — una viñeta por campo — sin reescribirlos a mano.</p>' +
+          partes + '</section>';
+        if (dcorr.firstChild) host.appendChild(dcorr.firstChild);
+      }
+    } catch (e) { /* si algo falla, el veredicto ya quedó pintado igual */ }
+
     return { score: s, cobertura: cob };
   }
 

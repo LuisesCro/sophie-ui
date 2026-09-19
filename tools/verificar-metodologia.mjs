@@ -87,6 +87,67 @@ if (!chatPath) {
   const desdeV2 = chat.indexOf("const SYSTEM_PROMPT_V2");
   const activo = desdeV2 >= 0 ? chat.slice(desdeV2) : chat;
 
+  // DOS REGLAS, NO UNA. Hasta aquí esta guarda exigía que el prompt repitiera
+  // TODOS los umbrales. Desde que los criterios estimados llevan banda (±20%,
+  // ±10% en los cocientes) esa regla dejó de ser correcta para ellos: el motor
+  // es quien aplica la banda, y repetir la cifra en el prompt crea dos fuentes
+  // de verdad que se separan en silencio — el día que se ajuste una banda,
+  // Sophie seguiría narrando el número viejo.
+  //
+  // Así que la exigencia depende de la BASE del criterio:
+  //   · medido / propio      → corte exacto, el prompt lo narra → tiene que estar
+  //   · estimado / cociente  → lo decide el motor con banda → NO debe estar
+  //
+  // Nótese que la segunda mitad es tan estricta como la primera: comprueba una
+  // AUSENCIA. Sin ella, alguien podría volver a escribir "3.600" en el prompt y
+  // nadie se enteraría hasta que las dos cifras dejaran de coincidir.
+  const conBanda = (c) => c.base === "estimado" || c.base === "estimado_cociente";
+
+  // NO BASTA COMPROBAR QUE NO ESTÉN LOS NÚMEROS DEL MOTOR.
+  //
+  // La primera versión de esta regla solo miraba eso, y dejó pasar algo peor
+  // que un duplicado: umbrales VIEJOS. El prompt decía "SV ≥ 4,500" mientras el
+  // motor cortaba en 5.400/3.600; "mínimo 30 keywords" contra 36/12. Como 5.400
+  // y 3.600 no aparecían, la guarda daba ✓ — y Sophie narraba un aprobado que el
+  // motor contradecía en la misma pantalla.
+  //
+  // Un umbral ausente y uno equivocado se ven igual desde el motor. Así que lo
+  // que se prohíbe es la FORMA de un umbral, venga el número de donde venga: un
+  // criterio con banda no dice cifras, dice comportamiento.
+  const UMBRALES = [
+    [/[≥≤<>]\s*\$?\s*\d/, "una comparación con número (≥, ≤, <, >)"],
+    [/(m[íi]nimo|al menos|menos de|m[áa]s de|bajo|supera el|entre)\s*\$?\s*\d/i, "un umbral en palabras"],
+    [/\$\s?\d/, "una cifra en dólares"],
+    [/\d\s?%/, "un porcentaje"],
+    [/\d{2,}\s*\+/, "un piso del tipo '60+'"],
+  ];
+  const huellaDeUmbral = (txt) => UMBRALES.filter(([re]) => re.test(txt)).map(([, q]) => q);
+
+  // AUTOPRUEBA. Una guarda que deja de cazar no avisa de nada: da ✓ igual que
+  // una que funciona. Estos son los CUATRO TEXTOS REALES que se escaparon —
+  // umbrales viejos que convivieron meses con el motor nuevo sin que esto
+  // saltara. Si alguno deja de detectarse, la rota es la guarda, y se dice aquí
+  // en vez de descubrirlo cuando un estudiante vea dos números distintos.
+  seccion("AUTOPRUEBA DE LA GUARDA (los textos que una vez se escaparon)");
+  const ESCAPADOS = {
+    C1: "C1 · Tendencia y volumen — SV ≥ 4,500/mes y tendencia alcista o estable. ❌ si SV < 4,500.",
+    C2: "C2 · Ingresos reales — Average Revenue ≥ $4,500/mes. ⚠️ entre $3,000 y $4,499. ❌ bajo $3,000.",
+    C3: "C3 · Distribución de ingresos — ningún producto supera el 40% del Total Revenue. ⚠️ si el #1 concentra 40-60%.",
+    C7: "C7 · Demanda en profundidad — mínimo 30 keywords orgánicas. ✅ excelente 60+, ⚠️ 15-29, ❌ menos de 15.",
+  };
+  for (const [id, txt] of Object.entries(ESCAPADOS)) {
+    const h = huellaDeUmbral(txt);
+    if (h.length) ok(id + ": el texto viejo sigue siendo detectado (" + h[0] + ")");
+    else fail(id + ": LA GUARDA YA NO CAZA su propio texto viejo — está rota, no el prompt");
+  }
+  // Y al revés: la forma nueva NO puede dar falso positivo, o nadie podrá
+  // escribir un criterio con banda sin pelearse con esta guarda.
+  const NUEVO = "C7 · Demanda en profundidad — el nicho necesita muchas puertas de entrada. EL CORTE LO APLICA EL MOTOR, con banda.";
+  if (huellaDeUmbral(NUEVO).length) fail("falso positivo: la redacción sin cifras salta igualmente");
+  else ok("y la redacción sin cifras pasa limpia (sin falsos positivos)");
+
+  seccion("PROMPT DEL MODELO · criterio por criterio");
+
   for (const c of calculables) {
     // bloque del criterio: entre "C{id} ·" y "C{id+1} ·"
     const ini = activo.indexOf("C" + c.id + " ·");
@@ -95,49 +156,143 @@ if (!chatPath) {
     if (fin < 0) fin = ini + 600;
     const bloque = activo.slice(ini, fin);
 
+    if (conBanda(c)) {
+      const encontrados = huellaDeUmbral(bloque);
+      if (encontrados.length)
+        fail("C" + c.id + " (" + c.criterio + "): lleva banda y el prompt escribe " +
+             encontrados.join(", ") + " — el umbral vive en el motor, no aquí");
+      else ok("C" + c.id + " (" + c.criterio + "): con banda, delegado al motor");
+      continue;
+    }
+
     const faltantes = [];
     if (c.umbral_num != null && !numRe(c.umbral_num).test(bloque)) faltantes.push("umbral " + c.umbral_num);
     if (c.alerta_num != null && !numRe(c.alerta_num).test(bloque)) faltantes.push("alerta " + c.alerta_num);
     if (faltantes.length) fail("C" + c.id + " (" + c.criterio + "): el prompt no menciona " + faltantes.join(" ni "));
     else ok("C" + c.id + " (" + c.criterio + "): umbrales presentes");
   }
+
+  /* ---------- 2b. México, que se estaba revisando solo en USA ---------- */
+  //
+  // BLOQUE_MX lleva su propia tabla de umbrales y el motor su propio
+  // `umbralesMX`. Esta guarda solo miraba el prompt de USA, así que México tenía
+  // exactamente el agujero que acabamos de tapar allá: dos fuentes de verdad y
+  // nadie comparándolas. Los números coincidían todavía — pero eso es suerte,
+  // no una garantía, y es justo lo que se cree hasta el día que dejan de
+  // coincidir.
+  seccion("PROMPT DE MÉXICO (BLOQUE_MX · umbralesMX del motor)");
+  const iMX = chat.indexOf("const BLOQUE_MX");
+  const MX = SC.umbralesMX;
+  if (iMX < 0) aviso("No encuentro BLOQUE_MX en chat.js");
+  else if (!MX) aviso("sophie-criterios.js no expone umbralesMX");
+  else {
+    const bloqueMX = chat.slice(iMX, chat.indexOf("\nconst ", iMX + 10));
+    for (const c of calculables) {
+      const mx = MX[c.id];
+      // Solo los criterios que México redefine. Los que no, heredan USA y ya se
+      // revisaron arriba.
+      if (!mx || (mx.umbral_num == null && mx.alerta_num == null)) continue;
+      // LA VIÑETA es donde se duplica un umbral; EL BLOQUE ENTERO es donde hay
+      // que buscarlo cuando tiene que estar. Las dos mitades miran a sitios
+      // distintos a propósito:
+      //
+      // · Buscar el NÚMERO del motor en todo el bloque no sirve para la mitad
+      //   de la duplicación: el bloque trae también la lista de filtros de
+      //   búsqueda ("Search Volume ≥ 500", "Monthly Revenue ≥ MXN 80,000"), que
+      //   son los mismos números y ahí SÍ deben estar — los teclea el alumno.
+      //   Probado: esa versión marcaba C1, C2 y C7 con el prompt ya correcto.
+      // · Exigir la PRESENCIA solo en la viñeta también falla: México es un
+      //   documento corrido y algunos criterios remiten a otra sección ("ver la
+      //   sección de precio, abajo"). Daba un falso positivo en C5, cuyo umbral
+      //   vive —correctamente— más abajo.
+      const ini = bloqueMX.indexOf("· Criterio " + c.id + " ·");
+      if (conBanda(c)) {
+        if (ini < 0) { ok("C" + c.id + " (MX): con banda, y el prompt no lo repite"); continue; }
+        let fin = bloqueMX.indexOf("\n· ", ini + 1);
+        if (fin < 0) fin = ini + 600;
+        const encontrados = huellaDeUmbral(bloqueMX.slice(ini, fin));
+        if (encontrados.length)
+          fail("C" + c.id + " (MX): lleva banda y su párrafo escribe " +
+               encontrados.join(", ") + " — el umbral vive en umbralesMX");
+        else ok("C" + c.id + " (MX): con banda, delegado al motor");
+        continue;
+      }
+      const faltan = [];
+      if (mx.umbral_num != null && !numRe(mx.umbral_num).test(bloqueMX)) faltan.push("umbral " + mx.umbral_num);
+      if (mx.alerta_num != null && !numRe(mx.alerta_num).test(bloqueMX)) faltan.push("alerta " + mx.alerta_num);
+      if (faltan.length) fail("C" + c.id + " (MX): el prompt no menciona " + faltan.join(" ni "));
+      else ok("C" + c.id + " (MX): umbrales presentes");
+    }
+  }
 }
 
 /* ---------- 3. pantallas guiadas del alumno (sophie-pasos.js) ---------- */
 
-seccion("PANTALLAS DEL ALUMNO (sophie-pasos.js · filtros Black Box y Cerebro)");
+// ESTA SECCIÓN CAMBIÓ DE INVARIANTE, y conviene decir por qué.
+//
+// Antes exigía que las pantallas del paso 3 y del paso 4 nombraran cada filtro
+// con el nombre del campo de Helium 10 y su número exacto. Tenía sentido cuando
+// el estudiante los TECLEABA en Black Box: si la pantalla y la fuente única se
+// desincronizaban, el estudiante filtraba con umbrales que no eran los del
+// método. Ese fallo ocurrió de verdad y por eso existe este verificador.
+//
+// Ya no los teclea nadie: los aplica el motor, con banda. Y esas dos pantallas
+// manuales se borraron enteras, porque mientras existieran había una condición
+// que podía devolver al estudiante al guion de Helium 10 — y volvió, varias
+// veces, semanas después de darlo por quitado.
+//
+// El invariante equivalente, y más fuerte, es el contrario: LOS UMBRALES NO
+// PUEDEN ESTAR ESCRITOS EN LAS PANTALLAS. Tienen que vivir en un solo sitio
+// —sophie-criterios.js para el juicio, el motor para el corte— porque un número
+// copiado en una pantalla es un número que se queda atrás en silencio.
+
+seccion("PANTALLAS DEL ALUMNO (sophie-pasos.js · sin umbrales copiados, sin herramientas)");
 const pasosPath = resolve(raiz, "sophie-pasos.js");
 if (!existsSync(pasosPath)) {
   fail("No encuentro sophie-pasos.js");
 } else {
   const pasos = readFileSync(pasosPath, "utf8");
+  const win = {};
+  new Function("window", pasos)(win);
+  const SP = win.SophiePasos;
 
-  // Cada pantalla es "N: function". Aislamos el bloque de cada paso para no
-  // confundir "Search Volume 4,500" (paso 3) con "Search Volume 300" (paso 4).
-  function bloquePaso(n) {
-    const ini = pasos.indexOf("\n    " + n + ": function");
-    if (ini < 0) return null;
-    const sig = pasos.indexOf("\n    " + (n + 1) + ": function", ini + 1);
-    return pasos.slice(ini, sig < 0 ? ini + 4000 : sig);
-  }
-
-  const grupos = [
-    { titulo: "Black Box (paso 3)", paso: 3, filtros: SC.filtros.blackBox },
-    { titulo: "Cerebro (paso 4)", paso: 4, filtros: SC.filtros.cerebro },
-  ];
-
-  for (const g of grupos) {
-    const blk = bloquePaso(g.paso);
-    if (!blk) { fail(g.titulo + ": no encuentro la pantalla en sophie-pasos.js"); continue; }
-    for (const f of g.filtros) {
-      if (!blk.includes(f.campo)) { fail(g.titulo + " · " + f.campo + ": la pantalla no nombra este filtro"); continue; }
-      const faltan = [];
-      if (f.min != null && !numRe(f.min).test(blk)) faltan.push("min " + f.min);
-      if (f.max != null && !numRe(f.max).test(blk)) faltan.push("max " + f.max);
-      if (faltan.length) fail(g.titulo + " · " + f.campo + ": falta " + faltan.join(" y "));
-      else ok(g.titulo + " · " + f.campo + ": valores presentes");
+  // Se mira el HTML YA PINTADO, no el código: es lo que ve el estudiante, y es
+  // donde estaban las menciones que sobrevivieron a todas las revisiones.
+  let pintadas = 0, sucias = 0, conNumeros = 0;
+  for (let paso = 1; paso <= 9; paso++) {
+    for (const datos of [true, false]) {
+      const html = SP.pantalla(paso, { datos, vars: { keyword: "k", categoria: "c" } });
+      if (!html) continue;
+      pintadas++;
+      const marcas = html.match(/Black Box|Helium 10|Cerebro|Xray|Magnet/gi) || [];
+      if (marcas.length) {
+        sucias++;
+        fail("paso " + paso + " (datos=" + datos + "): nombra " + [...new Set(marcas)].join(", ") +
+             ". El curso ya no se da con esas herramientas.");
+      }
+      // Los umbrales del método NO pueden estar escritos aquí. Se buscan los
+      // valores de la fuente única: si alguno aparece copiado, se avisa.
+      for (const f of SC.filtros.blackBox.concat(SC.filtros.cerebro)) {
+        for (const v of [f.min, f.max]) {
+          if (v == null || v < 100) continue;   // 2, 3, 10, 45… son demasiado comunes
+          if (numRe(v).test(html)) {
+            conNumeros++;
+            fail("paso " + paso + " (datos=" + datos + "): tiene el umbral " + v + " copiado en el texto. " +
+                 "Los umbrales viven en sophie-criterios.js y en el motor, no en una pantalla.");
+          }
+        }
+      }
     }
   }
+  if (!sucias) ok("ninguna de las " + pintadas + " pantallas nombra una herramienta de pago");
+  if (!conNumeros) ok("ninguna pantalla lleva umbrales copiados de la fuente única");
+
+  // Y la fuente única sigue siendo la fuente: los filtros tienen que existir,
+  // aunque ya no se impriman. Si desaparecieran, el motor se quedaría sin corte
+  // y este verificador daría verde sobre la nada.
+  if (!SC.filtros || !SC.filtros.blackBox || !SC.filtros.blackBox.length)
+    fail("sophie-criterios.js se quedó sin los filtros de descubrimiento");
+  else ok("la fuente única conserva sus " + SC.filtros.blackBox.length + " filtros de descubrimiento");
 }
 
 /* ---------- reporte ---------- */
