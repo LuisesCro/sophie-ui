@@ -75,6 +75,15 @@
     var h = html(payload);
     if (!h || !container) return false;
     container.innerHTML = h;
+    // El paso 3 ya no es un texto que DESCRIBE una busqueda: lleva dentro el
+    // panel de filtros, que es interactivo. Se monta aqui, en el puente, y no
+    // en quien llama, porque si no cada pagina tiene que acordarse — y "cada
+    // pagina tiene que acordarse" es la forma exacta en que este proyecto ha
+    // perdido campos por el camino cinco veces.
+    var hueco = container.querySelector && container.querySelector('#panel-filtros');
+    if (hueco && global.SophieFiltros) {
+      try { global.SophieFiltros.pintar(hueco); } catch (e) {}
+    }
     return true;
   }
 

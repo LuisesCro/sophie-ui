@@ -334,14 +334,24 @@ console.log('\nLa promesa sin acción: dice que va a hacerlo y se para');
 
 console.log('\nY la aplicación deja de repetirse a sí misma');
 
-caso('con capital en la ficha, el paso 3 tampoco lo vuelve a pedir', () => {
+caso('el capital se pregunta en un CAMPO, no escribiendo', () => {
+  // Es el arreglo de raíz del "me lo pidió cinco veces". Una pregunta de chat
+  // se pierde: el turno guiado no deja rastro de ella y la respuesta queda
+  // suelta. Un campo de formulario se escribe una vez y se ve escrito.
   const g = {};
-  new Function('window', fs.readFileSync(path.join(AQUI, '..', 'sophie-pasos.js'), 'utf8'))(g);
-  const sin = g.SophiePasos.pantalla(3, { vars: {} });
-  const con = g.SophiePasos.pantalla(3, { vars: { capital: '$1,500' } });
-  ok(/cuanto capital tienes/i.test(sin), 'sin el dato tiene que seguir pidiéndolo');
-  ok(!/cuanto capital tienes/i.test(con), 'lo vuelve a pedir teniéndolo');
-  ok(con.includes('$1,500'), 'no muestra lo que ya sabe');
+  for (const m of ['sophie-pasos.js', 'sophie-filtros.js'])
+    new Function('window', fs.readFileSync(path.join(AQUI, '..', m), 'utf8'))(g);
+  ok(/id="panel-filtros"/.test(g.SophiePasos.pantalla(3, { vars: {} })),
+     'el paso 3 no trae el panel');
+  ok(/id="ft-capital"/.test(g.SophieFiltros.html()), 'el panel no tiene campo de capital');
+  ok(g.SophieFiltros.CAPITAL.porque.length > 60, 'el campo no explica para qué sirve');
+});
+
+caso('y no viaja como filtro de búsqueda, porque no filtra productos', () => {
+  const H = fs.readFileSync(path.join(AQUI, '..', '..', 'sophie-producto', 'index.html'), 'utf8');
+  ok(/SophieFicha\.anotar\('capital'/.test(H), 'la página no lo anota al pulsar Buscar');
+  ok(/delete spec\.capital/.test(H),
+     'se mandaría a la API como si fuera un filtro de producto, y no lo es');
 });
 
 console.log('\nEl resumen que viaja al servidor');

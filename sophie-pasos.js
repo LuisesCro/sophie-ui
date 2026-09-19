@@ -306,47 +306,32 @@
       return h;
     },
 
-    /* ---- 3 · Sophie busca los candidatos (sustituye a Black Box) ---- */
+    /* ---- 3 · El panel de filtros. La busqueda la hace la aplicacion ---- */
+    //
+    // ESTA PANTALLA ERA UN TEXTO QUE DESCRIBIA UNA BUSQUEDA. Decia "yo hago la
+    // busqueda, no necesitas abrir nada" y despues el turno se lo quedaba el
+    // modelo, que unas veces llamaba a la consulta y otras narraba un recorrido
+    // de clics por una herramienta que el curso no usa.
+    //
+    // Ahora la pantalla ES el panel. El estudiante mueve los filtros y pulsa
+    // Buscar; la pagina llama al servidor y pinta la tabla. No hay turno que
+    // improvisar porque no hay nadie escribiendo.
+    //
+    // Y de paso arregla que salieran siempre los mismos productos: con la
+    // categoria como unica entrada, treinta estudiantes mandaban la misma
+    // consulta. Quien decide el rango de precio, el techo de resenas y las
+    // palabras es el, asi que la busqueda ya es suya.
     3: function (v) {
-      return '<h1>Voy a buscarte candidatos</h1>' +
-        '<p class="s-lead">Con <b>[categoria]</b> elegida, yo hago la busqueda. No necesitas abrir ninguna ' +
-        'herramienta.</p>' +
-        '<div class="s-card">' +
-          '<p><b>Lo que voy a filtrar por ti</b></p>' +
-          '<ul class="s-list">' +
-            '<li><b>Precio</b> desde $20 — por debajo de ahi las tarifas de Amazon se comen el margen</li>' +
-            '<li><b>Resenas</b> con tope — los mercados amurallados, donde el lider tiene miles, quedan fuera</li>' +
-            '<li><b>Revenue</b> minimo real, para que el nicho tenga dinero de verdad</li>' +
-            '<li><b>Sin marcas dominantes</b>, que son las que no te dejan entrar</li>' +
-          '</ul>' +
+      var h = '<h1>Ajusta tu busqueda</h1>' +
+        '<p class="s-lead">Estos son los filtros del metodo, ya puestos. ' +
+        'Muevelos si quieres: cada uno te dice para que sirve.</p>' +
+        '<div class="s-why"><b>Por que los eliges tu y no yo</b>' +
+          '<p>Si todos buscamos igual, todos encontramos lo mismo — y acabariamos compitiendo ' +
+          'entre nosotros en el mismo nicho. Tus numeros y tus palabras hacen que tu lista no ' +
+          'se parezca a la de nadie.</p>' +
         '</div>' +
-        // SIN ADVERTENCIA. Aqui habia un `s-warn` —rojo, con "esto no es
-        // relleno"— explicando que si treinta estudiantes buscan igual acaban
-        // compitiendo entre ellos. Cierto, pero en el paso 3 el estudiante aun
-        // no tiene con que preocuparse: se le estaba dando una alarma antes que
-        // un producto. La personalizacion se consigue PREGUNTANDO bien, no
-        // avisando de lo que pasa si no contesta.
-        //
-        // Las tres defensas anti-clon siguen intactas: viven en el motor
-        // (repartir() con semilla por persona, yaTomados(), y la cache de
-        // descubrimiento por usuario), no en este parrafo.
-        // NO PEDIR DOS VECES EL CAPITAL, NI AQUI NI EN EL PASO 7.
-        // Esta pantalla lo pedia siempre, en su propio guion. Si el estudiante
-        // ya lo dijo —porque lo conto antes, o porque volvio a este paso— se lo
-        // preguntaba otra vez, y eso se lee como que no le estan escuchando.
-        (v && v.capital
-          ? '<div class="s-why"><b>Para ajustarlo a ti</b>' +
-            '<p>Tu capital ya lo tengo: <b>' + esc(v.capital) + '</b>. Si cambio, dimelo.</p>' +
-            '<p>Me falta lo otro: <b>que te interesa de verdad</b> — un hobby que practicas, un problema ' +
-            'que conoces, algo que ya compras.</p>' +
-            '</div>' +
-            '<div class="s-cta">Dime que temas te interesan y arranco 👇</div>'
-          : '<div class="s-why"><b>Para ajustarlo a ti</b>' +
-            '<p>Dime dos cosas y la busqueda sale distinta: <b>cuanto capital tienes</b> para el primer ' +
-            'pedido, y <b>que te interesa de verdad</b> — un hobby que practicas, un problema que conoces, ' +
-            'algo que ya compras.</p>' +
-            '</div>' +
-            '<div class="s-cta">Dime tu capital y que temas te interesan 👇</div>');
+        '<div id="panel-filtros"></div>';
+      return h;
     },
 
     /* ---- 4 · La keyword raiz la confirmo yo ---- */

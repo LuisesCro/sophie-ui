@@ -45,9 +45,20 @@ caso('y tampoco le piden pegar datos que Sophie ya tiene', () => {
 });
 
 caso('el paso 3 pide lo que hace la búsqueda SUYA, no la de todos', () => {
+  // ESTO CAMBIÓ DE SITIO, NO DESAPARECIÓ. El capital y los intereses se
+  // preguntaban ESCRIBIENDO, y escribiendo se perdían: el turno guiado no
+  // dejaba rastro de la pregunta, la respuesta quedaba suelta —un "1500" del
+  // que ya no se sabía de qué era— y Sophie acababa preguntando el capital
+  // cinco veces.
+  //
+  // Ahora los dos son CAMPOS del panel de filtros: se escriben una vez, se ven
+  // escritos, y la aplicación los guarda sin que nadie tenga que acordarse. Lo
+  // que este paso tiene que traer es el panel; lo que el panel tiene que pedir
+  // se comprueba en test-filtros, que es donde vive.
   const h = conDatos(3);
-  ok(/capital/i.test(h), 'no pregunta el capital');
-  ok(/te interesa de verdad|intereses/i.test(h), 'no pregunta por sus intereses');
+  ok(/id="panel-filtros"/.test(h), 'el paso 3 no trae el panel: volvería a ser un texto');
+  ok(/no se parezca a la de nadie|compitiendo/i.test(h),
+     'no explica por qué los filtros los elige él');
 });
 
 caso('y lo pide sin asustarlo', () => {
@@ -125,7 +136,8 @@ caso('y los pasos siguen enseñando lo que hay que enseñar', () => {
   ok(/estrellas/i.test(sinDatos(7)), 'el paso 7 perdió las reseñas de 1 y 2 estrellas');
   ok(/PESO/i.test(sinDatos(5)) && /PRECIO/i.test(sinDatos(5)),
      'el paso 5 perdió las dos señales que el estudiante tiene que mirar');
-  ok(/capital/i.test(sinDatos(3)), 'el paso 3 dejó de personalizar la búsqueda');
+  ok(/panel-filtros/.test(sinDatos(3)),
+     'el paso 3 dejó de traer el panel: el capital y los intereses se preguntan ahí, no escribiendo');
 });
 
 console.log('\nEl fallo, cuando ocurra, cae del lado seguro');
