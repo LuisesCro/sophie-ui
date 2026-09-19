@@ -382,5 +382,66 @@ caso('y el marcador no se cuela en los repliegues de texto', () => {
   ok(G.limpiar('hola <!--DATOS:1--><!--P:3-->') === 'hola', 'limpiar() deja la señal a la vista');
 });
 
+/* ---------------------------------------------------------------
+   UNA PANTALLA QUE PROMETE Y NO CUMPLE.
+
+   El paso 4 con datos decía "eso lo miro yo… dame un momento y te
+   digo cuál manda de verdad 👇" — y ahí se acababa el turno. El
+   estudiante se quedaba mirando una flecha que apunta a una caja de
+   texto donde no tiene nada que escribir.
+
+   No era un fallo del modelo: un chat va por turnos y nadie había
+   pedido el siguiente. La pantalla no pedía nada, así que nadie
+   escribía, así que Sophie nunca volvía a hablar.
+   --------------------------------------------------------------- */
+console.log('\nLas pantallas que no piden nada continúan solas');
+
+caso('el paso 4 con datos sigue solo; los que preguntan, no', () => {
+  ok(P.sigueSola(4, true), 'el paso 4 deja al estudiante esperando');
+  // Los que PIDEN algo tienen que parar: para eso se pregunta.
+  for (const n of [1, 2, 3, 5, 7]) ok(!P.sigueSola(n, true), 'el paso ' + n + ' se salta al estudiante');
+});
+
+caso('y sin datos reales no continúa ninguno', () => {
+  // Sin datos, el paso 4 manda a correr Cerebro: ahí el turno TIENE que parar,
+  // porque el trabajo es suyo y puede tardar diez minutos.
+  for (const n of [1, 2, 3, 4, 5, 7]) ok(!P.sigueSola(n, false), 'el paso ' + n + ' manual continúa solo');
+});
+
+caso('el texto ya no promete sin decir qué pasa', () => {
+  const h = conDatos(4);
+  ok(!/Dame un momento y te digo/.test(h), 'sigue el 👇 que apunta a nada');
+  ok(/no cierres esto/.test(h), 'no le dice que se quede');
+});
+
+caso('la página lo continúa, con freno para no hablar sola', () => {
+  for (const pagina of ['index.html', 'producto-v2.html']) {
+    const f = path.join(AQUI, '..', '..', 'sophie-producto', pagina);
+    if (!fs.existsSync(f)) continue;
+    const H = fs.readFileSync(f, 'utf8');
+    ok(/SophiePasos\.sigueSola\(pg\.paso, pg\.datos\)/.test(H), pagina + ': no pregunta si sigue sola');
+    ok(/function seguirSolo/.test(H), pagina + ': no hay quien pida el turno siguiente');
+    // El guardia es lo que impide el bucle. Sin él, si Sophie repitiera el mismo
+    // paso la página se pondría a hablar consigo misma, gastando llamadas.
+    ok(/if \(paso === ultimoAuto\) return;/.test(H), pagina + ': puede entrar en bucle');
+    ok(/send\('continúa', false\)/.test(H), pagina + ': el turno automático se le muestra al estudiante');
+  }
+});
+
+console.log('\nY la barra de escribir no se va de la pantalla');
+
+caso('#messages puede encoger, que es lo que la mantenía en su sitio', () => {
+  // `flex:1` sin `min-height:0` no encoge por debajo de su contenido: con la
+  // conversación larga, #app crecía más que la ventana y quien hacía scroll era
+  // el BODY entero, arrastrando la barra de escribir fuera de la pantalla.
+  for (const pagina of ['index.html', 'producto-v2.html']) {
+    const f = path.join(AQUI, '..', '..', 'sophie-producto', pagina);
+    if (!fs.existsSync(f)) continue;
+    const H = fs.readFileSync(f, 'utf8');
+    ok(/#messages \{ flex: 1; min-height: 0;/.test(H), pagina + ': #messages no puede encoger');
+    ok(/#mapa-metodo \.s-mp-body \{ max-height:/.test(H), pagina + ': el mapa abierto puede comerse la pantalla');
+  }
+});
+
 console.log('\nRESULTADO: ' + pasan + ' pasan · ' + fallan + ' fallan');
 process.exit(fallan ? 1 : 0);

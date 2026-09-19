@@ -52,6 +52,19 @@
   // recolecta de Xray. Dejarlas rompia la ilusion antes de leer una sola linea.
   var ETIQUETAS_DATOS = { 2: 'Categoria y subnicho', 3: 'Buscando candidatos', 5: 'Limpiar la tabla' };
 
+  // PANTALLAS QUE NO PIDEN NADA AL ESTUDIANTE.
+  //
+  // El paso 4 con datos reales dice "Eso lo miro yo... dame un momento y te digo
+  // cual manda de verdad" — y ahi se acababa el turno. El estudiante se quedaba
+  // mirando un 👇 que apunta a una caja de texto donde no tiene nada que
+  // escribir. Sophie prometia algo y no lo hacia: no por un fallo suyo, sino
+  // porque un chat va por turnos y nadie habia pedido el siguiente.
+  //
+  // Estas pantallas se marcan, y la aplicacion continua sola. Si una pantalla
+  // PIDE algo (capital, intereses, marcar competidores) NO entra aqui: ahi el
+  // turno tiene que parar, que para eso se pregunta.
+  var AUTO_DATOS = { 4: true };
+
   // EL MAPA DEL METODO. Lo que el estudiante aprendia haciendo los clics.
   //
   // Automatizar un paso no puede significar dejar de ensenarlo. Cuando la
@@ -537,7 +550,7 @@
           '<p>Si mides y optimizas para una palabra que no es la del nicho, todo lo que sigue —el analisis, el ' +
           'listing, las campanas— apunta al mercado equivocado. Es el error que mas caro sale y casi nadie lo revisa.</p>' +
         '</div>' +
-        '<div class="s-cta">Dame un momento y te digo cual manda de verdad 👇</div>';
+        '<div class="s-cta">Voy a mirarlo ahora mismo — no cierres esto</div>';
     },
 
     /* ---- 5 · La tabla la traigo yo; limpiarla es suyo ---- */
@@ -657,6 +670,8 @@
     version: '1.4',
     mapa: MAPA,
     metodo: METODO,
+    // ¿Esta pantalla continua sola? La consulta la pagina despues de pintarla.
+    sigueSola: function (paso, datos) { return !!(datos && AUTO_DATOS[paso]); },
     etapas: ETAPAS,
     pantalla: pantalla,
     cabecera: cabecera,

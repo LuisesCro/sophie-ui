@@ -367,6 +367,8 @@
         filtros(payload.filtros) +
         '<div class="s-hz-wrap">' +
           '<table class="s-hz">' +
+            '<colgroup><col class="c1"><col class="c2"><col class="c3"><col class="c4">' +
+            '<col class="c5"><col class="c6"><col class="c7"><col class="c8"><col class="c9"></colgroup>' +
             '<thead><tr>' +
               '<th class="s-hz-ckc"><span class="s-hz-oculto">Elegir</span></th>' +
               '<th>Producto</th><th>Precio</th><th>Peso</th><th>Revenue</th>' +
@@ -492,7 +494,8 @@
         cifras(payload.cifras, payload.provisional !== false) +
         filtros +
         '<div class="s-hz-wrap">' +
-          '<table class="s-hz">' +
+          '<table class="s-hz s-hz-4">' +
+            '<colgroup><col><col class="c3"><col class="c4"><col class="c7"></colgroup>' +
             '<thead><tr>' +
               '<th>Competidor</th><th>Precio</th><th class="s-hz-th-r">Peso</th><th>Reseñas</th>' +
             '</tr></thead>' +
@@ -575,18 +578,42 @@
     // día" pedia 102px para un numero de cuatro cifras), no por los datos.
     // Cabeceras de una palabra, la unidad dentro de la celda, y tope al nombre
     // del producto. Medido en la tarjeta real: 647px de tabla en 676 de hueco.
-    '.s-hz{min-width:0}',
+    // `table-layout:fixed` ES LO QUE HACE IMPOSIBLE EL DESBORDE.
+    //
+    // Con el reparto automatico la tabla se ensancha hasta donde pida su
+    // contenido y luego se sale del hueco: eso es lo que se corrigio tres veces
+    // a base de apretar pixeles, y volvia con el primer titulo o rango mas
+    // largo. Con anchos fijos la tabla NUNCA pasa de su contenedor — lo que
+    // sobra se parte en dos lineas, que es lo correcto.
+    //
+    // Las columnas de cifras llevan su ancho; la del producto se queda con lo
+    // que sobre, que es la que tiene texto de verdad. Medido: 494px de
+    // columnas fijas, asi que en una tarjeta de 676 le quedan 182 al nombre.
+    '.s-hz{min-width:0;table-layout:fixed}',
+    '.s-hz col.c1{width:34px}.s-hz col.c3{width:68px}.s-hz col.c4{width:64px}',
+    '.s-hz col.c5{width:78px}.s-hz col.c6{width:72px}.s-hz col.c7{width:68px}',
+    '.s-hz col.c8{width:56px}.s-hz col.c9{width:54px}',
     // Medido: con 8px de relleno la tabla pedia 689 en un hueco de 676. Las
     // columnas numericas no necesitan tanto aire —su contenido son cuatro o
     // cinco caracteres— y bajarlo a 6 deja 28px de margen para el dia que un
     // rango venga mas largo. La del producto conserva los 8: ahi va la foto.
     '.s-hz td,.s-hz thead th{padding-left:6px;padding-right:6px}',
     '.s-hz td:nth-child(2),.s-hz thead th:nth-child(2){padding-left:8px;padding-right:10px}',
+    // LAS NUMERICAS, JUNTAS. Cuando la tabla cabe sobra ancho, y una tabla
+    // reparte el sobrante entre TODAS las columnas: los numeros acababan
+    // separados por un desierto. Dandole el 100% a la del producto, el sobrante
+    // se lo queda ella —que es la que tiene texto largo— y las de cifras se
+    // encogen a su contenido, que es donde se comparan de un vistazo.
+
+    // El `nowrap` va SOLO en las cabeceras, que son una palabra. En las celdas
+    // no puede volver: es lo que desbordaba la tabla con los rangos.
+    '.s-hz thead th{white-space:nowrap}',
+    '.s-hz thead th:nth-child(2){white-space:normal}',
     '.s-hz thead th{white-space:normal}',
     '.s-hz td:nth-child(2){min-width:132px;max-width:190px}',
     '.s-hz-n{overflow-wrap:anywhere}',
-    '@container (max-width:700px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
-    '@media (max-width:700px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
+    '@container (max-width:580px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
+    '@media (max-width:580px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
     '.s-hz-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
 
     /* La casilla y la fila elegida. */
@@ -603,9 +630,14 @@
     'border:1px solid rgba(247,170,46,.30)}',
     '.s-hz-sel[hidden]{display:none}',
     '.s-hz-selc{font-size:13px;font-weight:700;color:var(--hz-or)}',
-    '.s-hz-selb{margin-left:auto;padding:9px 18px;border:0;border-radius:11px;cursor:pointer;',
-    'background:var(--hz-or);color:#0b1638;font:inherit;font-size:13px;font-weight:800}',
-    '.s-hz-selb:hover{filter:brightness(1.07)}',
+    // VERDE, NO NARANJA. En naranja con texto oscuro se leia negro y se perdia
+    // entre los otros dos bloques naranjas de la pantalla. El verde es el unico
+    // color de la suite que no se usa para avisar de nada: aqui dice "adelante".
+    '.s-hz-selb{margin-left:auto;padding:10px 20px;border:0;border-radius:11px;cursor:pointer;',
+    'background:#2fbf87;color:#06231a;font:inherit;font-size:13.5px;font-weight:800;',
+    'box-shadow:0 2px 10px rgba(47,191,135,.28)}',
+    '.s-hz-selb:hover{background:#35d499}',
+    '.s-hz-selb:focus-visible{outline:2px solid #5fd6a6;outline-offset:2px}',
     '.s-hz{width:100%;border-collapse:collapse;font-size:14px}',
     '.s-hz thead th{text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.09em;',
     'text-transform:uppercase;color:var(--hz-tx3);padding:11px 12px;background:var(--hz-card);',
@@ -629,8 +661,20 @@
     'border:1px solid var(--hz-line)}',
     '.s-hz-nr td{padding-top:0;font-size:12.5px;line-height:1.5;color:var(--hz-tx3)}',
     '.s-hz-prod{display:flex;gap:10px;align-items:flex-start}',
+    // AL PASAR EL RATON SE VE GRANDE. Una miniatura de 42px dice que hay una
+    // foto; no deja mirarla. Y mirar el producto es la mitad del descarte.
+    // Crece en su sitio, sobre lo demas, sin abrir nada ni pedir otro clic.
+    '.s-hz-prod{position:relative}',
     '.s-hz-img{width:42px;height:42px;flex:none;border-radius:8px;object-fit:contain;',
-    'background:#fff;padding:3px}',
+    'background:#fff;padding:3px;transition:transform .16s ease,box-shadow .16s ease;',
+    'transform-origin:left center;cursor:zoom-in}',
+    '.s-hz-img:hover,.s-hz-img:focus-visible{transform:scale(4.2);z-index:5;position:relative;',
+    'box-shadow:0 10px 34px rgba(0,0,0,.5);border-radius:4px}',
+    // La fila que tiene el raton encima se pone por delante: sin esto la foto
+    // ampliada queda por DEBAJO de la fila siguiente y se ve cortada.
+    '.s-hz tbody tr:hover{position:relative;z-index:4}',
+    '@media (hover:none){.s-hz-img:hover{transform:none}}',
+    '@media (prefers-reduced-motion:reduce){.s-hz-img{transition:none}}',
     '.s-hz-pesado{color:var(--hz-or);font-weight:800}',
     '.s-hz-meta{display:block;margin-top:2px;font-size:11.5px;color:var(--hz-tx3);font-weight:600}',
     '.s-hz-meta code{font-size:11px;letter-spacing:.02em;opacity:.85}',
@@ -722,7 +766,7 @@
     // dos veces —una en @container y otra en @media— porque un navegador sin
     // soporte de contenedores tiene que apilar igual: en ese caso el corte por
     // viewport es una aproximacion peor, pero nunca deja un dato fuera.
-    '@container (max-width:700px){',
+    '@container (max-width:580px){',
     '.s-hz thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
     '.s-hz,.s-hz tbody,.s-hz tr,.s-hz td{display:block;width:100%}',
     '.s-hz tbody tr{padding:12px 6px;border-bottom:1px solid var(--hz-line2)}',
@@ -738,7 +782,7 @@
     'letter-spacing:.07em;text-transform:uppercase;color:var(--hz-tx3)}',
 
     '}',
-    '@media (max-width:700px){',
+    '@media (max-width:580px){',
     '.s-hz thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
     '.s-hz,.s-hz tbody,.s-hz tr,.s-hz td{display:block;width:100%}',
     '.s-hz tbody tr{padding:12px 6px;border-bottom:1px solid var(--hz-line2)}',

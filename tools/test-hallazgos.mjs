@@ -166,8 +166,12 @@ caso('ningún color de texto va en crudo dentro del CSS', () => {
   // marca, no un token del tema), asi que lo que va encima tambien tiene que
   // serlo. Con un token heredaria el color del tema y en claro quedaria
   // naranja sobre naranja.
+  // Se excluyen los colores de TEXTO SOBRE UN FONDO FIJO: el naranja de la
+  // marca y el verde del botón de acción no salen del tema, así que lo que va
+  // encima tampoco puede. Con un token heredarían el color del tema y en claro
+  // quedaría naranja sobre naranja.
   const colores = (css.match(/[^-]color:\s*#[0-9a-f]{3,6}/gi) || [])
-    .filter((c) => !/#0b1638/i.test(c));
+    .filter((c) => !/#0b1638|#06231a/i.test(c));
   ok(colores.length === 0, 'colores escritos a mano en el CSS: ' + colores.join(', '));
   for (const t of ['--hz-tx', '--hz-tx2', '--hz-tx3', '--hz-or'])
     ok(css.includes(t), 'falta el token ' + t);
@@ -380,10 +384,16 @@ caso('y la decisión se toma con el ancho de la TARJETA, no de la ventana', () =
   // creía que cabía y cortaba las tres últimas columnas. Eso es lo que se vio.
   const css = /var CSS = \[([\s\S]*?)\]\.join\(''\);/.exec(SRC)[1];
   ok(/container-type:inline-size/.test(css), 'el contenedor no se declara como tal');
-  ok(/@container \(max-width:700px\)/.test(css), 'no hay consulta de contenedor');
-  // Y la copia en @media, para el navegador que no soporte contenedores: sin
-  // ella apilaría nunca y volvería a cortar.
-  ok(/@media \(max-width:700px\)/.test(css), 'no hay repliegue por viewport');
+  ok(/@container \(max-width:\d+px\)/.test(css), 'no hay consulta de contenedor');
+  // Y la copia en @media, para el navegador que no soporte contenedores.
+  ok(/@media \(max-width:\d+px\)/.test(css), 'no hay repliegue por viewport');
+  // El umbral tiene que dejar sitio a la tabla en una tarjeta de chat (~676px).
+  // Estaba en 700 y la tarjeta caía SIEMPRE al apilado: nunca se veía la tabla.
+  const umbral = Number(/@container \(max-width:(\d+)px\)/.exec(css)[1]);
+  ok(umbral < 640, 'el umbral (' + umbral + 'px) apila también la tarjeta de chat');
+  // Y con anchos fijos el desborde deja de ser posible, se apile o no.
+  ok(/table-layout:fixed/.test(css), 'la tabla vuelve a poder pasarse de su hueco');
+  ok(/<colgroup>/.test(SRC), 'no hay colgroup: los anchos fijos no se aplican a nada');
 });
 
 console.log('\nY la página lo llama de verdad');
