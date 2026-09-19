@@ -18,15 +18,29 @@
        "paso":3,                                  // opcional
        "titulo":"Encontré 45 productos…",         // opcional
        "intro":"Te muestro los más interesantes…",// opcional
+       "cifras":[{"etq":"Productos que cumplen","valor":"45"}],
+       "filtros":[{"que":"Peso","valor":"máx. 3 lb"}],
+       "metodo":{"hice":"…","porque":"…","decides":"…"},
        "productos":[
          { "nombre":"Epoxy Resin Kit 1 Gal",
-           "precio":"$50", "revenue":"$109K",
-           "resenas":42, "ratio":52, "meses":28,
+           "marca":"Waikxin", "asin":"B0GK8F18R7", // opcionales
+           "imagen":"https://…",                   // opcional (miniatura)
+           "precio":"$50", "peso":"8.77", "revenue":"$109K",
+           "resenas":42, "rating":"4.5", "ratio":52, "meses":28,
            "variaciones":7,                       // opcional
            "nota":"…" }                           // opcional
        ],
        "cta":"¿Cuál te llama? 👇"                 // opcional
      }-->
+
+   TRES COSAS QUE LA APLICACIÓN PONE Y EL MODELO NO PUEDE TOCAR, porque
+   son currículum y no narración:
+     · la leyenda del ratio
+     · el POR QUÉ de cada filtro (`filtros[].que` lo elige el modelo;
+       la razón sale de la tabla PORQUE de aquí abajo)
+     · el aviso de que los promedios de una tabla sucia son
+       PROVISIONALES — el Criterio 3 dice que solo valen sobre la
+       tabla limpia, y enseñarlos como definitivos sería enseñar mal
 
    LA LEYENDA DEL RATIO NO LA ESCRIBE EL MODELO. Es método, no
    narración: si cambiara de turno en turno el estudiante aprendería
@@ -93,6 +107,29 @@
     return '<span class="s-hz-r">' + esc(v) + '</span>';
   }
 
+  // EL PESO, CON SU AVISO. El método recomienda peso estándar para un primer
+  // producto, y la lista llegaba con kits de resina de 20 lb sin que nada lo
+  // dijera. Ahora el filtro los deja fuera, pero cuando uno pase —porque el
+  // estudiante subió el techo, o porque el dato venía vacío en la API— tiene
+  // que verse: un número a secas no enseña nada, un número marcado sí.
+  var PESO_AVISO = 3;
+  function peso(v) {
+    if (v === null || v === undefined || v === '') return '—';
+    var n = parseFloat(String(v));
+    var txt = esc(v) + (/lb/i.test(String(v)) ? '' : ' lb');
+    if (isNaN(n) || n <= PESO_AVISO) return txt;
+    return '<span class="s-hz-pesado" title="Por encima del techo del método para un primer producto">' +
+      txt + ' ⚠</span>';
+  }
+
+  // La miniatura, cuando la API la trae. Sin ella la fila se dibuja igual: una
+  // tabla sin fotos se lee, una tabla rota no.
+  function foto(p) {
+    if (!p.imagen) return '';
+    return '<img class="s-hz-img" src="' + esc(p.imagen) + '" alt="" loading="lazy" ' +
+      'onerror="this.remove()">';
+  }
+
   function fila(p) {
     p = p || {};
     var badge = p.variaciones && Number(p.variaciones) > 1
@@ -101,10 +138,17 @@
       : '';
 
     var tr = '<tr>' +
-      '<td data-l="Producto"><span class="s-hz-n">' + esc(p.nombre) + '</span>' + badge + '</td>' +
+      '<td data-l="Producto"><div class="s-hz-prod">' + foto(p) +
+        '<div><span class="s-hz-n">' + esc(p.nombre) + '</span>' +
+        ((p.marca || p.asin) ? '<span class="s-hz-meta">' +
+          (p.marca ? esc(p.marca) : '') + (p.marca && p.asin ? ' · ' : '') +
+          (p.asin ? '<code>' + esc(p.asin) + '</code>' : '') + '</span>' : '') +
+        badge + '</div></div></td>' +
       '<td data-l="Precio"   data-num>' + celda(p.precio) + '</td>' +
+      '<td data-l="Peso"     data-num>' + peso(p.peso) + '</td>' +
       '<td data-l="Revenue"  data-num>' + celda(p.revenue) + '</td>' +
-      '<td data-l="Reseñas"  data-num>' + celda(p.resenas) + '</td>' +
+      '<td data-l="Reseñas"  data-num>' + celda(p.resenas) +
+        (p.rating ? '<span class="s-hz-star">' + esc(p.rating) + '★</span>' : '') + '</td>' +
       '<td data-l="Ratio"    data-num>' + ratio(p.ratio) + '</td>' +
       '<td data-l="Meses"    data-num>' + celda(p.meses) + '</td>' +
       '</tr>';
@@ -113,7 +157,7 @@
     // envolvía en una columna estrecha —siete líneas para una frase— y dejaba
     // el resto de la fila en blanco: la tabla se rompía justo en el producto
     // que más explicación necesita, que es el que tiene variaciones.
-    if (p.nota) tr += '<tr class="s-hz-nr"><td colspan="6">' + esc(p.nota) + '</td></tr>';
+    if (p.nota) tr += '<tr class="s-hz-nr"><td colspan="7">' + esc(p.nota) + '</td></tr>';
     return tr;
   }
 
@@ -148,6 +192,93 @@
     return '';
   }
 
+  /* ---------- la franja de cifras (la cabecera de la tabla) ---------- */
+
+  // LAS CIFRAS DE ARRIBA, CON UNA DIFERENCIA QUE ES DE METODO.
+  //
+  // La extensión de Jungle Scout pone los promedios del nicho arriba y ya. Aquí
+  // no se puede: el Criterio 3 dice que los promedios SOLO valen sobre la tabla
+  // LIMPIA, y la tabla llega sucia — la búsqueda de un accesorio devuelve
+  // también los sets completos que lo incluyen, con otro precio y otro peso.
+  //
+  // Así que se muestran marcados como PROVISIONALES hasta que el estudiante
+  // quite lo que no compite con él. Y eso enseña el Filtro 3 mejor que
+  // cualquier párrafo: ve el número moverse cuando saca al que no encajaba.
+  function cifras(lista, provisional) {
+    if (!Array.isArray(lista) || !lista.length) return '';
+    var tiles = lista.slice(0, 6).map(function (c) {
+      return '<div class="s-hz-tile">' +
+        '<div class="s-hz-te">' + esc(c.etq) + '</div>' +
+        '<div class="s-hz-tv">' + esc(c.valor) + '</div>' +
+        (c.nota ? '<div class="s-hz-tn">' + esc(c.nota) + '</div>' : '') +
+        '</div>';
+    }).join('');
+    return '<div class="s-hz-cifras' + (provisional ? ' prov' : '') + '">' + tiles + '</div>' +
+      (provisional
+        ? '<p class="s-hz-prov">Provisionales: estos promedios se calculan sobre la tabla como ' +
+          'llegó. Cuentan de verdad cuando saques los productos que no compiten contigo.</p>'
+        : '');
+  }
+
+  /* ---------- la parte pedagógica ---------- */
+
+  // POR QUÉ CADA FILTRO, EN PALABRAS FIJAS.
+  //
+  // Automatizar un paso no puede significar dejar de enseñarlo. Cuando el
+  // estudiante hacía la búsqueda a mano en Black Box, aprendía el método
+  // TECLEANDO cada filtro; ahora la hace Sophie y él solo veía el resultado.
+  //
+  // Así que los filtros se muestran, y cada uno con su razón. La razón la pone
+  // la aplicación, no el modelo: es currículum, y si se redactara de nuevo cada
+  // turno dos estudiantes aprenderían dos cosas distintas del mismo filtro.
+  var PORQUE = {
+    precio: 'Debajo de $20 las tarifas de Amazon se comen el margen. El techo lo pone tu capital.',
+    peso: 'Peso estándar. Por encima de ahí el flete y la tarifa de FBA se comen el margen de quien empieza.',
+    resenas: 'Un tope de reseñas deja fuera los mercados amurallados, donde ya no se puede entrar.',
+    revenue: 'Un piso de facturación descarta los nichos muertos: no son pequeños, están vacíos.',
+    categoria: 'La categoría acota el terreno. Las bloqueadas piden permiso y no son para un primer producto.',
+    intereses: 'Tus intereses son lo que hace que esta lista sea TUYA y no la de todo el salón.',
+    marcas: 'Fuera los nichos que domina una marca grande: ahí no se entra por mucho que cuadren los números.'
+  };
+  function porqueDe(f) {
+    if (f.porque) return f.porque;                       // el modelo puede matizar
+    var k = String(f.que || '').toLowerCase();
+    for (var c in PORQUE) if (k.indexOf(c) !== -1) return PORQUE[c];
+    return '';
+  }
+
+  function filtros(lista) {
+    if (!Array.isArray(lista) || !lista.length) return '';
+    return '<div class="s-hz-filtros">' +
+      '<div class="s-hz-lt">Con qué filtré</div>' +
+      '<ul class="s-hz-fl">' + lista.map(function (f) {
+        var p = porqueDe(f);
+        return '<li><span class="s-hz-fq">' + esc(f.que) + '</span>' +
+          '<span class="s-hz-fv">' + esc(f.valor) + '</span>' +
+          (p ? '<span class="s-hz-fp">' + esc(p) + '</span>' : '') + '</li>';
+      }).join('') + '</ul>' +
+      '<p class="s-hz-ajusta">¿Alguno no te cuadra? Dímelo y lo movemos — es tu búsqueda.</p>' +
+      '</div>';
+  }
+
+  // QUÉ HICE · POR QUÉ · QUÉ DECIDES TÚ.
+  //
+  // El bloque que devuelve el paso a paso. Los tres van juntos a propósito: sin
+  // el primero el estudiante no sabe qué pasó, sin el segundo no aprende nada,
+  // y sin el tercero cree que ya está hecho y se queda esperando.
+  function metodo(m) {
+    if (!m || (!m.hice && !m.porque && !m.decides)) return '';
+    var fila = function (etq, txt, clase) {
+      return txt ? '<div class="s-hz-mf ' + clase + '"><span class="s-hz-me">' + etq +
+        '</span><span class="s-hz-mt">' + esc(txt) + '</span></div>' : '';
+    };
+    return '<div class="s-hz-metodo">' +
+      fila('Qué hice', m.hice, 'hice') +
+      fila('Por qué', m.porque, 'porque') +
+      fila('Qué decides tú', m.decides, 'decides') +
+      '</div>';
+  }
+
   function html(payload) {
     if (!payload || !Array.isArray(payload.productos) || !payload.productos.length) return null;
 
@@ -157,16 +288,19 @@
       '<div class="s-body">' +
         '<h1>' + esc(payload.titulo || 'Esto es lo que encontré') + '</h1>' +
         (payload.intro ? '<p class="s-lead">' + esc(payload.intro) + '</p>' : '') +
+        cifras(payload.cifras, false) +
+        filtros(payload.filtros) +
         '<div class="s-hz-wrap">' +
           '<table class="s-hz">' +
             '<thead><tr>' +
-              '<th>Producto</th><th>Precio</th><th>Revenue</th>' +
+              '<th>Producto</th><th>Precio</th><th>Peso</th><th>Revenue</th>' +
               '<th>Reseñas</th><th class="s-hz-th-r">Ratio</th><th>Meses</th>' +
             '</tr></thead>' +
             '<tbody>' + filas + '</tbody>' +
           '</table>' +
         '</div>' +
         LEYENDA +
+        metodo(payload.metodo) +
         (payload.cta ? '<div class="s-cta">' + esc(payload.cta) + '</div>' : '') +
       '</div>';
   }
@@ -246,7 +380,12 @@
   function filaComp(c) {
     c = c || {};
     return '<tr>' +
-      '<td data-l="Competidor"><span class="s-hz-n">' + esc(c.nombre) + '</span></td>' +
+      '<td data-l="Competidor"><div class="s-hz-prod">' + foto(c) +
+        '<div><span class="s-hz-n">' + esc(c.nombre) + '</span>' +
+        ((c.marca || c.asin) ? '<span class="s-hz-meta">' +
+          (c.marca ? esc(c.marca) : '') + (c.marca && c.asin ? ' · ' : '') +
+          (c.asin ? '<code>' + esc(c.asin) + '</code>' : '') + '</span>' : '') +
+        '</div></div></td>' +
       '<td data-l="Precio"  data-num>' + celda(c.precio) + '</td>' +
       '<td data-l="Peso"    data-num><span class="s-hz-r">' + celda(c.peso) + '</span></td>' +
       '<td data-l="Reseñas" data-num>' + celda(c.resenas) + '</td>' +
@@ -272,6 +411,7 @@
         '<h1>' + esc(payload.titulo || 'Validemos la keyword') + '</h1>' +
         (payload.keyword ? '<div class="s-done">✓ Keyword: ' + esc(payload.keyword) + '</div>' : '') +
         (payload.intro ? '<p class="s-lead">' + esc(payload.intro) + '</p>' : '') +
+        cifras(payload.cifras, payload.provisional !== false) +
         filtros +
         '<div class="s-hz-wrap">' +
           '<table class="s-hz">' +
@@ -282,6 +422,7 @@
           '</table>' +
         '</div>' +
         porque +
+        metodo(payload.metodo) +
         (payload.cta ? '<div class="s-cta">' + esc(payload.cta) + '</div>' : '') +
       '</div>';
   }
@@ -308,7 +449,14 @@
   // --sc-* sophie-claro.css. Si no hay ninguno, el valor final es el oscuro,
   // que es lo que usan estas pantallas.
   var CSS = [
-    '.s-hz-wrap,.s-hz-leyenda,.s-hz-fs{',
+    // LA LISTA TIENE QUE CUBRIR TODO LO QUE USA LOS TOKENS.
+    //
+    // Al principio solo estaban los tres primeros, y las cifras, el bloque del
+    // paso a paso y el aviso de "provisionales" no son descendientes de
+    // ninguno: son hermanos. Una variable CSS solo baja a los descendientes del
+    // elemento donde se declara, así que ahí `var(--hz-or)` no resolvía y el
+    // color caía al heredado — naranja escrito y gris en pantalla, sin error.
+    '.s-hz-wrap,.s-hz-leyenda,.s-hz-fs,.s-hz-cifras,.s-hz-prov,.s-hz-filtros,.s-hz-metodo{',
     '--hz-tx:var(--so-tx,var(--sc-tx,#fff));',
     '--hz-tx2:var(--so-tx-2,var(--sc-tx-2,#cbd6ea));',
     '--hz-tx3:var(--so-tx-3,var(--sc-tx-3,#8b9bbd));',
@@ -339,6 +487,59 @@
     'font-size:11px;font-weight:700;color:var(--hz-tx2);background:var(--hz-card);',
     'border:1px solid var(--hz-line)}',
     '.s-hz-nr td{padding-top:0;font-size:12.5px;line-height:1.5;color:var(--hz-tx3)}',
+    '.s-hz-prod{display:flex;gap:10px;align-items:flex-start}',
+    '.s-hz-img{width:42px;height:42px;flex:none;border-radius:8px;object-fit:contain;',
+    'background:#fff;padding:3px}',
+    '.s-hz-pesado{color:var(--hz-or);font-weight:800}',
+    '.s-hz-meta{display:block;margin-top:2px;font-size:11.5px;color:var(--hz-tx3);font-weight:600}',
+    '.s-hz-meta code{font-size:11px;letter-spacing:.02em;opacity:.85}',
+    '.s-hz-star{display:block;font-size:11.5px;color:var(--hz-or);font-weight:700}',
+
+    /* La franja de cifras, al estilo de la extension pero con la identidad de
+       Sophie: navy, naranja y el mismo radio de esquina que el resto. */
+    /* TRES O SEIS, NUNCA CINCO Y UNA HUÉRFANA. Con `auto-fit` la sexta tarjeta
+       se quedaba sola en una segunda fila en cuanto el ancho no daba para las
+       seis. Tres y seis dividen exacto una franja de seis cifras. */
+    '.s-hz-cifras{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:13px 0 0}',
+    '@media (min-width:780px){.s-hz-cifras{grid-template-columns:repeat(6,1fr)}}',
+    '@media (max-width:430px){.s-hz-cifras{grid-template-columns:repeat(2,1fr)}}',
+    /* La caja tiene que VERSE. Con el gris de tarjeta de la suite (4% de blanco)
+       las cifras quedaban flotando sobre el fondo, sin la forma de panel que es
+       justo lo que hace que se lean de un vistazo. */
+    '.s-hz-tile{padding:11px 13px;border-radius:12px;background:rgba(255,255,255,.055);',
+    'border:1px solid var(--hz-line);min-width:0}',
+    '.s-hz-cifras.prov .s-hz-tile{background:rgba(247,170,46,.07);',
+    'border-color:rgba(247,170,46,.30)}',
+    '.s-hz-te{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;',
+    'color:var(--hz-tx3);line-height:1.3}',
+    '.s-hz-tv{margin-top:4px;font-size:19px;font-weight:800;color:var(--hz-tx);',
+    'font-variant-numeric:tabular-nums;line-height:1.15}',
+    '.s-hz-cifras.prov .s-hz-tv{color:var(--hz-or)}',
+    '.s-hz-tn{margin-top:2px;font-size:11px;color:var(--hz-tx3)}',
+    '.s-hz-prov.s-hz-prov{margin:8px 0 0;font-size:12px;line-height:1.5;color:var(--hz-or)}',
+
+    /* Con qué filtré: el paso que antes tecleaba el estudiante, ahora visible. */
+    '.s-hz-filtros{margin:12px 0 0;padding:13px 15px;border-radius:14px;',
+    'background:var(--hz-card);border:1px solid var(--hz-line)}',
+    '.s-hz-fl{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}',
+    '.s-hz-fl li{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;font-size:13px;line-height:1.45}',
+    '.s-hz-fq{font-weight:800;color:var(--hz-tx);min-width:74px}',
+    '.s-hz-fv{font-weight:800;color:var(--hz-or);font-variant-numeric:tabular-nums}',
+    '.s-hz-fp{color:var(--hz-tx2);flex:1 1 240px}',
+    '.s-hz-ajusta.s-hz-ajusta{margin:10px 0 0;font-size:12.5px;color:var(--hz-tx3);font-style:italic}',
+
+    /* Qué hice · Por qué · Qué decides tú. El paso a paso, en cada pantalla. */
+    '.s-hz-metodo{margin:14px 0 0;border-radius:14px;overflow:hidden;',
+    'border:1px solid var(--hz-line)}',
+    '.s-hz-mf{display:flex;gap:11px;padding:11px 15px;font-size:13px;line-height:1.5;',
+    'border-bottom:1px solid var(--hz-line2);background:var(--hz-card)}',
+    '.s-hz-mf:last-child{border-bottom:0}',
+    '.s-hz-mf.decides{background:rgba(247,170,46,.10)}',
+    '.s-hz-me{flex:none;min-width:108px;font-weight:800;font-size:11px;letter-spacing:.06em;',
+    'text-transform:uppercase;color:var(--hz-tx3);padding-top:2px}',
+    '.s-hz-mf.decides .s-hz-me{color:var(--hz-or)}',
+    '.s-hz-mt{color:var(--hz-tx)}',
+    '@media (max-width:620px){.s-hz-mf{flex-direction:column;gap:3px}.s-hz-me{min-width:0}}',
 
     /* Los tres filtros de la puerta: el estado de un vistazo, y el que esta
        pendiente en naranja porque es lo unico que se le pide al estudiante. */
@@ -356,9 +557,9 @@
     '.s-hz-leyenda{margin:14px 0 4px;padding:14px 16px;border-radius:14px;',
     'background:rgba(247,170,46,.10);border:1px solid rgba(247,170,46,.32)}',
     '.s-hz-lt{font-size:13px;font-weight:800;color:var(--hz-or);margin-bottom:5px}',
-    '.s-hz-lf{margin:0 0 8px;font-size:12.5px;color:var(--hz-or);opacity:.85;',
+    '.s-hz-lf.s-hz-lf{margin:0 0 8px;font-size:12.5px;color:var(--hz-or);opacity:.85;',
     'font-variant-numeric:tabular-nums}',
-    '.s-hz-lp{margin:0;font-size:13.5px;line-height:1.6;color:var(--hz-tx)}',
+    '.s-hz-lp.s-hz-lp{margin:0;font-size:13.5px;line-height:1.6;color:var(--hz-tx)}',
     '.s-hz-ll{margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--hz-tx)}',
     '.s-hz-ll li{margin:4px 0}',
     '.s-hz-ll b{color:var(--hz-or)}',

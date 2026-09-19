@@ -83,7 +83,11 @@ caso('la nota va a lo ancho, no metida en la primera celda', () => {
   // una frase— y dejaba el resto de la fila en blanco. La tabla se rompía justo
   // en el producto que más explicación necesita: el que tiene variaciones.
   const h = H.html(HALL);
-  ok(/<td colspan="6">/.test(h), 'la nota no ocupa el ancho de la tabla');
+  // El colspan tiene que seguir al número de columnas: al añadir Peso pasó de
+  // 6 a 7, y una nota con colspan corto deja un hueco raro al final de la fila.
+  const cols = (h.match(/<\/th>/g) || []).length;   // `<th[^>]*>` también casa `<thead>`
+  ok(h.includes('<td colspan="' + cols + '">'),
+     'la nota no ocupa el ancho de la tabla (' + cols + ' columnas)');
   ok(!/s-hz-n">Foam Roll \(Pangda\)<\/span>[^<]*Es UN solo/.test(h), 'la nota volvió a la celda');
 });
 
@@ -215,6 +219,105 @@ caso('pintar() devuelve false si no hay nada que pintar', () => {
   ok(H.pintar(c, { productos: [] }) === false, 'dice que pintó una tabla vacía');
   ok(c.innerHTML === 'antes', 'borró el contenedor sin tener con qué llenarlo');
   ok(H.pintarValidacion(c, null) === false, 'dice que pintó una validación nula');
+});
+
+console.log('\nLa franja de cifras, con la salvedad del método');
+
+caso('las cifras salen arriba, como en la extensión', () => {
+  const h = H.html({ productos: [{ nombre: 'x' }], cifras: [
+    { etq: 'Productos que cumplen', valor: '45' }, { etq: 'Precio', valor: '$22 – $50' }] });
+  ok(/s-hz-cifras/.test(h), 'no hay franja de cifras');
+  ok(h.includes('Productos que cumplen') && h.includes('45'), 'no imprime la cifra');
+});
+
+caso('pero en la validación van marcadas como PROVISIONALES', () => {
+  // El Criterio 3 dice que los promedios SOLO valen sobre la tabla LIMPIA, y la
+  // tabla llega sucia. Enseñar un promedio de la lista cruda como si contara es
+  // enseñar mal — y además el estudiante ve el número moverse cuando saca al
+  // que no encajaba, que es la mejor clase de Filtro 3 que se le puede dar.
+  const v = H.htmlValidacion({ competidores: [{ nombre: 'x' }],
+    cifras: [{ etq: 'Precio promedio', valor: '$20.54' }] });
+  ok(/s-hz-cifras prov/.test(v), 'los promedios de la tabla sucia no se marcan');
+  ok(/Provisionales/.test(v), 'no avisa de que todavía no cuentan');
+  ok(/Cuentan de verdad cuando saques/.test(v), 'no dice qué hay que hacer para que cuenten');
+  // Y en la de candidatos NO, porque ahí no son promedios de un nicho.
+  ok(!/s-hz-cifras prov/.test(H.html({ productos: [{ nombre: 'x' }], cifras: [{ etq: 'a', valor: '1' }] })),
+     'marca como provisional algo que no es un promedio de nicho');
+});
+
+console.log('\nEl paso a paso, que es lo que la automatización se comía');
+
+caso('los filtros se muestran, y cada uno con su por qué', () => {
+  const h = H.html({ productos: [{ nombre: 'x' }],
+    filtros: [{ que: 'Peso', valor: 'máx. 3 lb' }, { que: 'Precio', valor: '$20 – $50' }] });
+  ok(/Con qué filtré/.test(h), 'no enseña con qué filtró');
+  ok(h.includes('máx. 3 lb'), 'no imprime el valor del filtro');
+  // El POR QUÉ lo pone la aplicación: es currículum y tiene que decir lo mismo
+  // siempre. Si lo redactara el modelo, dos alumnos aprenderían cosas distintas.
+  ok(/el flete y la tarifa de FBA/.test(h), 'el filtro de peso llega sin su razón');
+  ok(/las tarifas de Amazon se comen el margen/.test(h), 'el de precio llega sin su razón');
+  ok(/¿Alguno no te cuadra\?/.test(h), 'no le ofrece moverlos: no es su búsqueda entonces');
+});
+
+caso('y el modelo puede matizar el porqué, sin poder borrarlo', () => {
+  const h = H.html({ productos: [{ nombre: 'x' }],
+    filtros: [{ que: 'Peso', valor: '5 lb', porque: 'Lo subí porque ya vendes.' }] });
+  ok(h.includes('Lo subí porque ya vendes.'), 'no respeta el matiz del modelo');
+});
+
+caso('Qué hice · Por qué · Qué decides tú, en las dos pantallas', () => {
+  const m = { hice: 'Busqué en la base de Amazon.', porque: 'Primero se acota con números.',
+              decides: 'Elegir uno o dos que te llamen.' };
+  for (const h of [H.html({ productos: [{ nombre: 'x' }], metodo: m }),
+                   H.htmlValidacion({ competidores: [{ nombre: 'x' }], metodo: m })]) {
+    for (const e of ['Qué hice', 'Por qué', 'Qué decides tú'])
+      ok(h.includes(e), 'falta la etiqueta "' + e + '"');
+    ok(h.includes(m.decides), 'no imprime lo que decide el estudiante');
+    // El tercero va resaltado: es el único que le pide algo.
+    ok(/s-hz-mf decides/.test(h), 'lo que decide el estudiante no se distingue');
+  }
+});
+
+caso('sin bloque de método no se pinta un marco vacío', () => {
+  ok(!/s-hz-metodo/.test(H.html({ productos: [{ nombre: 'x' }] })), 'pinta el marco sin contenido');
+});
+
+console.log('\nEl peso y la miniatura');
+
+caso('el peso pasado de 3 lb se marca, el normal no', () => {
+  const h = H.html({ productos: [
+    { nombre: 'pesado', peso: '8.77' }, { nombre: 'normal', peso: '1.2' }] });
+  ok(/s-hz-pesado[^>]*>8\.77 lb ⚠/.test(h), 'un producto de 8.77 lb no se marca');
+  ok(!/s-hz-pesado[^>]*>1\.2/.test(h), 'marca como pesado uno de 1.2 lb');
+  ok(h.includes('1.2 lb'), 'no añade la unidad cuando falta');
+});
+
+caso('la miniatura sale si viene, y si no la fila se dibuja igual', () => {
+  const con = H.html({ productos: [{ nombre: 'x', imagen: 'https://m.media-amazon.com/i/a.jpg' }] });
+  ok(/<img class="s-hz-img"/.test(con), 'no pinta la miniatura');
+  ok(/onerror="this\.remove\(\)"/.test(con), 'una foto rota deja un hueco roto');
+  const sin = H.html({ productos: [{ nombre: 'x' }] });
+  ok(!/<img/.test(sin) && /s-hz-n">x/.test(sin), 'sin foto la fila se rompe');
+});
+
+caso('marca y ASIN bajo el nombre, como en la extensión', () => {
+  const h = H.html({ productos: [{ nombre: 'Yarn', marca: 'Waikxin', asin: 'B0GK8F18R7' }] });
+  ok(/s-hz-meta/.test(h) && h.includes('Waikxin') && h.includes('B0GK8F18R7'), 'falta marca o ASIN');
+});
+
+console.log('\nLos tokens llegan a TODOS los bloques que los usan');
+
+caso('ningún bloque se queda sin la declaración de tokens', () => {
+  // Una variable CSS solo baja a los DESCENDIENTES del elemento donde se
+  // declara. Las cifras, el paso a paso y el aviso de provisionales son
+  // HERMANOS de la tabla, no hijos: con la lista corta, `var(--hz-or)` no
+  // resolvía ahí y el color caía al heredado. Naranja escrito, gris en
+  // pantalla, y ni un error.
+  const css = /var CSS = \[([\s\S]*?)\]\.join\(''\);/.exec(SRC)[1];
+  const decl = css.slice(0, css.indexOf('--hz-tx:'));
+  for (const b of ['s-hz-wrap', 's-hz-leyenda', 's-hz-fs', 's-hz-cifras', 's-hz-prov',
+                   's-hz-filtros', 's-hz-metodo'])
+    ok(decl.includes(b), 'el bloque ' + b + ' usa los tokens y no los recibe');
 });
 
 console.log('\nY la página lo llama de verdad');
