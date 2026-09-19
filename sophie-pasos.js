@@ -330,11 +330,23 @@
         // Las tres defensas anti-clon siguen intactas: viven en el motor
         // (repartir() con semilla por persona, yaTomados(), y la cache de
         // descubrimiento por usuario), no en este parrafo.
-        '<div class="s-why"><b>Para ajustarlo a ti</b>' +
-          '<p>Dime dos cosas y la busqueda sale distinta: <b>cuanto capital tienes</b> para el primer pedido, y ' +
-          '<b>que te interesa de verdad</b> — un hobby que practicas, un problema que conoces, algo que ya compras.</p>' +
-        '</div>' +
-        '<div class="s-cta">Dime tu capital y que temas te interesan 👇</div>';
+        // NO PEDIR DOS VECES EL CAPITAL, NI AQUI NI EN EL PASO 7.
+        // Esta pantalla lo pedia siempre, en su propio guion. Si el estudiante
+        // ya lo dijo —porque lo conto antes, o porque volvio a este paso— se lo
+        // preguntaba otra vez, y eso se lee como que no le estan escuchando.
+        (v && v.capital
+          ? '<div class="s-why"><b>Para ajustarlo a ti</b>' +
+            '<p>Tu capital ya lo tengo: <b>' + esc(v.capital) + '</b>. Si cambio, dimelo.</p>' +
+            '<p>Me falta lo otro: <b>que te interesa de verdad</b> — un hobby que practicas, un problema ' +
+            'que conoces, algo que ya compras.</p>' +
+            '</div>' +
+            '<div class="s-cta">Dime que temas te interesan y arranco 👇</div>'
+          : '<div class="s-why"><b>Para ajustarlo a ti</b>' +
+            '<p>Dime dos cosas y la busqueda sale distinta: <b>cuanto capital tienes</b> para el primer ' +
+            'pedido, y <b>que te interesa de verdad</b> — un hobby que practicas, un problema que conoces, ' +
+            'algo que ya compras.</p>' +
+            '</div>' +
+            '<div class="s-cta">Dime tu capital y que temas te interesan 👇</div>');
     },
 
     /* ---- 4 · La keyword raiz la confirmo yo ---- */

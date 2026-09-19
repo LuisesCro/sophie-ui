@@ -220,6 +220,18 @@ caso('con capital en la ficha, el paso 7 lo confirma en vez de pedirlo', () => {
   ok(/Capital disponible/i.test(sinDato), 'sin el dato, tiene que seguir pidiéndolo');
 });
 
+console.log('\nY la aplicación deja de repetirse a sí misma');
+
+caso('con capital en la ficha, el paso 3 tampoco lo vuelve a pedir', () => {
+  const g = {};
+  new Function('window', fs.readFileSync(path.join(AQUI, '..', 'sophie-pasos.js'), 'utf8'))(g);
+  const sin = g.SophiePasos.pantalla(3, { vars: {} });
+  const con = g.SophiePasos.pantalla(3, { vars: { capital: '$1,500' } });
+  ok(/cuanto capital tienes/i.test(sin), 'sin el dato tiene que seguir pidiéndolo');
+  ok(!/cuanto capital tienes/i.test(con), 'lo vuelve a pedir teniéndolo');
+  ok(con.includes('$1,500'), 'no muestra lo que ya sabe');
+});
+
 console.log('\nEl resumen que viaja al servidor');
 
 caso('sale en una línea, en el idioma del método', () => {
@@ -312,6 +324,18 @@ if (fs.existsSync(PROD)) {
     caso(pagina + ': la página observa la pantalla que queda en pie', () => {
       ok(/SophieFicha\.observarPantalla/.test(H),
          'sin esto, un "1500" a secas no significa nada y la pregunta se repite');
+    });
+    caso(pagina + ': tres pantallas iguales seguidas rompen el ciclo', () => {
+      ok(/repetido = \(pg\.paso === ultimoPaso\)/.test(H),
+         'nadie cuenta las repeticiones: la app tenía el dato y no lo usaba');
+      ok(/if \(repetido >= 2\) \{ repetido = 0; atascado/.test(H), 'cuenta pero no corta');
+      ok(/function atascado/.test(H), 'corta pero no dice nada');
+    });
+    caso(pagina + ': sin datos del mercado se avisa, con el motivo', () => {
+      ok(/function avisarSinDatos/.test(H),
+         'ya no hay flujo manual al que degradar: si no hay datos hay que decirlo');
+      ok(/esc\(motivoSinDatos/.test(H),
+         'sin el motivo, el aviso no se puede accionar — "no avanza" se persigue durante días');
     });
     caso(pagina + ': lo que la ficha sabe entra en la pantalla siguiente', () => {
       ok(/pg\.vars = Object\.assign\(\{\}, SophieFicha\.todo\(\), pg\.vars/.test(H),
