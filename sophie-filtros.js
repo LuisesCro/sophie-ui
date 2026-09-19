@@ -117,7 +117,11 @@
     '.s-ft{--ft-bg:var(--so-card,var(--sc-card,rgba(255,255,255,.04)));',
     '--ft-line:var(--so-line,var(--sc-line,rgba(255,255,255,.12)));',
     '--ft-tx:var(--so-tx,var(--sc-tx,#e9eef5));',
-    '--ft-tx2:var(--so-tx2,var(--sc-tx2,#9fb0c4));',
+    // OJO CON EL NOMBRE: el tema define `--so-tx-2`, CON guion. Escrito
+    // `--so-tx2` la variable no existe, el navegador se cae al respaldo y el
+    // texto explicativo sale mas apagado que el resto — que es justo lo que
+    // se reporto: "la letra se ve en negro, no se lee bien". Un guion.
+    '--ft-tx2:var(--so-tx-2,var(--sc-tx2,#cbd6ea));',
     '--ft-ac:#f0883e;--ft-ok:#2fbf87;',
     'margin:12px 0 0;color:var(--ft-tx);font-size:13.5px}',
     '.s-ft h4{margin:16px 0 8px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--ft-tx2)}',
