@@ -184,7 +184,11 @@ caso('y la página traduce ese clic en un mensaje', () => {
     if (!fs.existsSync(f)) continue;
     const H = fs.readFileSync(f, 'utf8');
     ok(/closest\('\[data-pick\]'\)/.test(H), pagina + ': nadie escucha los botones de categoría');
-    ok(/send\(b\.getAttribute\('data-pick'\), true\)/.test(H), pagina + ': el clic no manda nada');
+    ok(/send\(elegido, true\)/.test(H), pagina + ': el clic no manda nada');
+    // Y el clic alimenta la ficha antes de salir: es el dato más fiable de toda
+    // la conversación —no hay nada que interpretar— y es justo el que Sophie
+    // volvía a preguntar dos pantallas después.
+    ok(/SophieFicha\.deEleccionCategoria/.test(H), pagina + ': el clic no se anota en la ficha');
   }
 });
 
@@ -362,7 +366,10 @@ for (const pagina of ['index.html', 'producto-v2.html']) {
 caso('el servidor manda el motivo, no solo un sí o un no', () => {
   const S = fs.readFileSync(path.join(PROD, 'netlify', 'edge-functions', 'chat.js'), 'utf8');
   ok(/<!--DATOS:/.test(S), 'el servidor no manda la señal');
-  for (const m of ['apagada', 'mal-configurada', 'fuera-de-la-lista', 'sin-correo-en-la-sesion'])
+  // "falta-JUNGLESCOUT_ON" sustituyó a "mal-configurada": un motivo que no se
+  // puede accionar no sirve de nada. Este dice QUÉ pieza falta y dónde ponerla.
+  for (const m of ['apagada-a-mano', 'falta-JUNGLESCOUT_ON', 'falta-JUNGLESCOUT_KEY_NAME',
+                   'falta-JUNGLESCOUT_API_KEY', 'fuera-de-la-lista', 'sin-correo-en-la-sesion'])
     ok(S.includes(m), 'falta el motivo "' + m + '"');
   // No puede contar como salida: si contara, un turno que solo trae la señal
   // pasaría por respuesta y el aviso de "turno en blanco" dejaría de saltar.
