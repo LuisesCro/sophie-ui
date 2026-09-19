@@ -155,6 +155,48 @@ await caso('se dice como información, con qué aflojar', () => {
   ok(/if \(d\.vacio\)/.test(H), 'la página trata el vacío como un error y parece que está rota');
 });
 
+console.log('\nEl tope del día no es una avería');
+
+await caso('los topes se configuran, no se codifican', () => {
+  const J = fs.readFileSync(path.join(PROD, 'netlify', 'edge-functions', 'jungle.js'), 'utf8');
+  ok(/JUNGLE_LIMITE_DIA"/.test(J), 'el tope con correo no se puede cambiar sin desplegar');
+  ok(/JUNGLE_LIMITE_DIA_ANONIMO/.test(J), 'el tope anónimo tampoco');
+  // Es una decisión de presupuesto, no de ingeniería: cada búsqueda que no está
+  // en caché cuesta una llamada de un plan que se paga por uso. Quien paga
+  // tiene que poder moverlo sin esperar a nadie.
+  const topeDia = new Function(J.slice(J.indexOf('function topeDia'), J.indexOf('\n}', J.indexOf('function topeDia')) + 2) +
+                               '; return topeDia;')();
+  ok(typeof topeDia === 'function', 'no encontré la función');
+});
+
+await caso('una repetición NO gasta cuota: sale de la caché antes del tope', () => {
+  const J = fs.readFileSync(path.join(PROD, 'netlify', 'edge-functions', 'jungle.js'), 'utf8');
+  const cache = J.indexOf('cache: true, keyword:');
+  const tope = J.indexOf('tope_del_dia');
+  ok(cache !== -1 && tope !== -1 && cache < tope,
+     'el tope se comprueba ANTES de mirar la caché: repetir una búsqueda idéntica gastaría ' +
+     'una llamada que no se hace. El estudiante pagaría por no consultar nada.');
+});
+
+await caso('el 429 llega a la página como 429, no traducido a error genérico', () => {
+  const S = fs.readFileSync(path.join(PROD, 'netlify', 'edge-functions', 'chat.js'), 'utf8');
+  ok(/const cuota = r\.motivo === "tope_del_dia"/.test(S), 'no distingue la cuota de una avería');
+  ok(/jres\(cuota \? 429 : 502/.test(S), 'traduce el 429 a 502 y la página no puede distinguirlo');
+  ok(/\.\.\.\(j\.motivo \? \{ motivo: j\.motivo \} : \{\}\)/.test(S),
+     'el puente se come el `motivo`. Un campo que el puente no reenvía es un campo que no ' +
+     'existe, y eso ya dejó sin efecto la `instruccion` una vez.');
+  ok(/tope: j\.tope, usadas: j\.usadas/.test(S), 'el puente se come las cifras del tope');
+});
+
+await caso('y la página lo cuenta como cuota, no como fallo', () => {
+  const H = fs.readFileSync(path.join(PROD, 'index.html'), 'utf8');
+  ok(/r\.status === 429 && d && d\.tope/.test(H), 'trata el tope como un error cualquiera');
+  ok(/Vuelven a cero a medianoche/.test(H), 'no dice cuándo se recupera');
+  ok(/NO cuenta/.test(H), 'no dice que repetir es gratis, que es lo que quita la ansiedad');
+  ok(/d\.identificado \? '' :/.test(H),
+     'no le dice a quien está sin sesión que entrando tiene más: es lo único que puede hacer hoy');
+});
+
 console.log('\nLa validación de keyword: se mide lo medible, se reserva lo demás');
 
 await caso('los filtros 1 y 2 los decide el servidor', () => {
