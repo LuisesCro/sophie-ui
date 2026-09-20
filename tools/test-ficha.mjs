@@ -252,7 +252,11 @@ for (const pagina of ['index.html', 'producto-v2.html']) {
   caso(pagina + ': el veto corta DURANTE el streaming, no al final', () => {
     // La prosa se pinta segun llega, asi que filtrar al final dejaria ver el
     // texto un segundo antes de quitarlo. El estudiante lo leeria igual.
-    ok(/if \(!vetado && VETO\.test\(full\)\)/.test(H), 'no hay veto dentro del bucle de streaming');
+    // El veto SOLO cuando el flujo es el de datos. Con el manual el estudiante
+    // necesita leer dónde hacer clic, y taparlo lo dejaría sin instrucciones.
+    ok(/if \(datosReales && !vetado && VETO\.test\(full\)\)/.test(H),
+       'el veto no está dentro del bucle, o no distingue el camino: taparía las ' +
+       'instrucciones que el estudiante del flujo manual necesita leer');
     const pintado = (H.match(/else if \([^)]*\) container\.innerHTML = cleanHTML\(full\);/) || [''])[0];
     ok(/!vetado/.test(pintado), 'se sigue pintando el texto vetado mientras llega');
   });
@@ -338,11 +342,13 @@ caso('el capital se pregunta en un CAMPO, no escribiendo', () => {
   // Es el arreglo de raíz del "me lo pidió cinco veces". Una pregunta de chat
   // se pierde: el turno guiado no deja rastro de ella y la respuesta queda
   // suelta. Un campo de formulario se escribe una vez y se ve escrito.
+  // (En el camino CON DATOS. El manual lo sigue preguntando escribiendo, que es
+  // como funciona hoy para el estudiante del curso.)
   const g = {};
   for (const m of ['sophie-pasos.js', 'sophie-filtros.js'])
     new Function('window', fs.readFileSync(path.join(AQUI, '..', m), 'utf8'))(g);
-  ok(/id="panel-filtros"/.test(g.SophiePasos.pantalla(3, { vars: {} })),
-     'el paso 3 no trae el panel');
+  ok(/id="panel-filtros"/.test(g.SophiePasos.pantalla(3, { datos: true, vars: {} })),
+     'el paso 3 con datos no trae el panel');
   ok(/id="ft-capital"/.test(g.SophieFiltros.html()), 'el panel no tiene campo de capital');
   ok(g.SophieFiltros.CAPITAL.porque.length > 60, 'el campo no explica para qué sirve');
 });
@@ -463,11 +469,20 @@ if (fs.existsSync(PROD)) {
       ok(/if \(repetido >= 2\) \{ repetido = 0; atascado/.test(H), 'cuenta pero no corta');
       ok(/function atascado/.test(H), 'corta pero no dice nada');
     });
-    caso(pagina + ': sin datos del mercado se avisa, con el motivo', () => {
-      ok(/function avisarSinDatos/.test(H),
-         'ya no hay flujo manual al que degradar: si no hay datos hay que decirlo');
-      ok(/esc\(motivoSinDatos/.test(H),
-         'sin el motivo, el aviso no se puede accionar — "no avanza" se persigue durante días');
+    caso(pagina + ': sin datos NO se le avisa de nada al estudiante', () => {
+      // Hubo una tarjeta que decía "no tengo conexión con los datos del mercado"
+      // con el motivo técnico y un "avísale a tu mentor". Se escribió cuando no
+      // haber datos era un FALLO, porque el flujo manual estaba borrado.
+      //
+      // Ya no lo es: no tener datos es el estado NORMAL del estudiante del curso
+      // mientras esto se prueba, y para él hay un flujo completo que funciona.
+      // Enseñarle un aviso de avería por estar en su camino de siempre es
+      // decirle que algo va mal cuando no va mal nada — y una estudiante lo vio.
+      ok(!/function avisarSinDatos/.test(H),
+         'volvió la tarjeta de diagnóstico: eso es instrumentación, y la ven los alumnos');
+      ok(/mostrarDiagnostico/.test(H) && /VER_DIAG/.test(H),
+         'el diagnóstico tiene que seguir existiendo tras ?diag=1: a mano para quien ' +
+         'administra, invisible para quien estudia');
     });
     caso(pagina + ': lo que la ficha sabe entra en la pantalla siguiente', () => {
       ok(/pg\.vars = Object\.assign\(\{\}, SophieFicha\.todo\(\), pg\.vars/.test(H),

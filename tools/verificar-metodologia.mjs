@@ -228,71 +228,88 @@ if (!chatPath) {
 
 /* ---------- 3. pantallas guiadas del alumno (sophie-pasos.js) ---------- */
 
-// ESTA SECCIÓN CAMBIÓ DE INVARIANTE, y conviene decir por qué.
+// HAY DOS CAMINOS, Y CADA UNO TIENE SU INVARIANTE. Conviene decirlo aqui
+// porque esta seccion ya ha cambiado de idea dos veces.
 //
-// Antes exigía que las pantallas del paso 3 y del paso 4 nombraran cada filtro
-// con el nombre del campo de Helium 10 y su número exacto. Tenía sentido cuando
-// el estudiante los TECLEABA en Black Box: si la pantalla y la fuente única se
-// desincronizaban, el estudiante filtraba con umbrales que no eran los del
-// método. Ese fallo ocurrió de verdad y por eso existe este verificador.
+// EL CAMINO MANUAL (datos=false) es el que sigue hoy el estudiante del curso:
+// aplica los filtros el mismo en su herramienta. Ahi los umbrales SI se
+// imprimen —tiene que teclearlos— y por eso tienen que coincidir exactamente
+// con la fuente unica. Ese desajuste ocurrio de verdad: la pantalla decia un
+// numero y el motor juzgaba con otro.
 //
-// Ya no los teclea nadie: los aplica el motor, con banda. Y esas dos pantallas
-// manuales se borraron enteras, porque mientras existieran había una condición
-// que podía devolver al estudiante al guion de Helium 10 — y volvió, varias
-// veces, semanas después de darlo por quitado.
+// EL CAMINO CON DATOS (datos=true) es el que estamos probando: los cortes los
+// aplica el motor, con banda. Ahi un umbral escrito en la pantalla es un numero
+// copiado que se quedara atras en silencio, y nombrar una herramienta de pago
+// es mandar al estudiante a algo que no necesita.
 //
-// El invariante equivalente, y más fuerte, es el contrario: LOS UMBRALES NO
-// PUEDEN ESTAR ESCRITOS EN LAS PANTALLAS. Tienen que vivir en un solo sitio
-// —sophie-criterios.js para el juicio, el motor para el corte— porque un número
-// copiado en una pantalla es un número que se queda atrás en silencio.
+// Lo que NO puede pasar nunca es que se mezclen: que el camino con datos nombre
+// herramientas, o que el manual pierda sus numeros.
 
-seccion("PANTALLAS DEL ALUMNO (sophie-pasos.js · sin umbrales copiados, sin herramientas)");
+seccion("PANTALLAS DEL ALUMNO (sophie-pasos.js · dos caminos, dos contratos)");
 const pasosPath = resolve(raiz, "sophie-pasos.js");
 if (!existsSync(pasosPath)) {
   fail("No encuentro sophie-pasos.js");
 } else {
-  const pasos = readFileSync(pasosPath, "utf8");
   const win = {};
-  new Function("window", pasos)(win);
+  new Function("window", readFileSync(pasosPath, "utf8"))(win);
   const SP = win.SophiePasos;
+  const pinta = (paso, datos) =>
+    SP.pantalla(paso, { datos, vars: { keyword: "k", categoria: "c", capital: "$1,500" } }) || "";
 
-  // Se mira el HTML YA PINTADO, no el código: es lo que ve el estudiante, y es
-  // donde estaban las menciones que sobrevivieron a todas las revisiones.
-  let pintadas = 0, sucias = 0, conNumeros = 0;
+  /* --- camino manual: los umbrales impresos coinciden con la fuente unica --- */
+  const grupos = [
+    { titulo: "filtros de descubrimiento (paso 3)", paso: 3, filtros: SC.filtros.blackBox },
+    { titulo: "validacion de keyword (paso 4)",     paso: 4, filtros: SC.filtros.cerebro },
+  ];
+  for (const g of grupos) {
+    const blk = pinta(g.paso, false);
+    if (!blk) { fail(g.titulo + ": la pantalla manual no se pinta"); continue; }
+    for (const f of g.filtros) {
+      if (!blk.includes(f.campo)) { fail(g.titulo + " · " + f.campo + ": la pantalla no nombra este filtro"); continue; }
+      const faltan = [];
+      if (f.min != null && !numRe(f.min).test(blk)) faltan.push("min " + f.min);
+      if (f.max != null && !numRe(f.max).test(blk)) faltan.push("max " + f.max);
+      if (faltan.length) fail(g.titulo + " · " + f.campo + ": falta " + faltan.join(" y "));
+      else ok(g.titulo + " · " + f.campo + ": valores presentes y al dia");
+    }
+  }
+
+  /* --- camino con datos: ni herramientas ni umbrales copiados --- */
+  let sucias = 0, conNumeros = 0, pintadas = 0;
   for (let paso = 1; paso <= 9; paso++) {
-    for (const datos of [true, false]) {
-      const html = SP.pantalla(paso, { datos, vars: { keyword: "k", categoria: "c" } });
-      if (!html) continue;
-      pintadas++;
-      const marcas = html.match(/Black Box|Helium 10|Cerebro|Xray|Magnet/gi) || [];
-      if (marcas.length) {
-        sucias++;
-        fail("paso " + paso + " (datos=" + datos + "): nombra " + [...new Set(marcas)].join(", ") +
-             ". El curso ya no se da con esas herramientas.");
-      }
-      // Los umbrales del método NO pueden estar escritos aquí. Se buscan los
-      // valores de la fuente única: si alguno aparece copiado, se avisa.
-      for (const f of SC.filtros.blackBox.concat(SC.filtros.cerebro)) {
-        for (const v of [f.min, f.max]) {
-          if (v == null || v < 100) continue;   // 2, 3, 10, 45… son demasiado comunes
-          if (numRe(v).test(html)) {
-            conNumeros++;
-            fail("paso " + paso + " (datos=" + datos + "): tiene el umbral " + v + " copiado en el texto. " +
-                 "Los umbrales viven en sophie-criterios.js y en el motor, no en una pantalla.");
-          }
+    const html = pinta(paso, true);
+    if (!html) continue;
+    pintadas++;
+    const marcas = html.match(/Black Box|Helium 10|Cerebro|Xray|Magnet/gi) || [];
+    if (marcas.length) {
+      sucias++;
+      fail("paso " + paso + " con datos: nombra " + [...new Set(marcas)].join(", ") +
+           ". En ese camino el estudiante no abre nada.");
+    }
+    // Se escanea la pantalla SIN datos del estudiante dentro. Con `capital`
+    // puesto a "$1,500", buscar el umbral 500 lo encontraba ahi —la coma es un
+    // limite de palabra— y acusaba de umbral copiado a un dato del alumno.
+    const limpio = SP.pantalla(paso, { datos: true, vars: { keyword: "k", categoria: "c" } }) || "";
+    for (const f of SC.filtros.blackBox.concat(SC.filtros.cerebro)) {
+      for (const v of [f.min, f.max]) {
+        if (v == null || v < 100) continue;   // 2, 3, 10, 45… son demasiado comunes
+        if (numRe(v).test(limpio)) {
+          conNumeros++;
+          fail("paso " + paso + " con datos: tiene el umbral " + v + " copiado. Ahi los cortes " +
+               "los aplica el motor con banda, asi que un numero escrito se queda atras solo.");
         }
       }
     }
   }
-  if (!sucias) ok("ninguna de las " + pintadas + " pantallas nombra una herramienta de pago");
-  if (!conNumeros) ok("ninguna pantalla lleva umbrales copiados de la fuente única");
+  if (!sucias) ok("las " + pintadas + " pantallas con datos no nombran ninguna herramienta");
+  if (!conNumeros) ok("y ninguna lleva umbrales copiados de la fuente unica");
 
-  // Y la fuente única sigue siendo la fuente: los filtros tienen que existir,
-  // aunque ya no se impriman. Si desaparecieran, el motor se quedaría sin corte
-  // y este verificador daría verde sobre la nada.
-  if (!SC.filtros || !SC.filtros.blackBox || !SC.filtros.blackBox.length)
-    fail("sophie-criterios.js se quedó sin los filtros de descubrimiento");
-  else ok("la fuente única conserva sus " + SC.filtros.blackBox.length + " filtros de descubrimiento");
+  /* --- y que los dos caminos SIGAN SIENDO DOS --- */
+  const mezclados = [3, 4, 5].filter((n) => pinta(n, true) === pinta(n, false));
+  if (mezclados.length)
+    fail("los pasos " + mezclados.join(", ") + " dan la MISMA pantalla con y sin datos: " +
+         "o se borro una version, o la señal dejo de elegir");
+  else ok("los pasos 3, 4 y 5 siguen teniendo dos versiones distintas");
 }
 
 /* ---------- reporte ---------- */
