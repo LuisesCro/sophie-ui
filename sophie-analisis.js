@@ -33,7 +33,7 @@
 
   // Quita el marcador para que nunca se vea en pantalla.
   function limpiar(texto) {
-    return String(texto || '').replace(MARCA, '').replace(/<!--(?:[PM]|DATOS):[^>]*-->/g, '').trim();
+    return String(texto || '').replace(MARCA, '').replace(/<!--[PM]:[^>]*-->/g, '').trim();
   }
 
   /* ---------- títulos por fase ---------- */

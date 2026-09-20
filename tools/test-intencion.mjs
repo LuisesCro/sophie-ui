@@ -89,12 +89,8 @@ t("expone la matriz de veredicto compuesto", () => {
   eq(SophieCriterios.matrizCompuesta.pivotar_nogo.clave, "DESCARTE");
 });
 t("hay 6 clusters de intención", () => eq(SophieCriterios.clusters.length, 6));
-t("los léxicos NO cambian por la capa semántica (el veredicto clásico queda intacto)", () => {
-  // Eran 13. Hoy son 15: se añadieron C19 (dueño de la keyword) y C20
-  // (estacionalidad), que el motor solo puede medir con datos de Jungle Scout.
-  // El número se deja escrito a propósito — es lo que caza una adición
-  // accidental. Al cambiarlo hay que preguntarse si el método lo pedía.
-  eq(SophieCriterios.lista.length, 15);
+t("los 13 léxicos NO cambian (el veredicto clásico queda intacto)", () => {
+  eq(SophieCriterios.lista.length, 13);
 });
 
 grupo("SophieIntencion.clasificar — clasificación determinista");

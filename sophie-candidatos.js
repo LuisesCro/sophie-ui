@@ -65,7 +65,7 @@
   function limpiar(texto) {
     return String(texto || '')
       .replace(MARCA, '')
-      .replace(/<!--(?:[PM]|DATOS):[^>]*-->/g, '')
+      .replace(/<!--[PM]:[^>]*-->/g, '')
       .trim();
   }
 

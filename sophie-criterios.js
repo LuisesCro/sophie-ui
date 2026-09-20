@@ -38,41 +38,15 @@
 (function (global) {
   'use strict';
 
-  /* BANDAS: por qué unos umbrales se movieron y otros no.
-
-     Jungle Scout declara un 15,9% de error en sus estimaciones y entre
-     herramientas se ven diferencias del 10 al 30%. Con el corte de revenue en
-     $3.000, un mercado que de verdad factura $3.500 puede reportarse en $2.950 y
-     quedar descartado con total seguridad. La línea caía DENTRO del ruido.
-
-     Por eso los criterios que se apoyan en MODELOS —volumen, revenue, keywords—
-     llevan banda de ±20%: el `umbral_num` sube un 20% y el `alerta_num` baja un
-     20%. Entre los dos queda una zona gris donde el motor da `alerta` y Sophie
-     tiene que cambiar de medición en vez de decidir.
-
-     Los que se apoyan en datos LEÍDOS —precio, conteo de reseñas— conservan su
-     corte exacto: ahí la precisión sí existe y ensancharla sería regalar rigor.
-
-     `concentracionTop1` es un caso aparte: es un COCIENTE, y si la herramienta
-     subestima a todos los competidores parecido el reparto entre ellos casi no
-     se mueve. Por eso lleva banda más estrecha (±10%).
-
-     Y hay un tercer grupo, `propio`: el margen, el costo aterrizado y el capital
-     salen de los números DEL ESTUDIANTE, no de ninguna herramienta. Ahí no hay
-     error de estimación que compensar — si su margen da 22%, da 22%.
-
-     El campo `base` de cada criterio documenta a cuál de los grupos pertenece,
-     para que el próximo que toque un umbral sepa si puede. */
-
   var CRITERIOS = [
 
     /* ---------- FASE 1 — VALIDACIÓN INICIAL ---------- */
 
     {
-      id: 1, fase: 1, veto: true, alerta_num: 3600, base: 'estimado',
+      id: 1, fase: 1, veto: true, alerta_num: 4500,
       criterio: 'Tendencia y volumen de mercado',
       umbral: 'SV ≥ 4,500 + tendencia estable o alcista',
-      campo: 'searchVolume', direccion: 'min', umbral_num: 5400,
+      campo: 'searchVolume', direccion: 'min', umbral_num: 4500,
       extra: 'tendencia',
       por_que: 'El volumen mide cuánta gente busca. La tendencia mide si ese interés está creciendo o muriendo. Un mercado estable es predecible: puedes planificar inventario. Un mercado en caída es una trampa, porque cuando llegues con tu producto la demanda ya habrá bajado más.',
       leccion: 'La demanda no se crea en Amazon, se captura.',
@@ -81,10 +55,10 @@
     },
 
     {
-      id: 2, fase: 1, veto: false, alerta_num: 2400, base: 'estimado',
+      id: 2, fase: 1, veto: false, alerta_num: 3000,
       criterio: 'Ingresos reales del mercado',
       umbral: 'Average Revenue ≥ $4,500 /mes',
-      campo: 'averageRevenue', direccion: 'min', umbral_num: 5400,
+      campo: 'averageRevenue', direccion: 'min', umbral_num: 4500,
       por_que: 'El ingreso promedio por listing es la estimación de lo que tú podrías generar cuando estés bien posicionado. Si el promedio es bajo, el mercado tiene poco dinero circulando: incluso siendo el mejor vendedor, tu techo de ingresos es bajo.',
       leccion: 'Ser el número uno de un mercado pequeño sigue siendo un mercado pequeño.',
       error_comun: 'Confundir búsquedas con dinero. Un nicho puede tener mucho tráfico y muy poca facturación por competidor.',
@@ -92,10 +66,10 @@
     },
 
     {
-      id: 3, fase: 1, veto: false, alerta_num: 66, base: 'estimado_cociente',
+      id: 3, fase: 1, veto: false, alerta_num: 60,
       criterio: 'Distribución de ingresos',
       umbral: 'Ningún producto concentra > 40% del revenue total',
-      campo: 'concentracionTop1', direccion: 'max', umbral_num: 36,
+      campo: 'concentracionTop1', direccion: 'max', umbral_num: 40,
       por_que: 'Un mercado donde el 60% del dinero va a un solo producto está dominado por un ganador que probablemente tiene marca fuerte, miles de reseñas y presupuesto de PPC que tú no puedes igualar. Un mercado distribuido significa que hay espacio para varios ganadores, y tú puedes ser uno.',
       leccion: 'No entres a un mercado donde ya hay un rey coronado.',
       error_comun: 'Ver un revenue total alto sin revisar quién se lo lleva. El promedio esconde la concentración.',
@@ -103,7 +77,7 @@
     },
 
     {
-      id: 4, fase: 1, veto: false, alerta_num: 500, base: 'medido',
+      id: 4, fase: 1, veto: false, alerta_num: 500,
       criterio: 'Reseñas y ratio ventas/reseñas',
       umbral: 'Average Reviews ≤ 300 · ningún top 3 sobre 500',
       campo: 'averageReviews', direccion: 'max', umbral_num: 300,
@@ -115,7 +89,7 @@
     },
 
     {
-      id: 5, fase: 1, veto: false, alerta_num: 20, base: 'medido',
+      id: 5, fase: 1, veto: false, alerta_num: 20,
       criterio: 'Precio promedio de venta',
       umbral: 'Average Price ≥ $20 (ideal ≥ $25)',
       campo: 'averagePrice', direccion: 'min', umbral_num: 20,
@@ -139,10 +113,10 @@
     /* ---------- FASE 2 — VALIDACIÓN AVANZADA ---------- */
 
     {
-      id: 7, fase: 2, veto: true, alerta_num: 12, base: 'estimado',
+      id: 7, fase: 2, veto: true, alerta_num: 15,
       criterio: 'Demanda en profundidad (Cerebro)',
       umbral: '≥ 30 keywords orgánicas tras filtrar',
-      campo: 'keywordsCerebro', direccion: 'min', umbral_num: 36,
+      campo: 'keywordsCerebro', direccion: 'min', umbral_num: 30,
       por_que: 'Las keywords orgánicas de Cerebro son las rutas reales por las que los clientes encuentran y compran este tipo de producto. Sesenta keywords significan sesenta caminos distintos para generar ventas: si una baja, quedan cincuenta y nueve. Quince keywords significan que dependes de muy pocas rutas, y cualquier cambio de algoritmo puede tumbarte.',
       leccion: 'Un nicho robusto tiene muchas puertas de entrada, no una sola.',
       error_comun: 'Correr Cerebro sobre un solo competidor. El ruido de un ASIN individual no es la demanda del mercado.',
@@ -150,7 +124,7 @@
     },
 
     {
-      id: 8, fase: 2, veto: true, base: 'propio', alerta_num: 20,
+      id: 8, fase: 2, veto: true, alerta_num: 20,
       criterio: 'Margen antes de PPC y ROI',
       umbral: 'Margen ≥ 30% antes de PPC · ROI ≥ 100%',
       campo: 'margenAntesPPC', direccion: 'min', umbral_num: 30,
@@ -173,7 +147,7 @@
     },
 
     {
-      id: 10, fase: 2, veto: true, base: 'propio', alerta_num: 40,
+      id: 10, fase: 2, veto: true, alerta_num: 40,
       criterio: 'Sourcing y aranceles',
       umbral: 'MOQ ≤ 300 · costo aterrizado ≤ 30% del precio',
       campo: 'costoAterrizadoPct', direccion: 'max', umbral_num: 30,
@@ -185,7 +159,7 @@
     },
 
     {
-      id: 11, fase: 2, veto: false, base: 'propio', alerta_num: 100,
+      id: 11, fase: 2, veto: false, alerta_num: 100,
       criterio: 'Capital estructurado',
       umbral: 'Alcanza para 150+ unidades + reserva de PPC',
       campo: 'unidadesPosibles', direccion: 'min', umbral_num: 150,
@@ -216,30 +190,6 @@
       leccion: 'Que dos de los diez que más venden se hayan lanzado este año es la mejor prueba de que el nicho deja entrar.',
       error_comun: 'Dar la categoría por abierta sin verificarla en Seller Central. Se comprueba en sesenta segundos.',
       glosario: ['gated', 'ungating', 'proof of entry', 'creation date']
-    },
-
-    /* ---------- Los dos que Jungle Scout hizo posibles ---------- */
-
-    {
-      id: 19, fase: 1, veto: true, base: 'medido',
-      criterio: 'Dueño de la keyword',
-      umbral: 'Ninguna marca se lleva el 35% del espacio',
-      campo: 'liderShareOfVoice', direccion: 'max', umbral_num: 35, alerta_num: 50,
-      por_que: 'Ninguno de los trece criterios anteriores preguntaba quién ocupa las tres primeras páginas de la búsqueda. Un nicho puede cumplir todos los números —volumen, revenue, reseñas bajas, reparto sano— y tener a una sola marca comprando el espacio patrocinado entero. Ese mercado es imposible de entrar aunque todo lo demás esté verde, porque la puerta ya tiene dueño.',
-      leccion: 'Es lo primero que mira un vendedor con experiencia y lo último que ve un principiante.',
-      error_comun: 'Medir el mercado y no mirar quién controla la entrada. Los números del nicho pueden ser perfectos y el sitio estar tomado.',
-      glosario: ['share of voice', 'orgánico vs patrocinado', 'PPC']
-    },
-
-    {
-      id: 20, fase: 1, veto: false, base: 'medido',
-      criterio: 'Estacionalidad medida',
-      umbral: 'Menos del 45% del volumen anual en 8 semanas seguidas',
-      campo: 'concentracion8Semanas', direccion: 'max', umbral_num: 45, alerta_num: 60,
-      por_que: 'La alerta de estacionalidad se disparaba por el NOMBRE del producto: Christmas, Halloween, Valentine. Eso falla en los dos sentidos. Hay estacionales que no lo dicen —trajes de baño, material escolar, artículos de jardín— y hay productos con Christmas en el nombre que venden todo el año. Ahora se mide: qué porcentaje del volumen anual cae en las ocho semanas seguidas más altas.',
-      leccion: 'Un producto estacional deja el inventario parado seis a nueve meses, y desde 2026 el recargo de Amazon por inventario viejo empieza a los 181 días. No solo congela tu capital: paga multa.',
-      error_comun: 'Adivinar la estacionalidad por la palabra en vez de mirar la curva de doce meses.',
-      glosario: ['estacionalidad', 'inventario envejecido', 'historical search volume']
     }
   ];
 

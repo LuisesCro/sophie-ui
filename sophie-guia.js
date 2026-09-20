@@ -41,27 +41,14 @@
   function limpiar(texto) {
     return String(texto || '')
       .replace(MARCA, '')
-      .replace(/<!--(?:[PM]|DATOS):[^>]*-->/g, '')
+      .replace(/<!--[PM]:[^>]*-->/g, '')
       .trim();
   }
 
   // Devuelve el HTML de la pantalla, o null si ese paso no tiene guion.
-  //
-  // `datos` ES EL CAMPO QUE SE PERDÍA. Este puente reenviaba reaccion, chips,
-  // vars y win, y dejaba caer `datos` en el suelo. Consecuencia: daba igual que
-  // Sophie emitiera <!--PASO:{"paso":4,"datos":true}-->, porque aquí llegaba
-  // como si no lo hubiera emitido y se pintaba SIEMPRE la pantalla manual — la
-  // que manda a Black Box, a Cerebro y a Xray.
-  //
-  // Se estuvo persiguiendo en el prompt durante días. No estaba en el prompt:
-  // el modelo hacía su parte y estas cuatro líneas la tiraban. Y las pruebas no
-  // lo veían porque llaman a SophiePasos.pantalla() directamente, saltándose
-  // justo el trozo que fallaba. Una prueba que entra por donde no entra el
-  // usuario no prueba el camino del usuario.
   function html(payload) {
     if (!disponible() || !payload || !payload.paso) return null;
     return global.SophiePasos.pantalla(payload.paso, {
-      datos: payload.datos === true,
       reaccion: payload.reaccion || '',
       chips: payload.chips || [],
       vars: payload.vars || {},
