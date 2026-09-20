@@ -41,14 +41,27 @@
   function limpiar(texto) {
     return String(texto || '')
       .replace(MARCA, '')
-      .replace(/<!--[PM]:[^>]*-->/g, '')
+      .replace(/<!--(?:[PM]|DATOS):[^>]*-->/g, '')
       .trim();
   }
 
   // Devuelve el HTML de la pantalla, o null si ese paso no tiene guion.
+  //
+  // `datos` ES EL CAMPO QUE SE PERDÍA. Este puente reenviaba reaccion, chips,
+  // vars y win, y dejaba caer `datos` en el suelo. Consecuencia: daba igual que
+  // Sophie emitiera <!--PASO:{"paso":4,"datos":true}-->, porque aquí llegaba
+  // como si no lo hubiera emitido y se pintaba SIEMPRE la pantalla manual — la
+  // que manda a Black Box, a Cerebro y a Xray.
+  //
+  // Se estuvo persiguiendo en el prompt durante días. No estaba en el prompt:
+  // el modelo hacía su parte y estas cuatro líneas la tiraban. Y las pruebas no
+  // lo veían porque llaman a SophiePasos.pantalla() directamente, saltándose
+  // justo el trozo que fallaba. Una prueba que entra por donde no entra el
+  // usuario no prueba el camino del usuario.
   function html(payload) {
     if (!disponible() || !payload || !payload.paso) return null;
     return global.SophiePasos.pantalla(payload.paso, {
+      datos: payload.datos === true,
       reaccion: payload.reaccion || '',
       chips: payload.chips || [],
       vars: payload.vars || {},
@@ -62,6 +75,15 @@
     var h = html(payload);
     if (!h || !container) return false;
     container.innerHTML = h;
+    // El paso 3 ya no es un texto que DESCRIBE una busqueda: lleva dentro el
+    // panel de filtros, que es interactivo. Se monta aqui, en el puente, y no
+    // en quien llama, porque si no cada pagina tiene que acordarse — y "cada
+    // pagina tiene que acordarse" es la forma exacta en que este proyecto ha
+    // perdido campos por el camino cinco veces.
+    var hueco = container.querySelector && container.querySelector('#panel-filtros');
+    if (hueco && global.SophieFiltros) {
+      try { global.SophieFiltros.pintar(hueco); } catch (e) {}
+    }
     return true;
   }
 
