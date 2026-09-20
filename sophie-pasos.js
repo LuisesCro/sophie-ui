@@ -36,27 +36,20 @@
 
   /* ---------- mapa de pasos ---------- */
 
-  // NINGUNA ETIQUETA NOMBRA UNA HERRAMIENTA. La del paso 3 decia "Filtros en
-  // Black Box" y era lo PRIMERO que leia el estudiante en esa pantalla: el
-  // titulo de la cabecera, encima de la barra de progreso. Daba igual lo que
-  // dijera el cuerpo debajo.
-  //
-  // Una etiqueta describe el PASO DEL METODO, no la herramienta con la que se
-  // hace. La herramienta es un detalle de implementacion que cambia; el paso,
-  // no. Ese era justo el criterio escrito para el mapa del metodo, y aqui no se
-  // habia aplicado.
   var MAPA = {
     1: { etiqueta: 'Inicio',                     pct: 11 },
-    2: { etiqueta: 'Categoría y subnicho',       pct: 22 },
-    3: { etiqueta: 'Buscando candidatos',        pct: 33 },
+    2: { etiqueta: 'Categoría',                  pct: 22 },
+    3: { etiqueta: 'Filtros en Black Box',       pct: 33 },
     4: { etiqueta: 'Validación de keyword',      pct: 44 },
-    5: { etiqueta: 'La tabla del mercado',       pct: 56 },
+    5: { etiqueta: 'Recolección de datos',       pct: 56 },
     6: { etiqueta: 'Fase 1 — Validación inicial', pct: 67 },
     7: { etiqueta: 'Datos para Fase 2',          pct: 78 },
     8: { etiqueta: 'Fase 2 — Validación avanzada', pct: 89 },
     9: { etiqueta: 'Veredicto final',            pct: 100 }
   };
 
+  // Con datos reales cambian dos etiquetas: ya no se filtra en Black Box ni se
+  // recolecta de Xray. Dejarlas rompia la ilusion antes de leer una sola linea.
   var ETIQUETAS_DATOS = { 2: 'Categoria y subnicho', 3: 'Buscando candidatos', 5: 'Limpiar la tabla' };
 
   // PANTALLAS QUE NO PIDEN NADA AL ESTUDIANTE.
@@ -233,21 +226,226 @@
         '<div class="s-cta">¿Cuál es tu caso? Escribe A, B o C 👇</div>';
     },
 
-    // AQUI VIVIAN LOS PASOS 2, 3, 4, 5 Y 7 EN VERSION MANUAL, y con ellos las
-    // veintinueve menciones a Black Box, Cerebro y Xray que seguian saliendole
-    // al estudiante semanas despues de darlas por quitadas.
-    //
-    // No salian por un fallo de logica: salian porque existian. Mientras la
-    // aplicacion tuviera dos versiones de cada pantalla y una condicion para
-    // elegir, CUALQUIER cosa que dejara esa condicion en false —una variable de
-    // entorno sin poner, una sesion sin correo, un campo perdido en un puente—
-    // devolvia al estudiante al guion de Helium 10. Un camino de repliegue que
-    // nadie queria recorrer, esperando a que algo fallara para aparecer.
-    //
-    // Se borran, no se desactivan. El curso ya no se da con Helium 10, asi que
-    // el repliegue correcto cuando no hay datos no es mandar a una herramienta
-    // de pago: es decir la verdad. De eso se encarga PASOS_DATOS, que ahora es
-    // la unica version que existe de estos cinco pasos.
+    /* ---- 2 · Categoría (solo Camino A) ---- */
+    2: function () {
+      return '<h1>Elige tu categoría</h1>' +
+        '<p class="s-lead">Vamos a usar Black Box de Helium 10 con los filtros optimizados para 2026, ' +
+        'diseñados para encontrar nichos con demanda real comprobada, no solo con búsquedas.</p>' +
+        '<p>Abre Helium 10 → <b>Tools → Black Box → pestaña Keywords</b>. Selecciona UNA de estas ' +
+        'categorías recomendadas para principiantes:</p>' +
+        '<div class="s-grid">' +
+          '<div class="s-opt"><span class="s-num">1</span> Arts, Crafts &amp; Sewing</div>' +
+          '<div class="s-opt"><span class="s-num">2</span> Home &amp; Kitchen</div>' +
+          '<div class="s-opt"><span class="s-num">3</span> Kitchen &amp; Dining</div>' +
+          '<div class="s-opt"><span class="s-num">4</span> Office Products</div>' +
+          '<div class="s-opt"><span class="s-num">5</span> Patio, Lawn &amp; Garden</div>' +
+          '<div class="s-opt"><span class="s-num">6</span> Pet Supplies</div>' +
+          '<div class="s-opt"><span class="s-num">7</span> Sports &amp; Outdoors</div>' +
+          '<div class="s-opt"><span class="s-num">8</span> Tools &amp; Home Improvement</div>' +
+        '</div>' +
+        '<div class="s-why"><b>¿Por qué estas y no otras?</b>' +
+          '<p>Tienen alta demanda, sin restricciones de entrada para vendedores nuevos y márgenes manejables.</p>' +
+          '<p class="s-warn">Evita Electronics, Health &amp; Beauty, Grocery, Baby y Automotive — requieren ' +
+          'certificaciones, tienen regulaciones estrictas o Amazon los tiene restringidos para nuevos sellers.</p>' +
+        '</div>' +
+        '<div class="s-cta">¿Cuál elegiste? Dime el número o el nombre 👇</div>';
+    },
+
+    /* ---- 3 · Filtros de Black Box ---- */
+    3: function (v) {
+      return '<h1>Configura estos filtros</h1>' +
+        '<p class="s-lead">Con <b>[categoria]</b> seleccionada, aplica exactamente estos filtros en Black Box → Keywords.</p>' +
+        '<ul class="s-list">' +
+          '<li><b>Search Volume</b> (mínimo): 4,500 — sin máximo</li>' +
+          '<li><b>Monthly Sales Units</b> (mínimo): 300</li>' +
+          '<li><b>Review Count</b> (máximo): 500</li>' +
+          '<li><b>Monthly Revenue</b> (mínimo): $4,500</li>' +
+          '<li><b>Price</b> (mínimo): $20 — ideal desde $25</li>' +
+          '<li><b>Price</b> (máximo): $60</li>' +
+          '<li><b>Word Count</b> (mínimo): 2</li>' +
+        '</ul>' +
+        '<h2>¿Por qué estos filtros específicos?</h2>' +
+        '<div class="s-card">' +
+          '<p><b>Search Volume ≥ 4,500</b>, sin máximo: asegura un ecosistema de keywords con tráfico real, ' +
+          'para que el producto indexe y genere ventas orgánicas constantes. No le ponemos techo: más demanda ' +
+          'nunca es algo que quieras filtrar fuera.</p>' +
+          '<p><b>Monthly Sales Units ≥ 300</b>: el filtro más importante que la mayoría omite. El volumen de ' +
+          'búsqueda mide intención; las unidades vendidas miden comportamiento real. Un nicho puede tener 10,000 ' +
+          'búsquedas y solo 50 ventas al mes — eso es un nicho de curiosos, no de compradores.</p>' +
+          '<p><b>Review Count ≤ 500</b>: este es el filtro de descubrimiento, más permisivo que el criterio de ' +
+          'evaluación posterior. Queremos ver más nichos para que tengas mayor superficie de candidatos. En Fase 1 ' +
+          'aplicamos un criterio más estricto que descarta los quemados. La diferencia es intencional: el filtro ' +
+          'abre la puerta, el criterio cierra la trampa.</p>' +
+          '<p><b>Monthly Revenue ≥ $4,500/mes</b>: valida que el nicho tiene tamaño comercial saludable y evita ' +
+          'que pierdas tiempo en mercados muertos que no cubrirían tus costos operativos.</p>' +
+          '<p><b>Price desde $20</b>: las tarifas FBA subieron fuerte. Hoy un producto de $15 con FBA ($3–5), ' +
+          'comisión del 15% ($2.25) y COGS ($3) no deja margen real. El piso viable es $20; el objetivo, $25+.</p>' +
+          '<p><b>Word Count ≥ 2</b>: las keywords de una palabra (bag, mat, kit) son demasiado genéricas y mezclan ' +
+          'productos distintos. Con mínimo 2 palabras llegas a keywords con intención de compra definida, que es ' +
+          'donde viven los nichos más rentables.</p>' +
+        '</div>' +
+        '<div class="s-why"><b>💡 Consejo</b>' +
+          '<p>Si los resultados son muy pocos, no toques el Search Volume ni las Units — juega con el precio en ' +
+          'rangos estrechos: $20–$30, luego $30–$40, luego $40–$60. Cada rango te muestra oportunidades distintas.</p>' +
+        '</div>' +
+        '<div class="s-cta">Haz clic en Search y dime 3 a 5 productos o keywords que te llamaron la atención 👇</div>';
+    },
+
+    /* ---- 4 · Validación de keyword con Cerebro (tras pasar los 3 filtros) ---- */
+    4: function (v) {
+      return '<h1>Confirmemos la keyword real del nicho</h1>' +
+        '<p class="s-lead">Tu keyword <b>[keyword]</b> pasó los 3 primeros filtros. Pero esos solo confirman que ' +
+        'es limpia y específica.</p>' +
+        '<p>Todavía no sabemos si es la palabra con la que el mercado <b>realmente compra</b> este producto, ni si ' +
+        'hay demanda suficiente. Eso lo confirmamos con Cerebro, que cruza las keywords de varios competidores a la ' +
+        'vez. Este es el paso que casi todos hacen mal o se saltan. Hazlo conmigo, sin adelantarte.</p>' +
+        '<div class="s-card">' +
+          '<p><b>Paso 1 — Reutiliza tu tabla de Xray.</b> Usa la tabla de Xray Product Research que ya abriste y ' +
+          'limpiaste, con los productos no similares descartados. Si no la tienes abierta, busca <b>[keyword]</b> ' +
+          'en amazon.com en inglés, activa Helium 10 y abre Xray.</p>' +
+          '<p><b>Paso 2 — Marca a tus competidores reales.</b> Ordena por <b>ASIN Sales</b> y marca la casilla de ' +
+          'los 10 que más venden y se parezcan a tu producto. Ignora accesorios, repuestos o cosas de otra ' +
+          'categoría. Si hay menos de 10 similares, marca los que haya (mínimo 5 o 6).</p>' +
+          '<p><b>Paso 3 — Run Cerebro sobre todos a la vez.</b> Con esas casillas marcadas, clic en <b>Run Cerebro</b> ' +
+          'arriba de la tabla. Vemos por qué palabras compite el mercado entero, no un solo producto.</p>' +
+          '<p><b>Paso 4 — Aplica exactamente estos filtros</b> y dale Apply Filters:</p>' +
+        '</div>' +
+        '<ul class="s-list">' +
+          '<li><b>Search Volume</b> → Min: 300</li>' +
+          '<li><b>Match Type</b> → Organic</li>' +
+          '<li><b>Number of Organic Competitors</b> → ASIN Min: 3 · ASIN Max: 10</li>' +
+          '<li><b>Competitor Organic Rank</b> → Rank Min: 1 · Rank Max: 45</li>' +
+        '</ul>' +
+        '<div class="s-why"><b>Qué acabas de hacer</b>' +
+          '<p>Le pediste a Cerebro solo las keywords con demanda real (≥300 búsquedas/mes) por las que entre 3 y 10 ' +
+          'de esos competidores aparecen de forma orgánica en la primera página o cerca. Ese filtro de "al menos 3 ' +
+          'competidores" limpia el ruido: deja las palabras que de verdad mueven ventas, no las que un solo producto ' +
+          'rankea por casualidad. Son los mismos filtros con los que medimos la demanda, así que el número nos sirve doble.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>Paso 5 — Ordena por volumen.</b> Clic en el encabezado <b>Search Volume</b> para ordenar de mayor a ' +
+          'menor. La keyword de hasta arriba es la palabra raíz del nicho.</p>' +
+        '</div>' +
+        '<h2>Ahora cópiame estos datos</h2>' +
+        '<div class="s-card">' +
+          '<p><b>📋 Para validar la keyword</b></p>' +
+          '<ul class="s-list">' +
+            '<li>Keyword #1 por volumen (la de más arriba)</li>' +
+            '<li>Su Search Volume</li>' +
+            '<li>¿Esa keyword #1 es igual, parecida o distinta a la que elegiste?</li>' +
+            '<li>¿Tu keyword principal aparece dentro de la lista filtrada? (sí / no)</li>' +
+          '</ul>' +
+          '<p><b>📋 Demanda del mercado</b></p>' +
+          '<ul class="s-list">' +
+            '<li>¿Cuántas keywords quedaron en total tras aplicar los filtros? Cerebro lo muestra arriba de la tabla</li>' +
+          '</ul>' +
+          '<p><b>📋 Tus competidores (para tu expediente)</b></p>' +
+          '<ul class="s-list">' +
+            '<li>Los ASINs que marcaste para Run Cerebro, separados por coma. Cuando construyas el listing con ' +
+            'Sophie Listing los vas a reutilizar tal cual, sin buscarlos de nuevo</li>' +
+          '</ul>' +
+        '</div>' +
+        '<div class="s-cta">Pégame los datos y seguimos 💪</div>';
+    },
+
+    /* ---- 5 · Recolección de datos de Xray ---- */
+    5: function (v) {
+      return '<h1>Recolectemos los datos del mercado</h1>' +
+        '<p class="s-lead"><b>[keyword]</b> es tu keyword principal. Búscala en Amazon, activa Xray y activa ' +
+        '<b>Hide Sponsored Products</b>.</p>' +
+        '<div class="s-why"><b>⚠️ Antes de darme los datos</b>' +
+          '<p>En Xray, elimina los productos que NO sean similares a lo que quieres vender: accesorios, repuestos, ' +
+          'variantes raras, multipacks o productos de otra categoría. Deja solo competidores reales.</p>' +
+          '<p class="s-warn">Los promedios se recalculan según lo que dejes. Si no limpias, el análisis mide un ' +
+          'mercado equivocado y todo lo que sigue queda contaminado.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>📋 Resumen general (header de Xray)</b></p>' +
+          '<ul class="s-list">' +
+            '<li>Search Volume</li>' +
+            '<li>Tendencia del volumen: ¿la gráfica de los últimos 12 meses sube, está estable o baja?</li>' +
+            '<li>Total Revenue (top 10)</li>' +
+            '<li>Average Revenue</li>' +
+            '<li>Average Price</li>' +
+            '<li>Average BSR</li>' +
+            '<li>Average Reviews</li>' +
+          '</ul>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>📋 Top 5 productos por ASIN Sales</b></p>' +
+          '<p>Selecciona las 5 filas de mayor ventas y pégalas tal cual, con sus columnas. No escribas campo por ' +
+          'campo: copia y pega, y yo extraigo lo que necesito.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>📋 Prueba de entrada</b> — 30 segundos, casi nadie la hace</p>' +
+          '<p>En la tabla de Xray busca la columna <b>Creation Date</b>. ¿Cuántos de los 10 que más venden se ' +
+          'lanzaron en los últimos 12 meses? Dame el número.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>📋 Tu situación</b></p>' +
+          '<ul class="s-list">' +
+            '<li>Capital disponible para invertir</li>' +
+            '<li>Costo estimado por unidad en Alibaba, si ya lo consultaste</li>' +
+          '</ul>' +
+        '</div>' +
+        '<div class="s-why"><b>Nota sobre variaciones</b>' +
+          '<p>Si varios resultados son variaciones del mismo producto padre (colores o tamaños del mismo listing), ' +
+          'cuéntalos como UN solo competidor. El revenue fragmentado entre variaciones engaña los promedios.</p>' +
+        '</div>' +
+        '<div class="s-cta">Cuando tengas todo, pégalo aquí 💪</div>';
+    },
+
+    /* ---- 7 · Datos para Fase 2 ---- */
+    7: function (v) {
+      return '<h1>Datos para la Fase 2</h1>' +
+        '<p class="s-lead">Tu producto pasa a la Validación Avanzada. Necesito 4 datos más antes del veredicto final.</p>' +
+        '<div class="s-card">' +
+          '<p><b>Paso A — Demanda del mercado (Cerebro)</b></p>' +
+          '<p>Ya lo tenemos de la validación de keyword: mismos 10 competidores, mismos filtros. No lo repitas.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>Paso B — Reseñas negativas (diferenciación)</b></p>' +
+          '<ul class="s-list">' +
+            '<li>Abre en Amazon los 2-3 productos con más ventas de tu nicho</li>' +
+            '<li>Filtra reseñas por 1 y 2 estrellas</li>' +
+            '<li>Lee las primeras 15-20 negativas de cada uno</li>' +
+            '<li>Dime las 3 quejas más repetidas</li>' +
+            '<li>¿Hay alguna intención o escenario que el producto actual no atiende bien? ' +
+            'Busca frases tipo "ojalá sirviera para…" o "lo compré para X y no funcionó"</li>' +
+          '</ul>' +
+          '<p>Si tu plan de Helium 10 incluye <b>Review Insights</b>, úsalo. Si no aparece, ve directo a Amazon — ' +
+          'el resultado es idéntico.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>Paso C — Verificación en Alibaba</b></p>' +
+          '<ul class="s-list">' +
+            '<li>¿Existe el producto? ¿Cuál es el rango de precio por unidad?</li>' +
+            '<li>¿El MOQ es manejable, menos de 500 unidades?</li>' +
+            '<li>¿De qué país sale el producto?</li>' +
+            '<li>¿La cotización es DDP (incluye flete y aranceles) o FOB/EXW (van aparte)?</li>' +
+          '</ul>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>Paso D — Costo de publicidad</b></p>' +
+          '<p>En Cerebro, busca tu keyword principal y dime el <b>Suggested PPC Bid</b> que aparece.</p>' +
+        '</div>' +
+        '<div class="s-card">' +
+          '<p><b>Paso E — Barreras de entrada</b></p>' +
+          '<ul class="s-list">' +
+            '<li>¿Cuántas reseñas tienen los 3 productos líderes? Dame el número de cada uno</li>' +
+            '<li>¿La categoría está gated? Verifícalo en 60 segundos: Seller Central → Catálogo → Agregar productos ' +
+            '→ busca el ASIN de un competidor líder. Si dice <b>Vender este producto</b>, está abierta. Si dice ' +
+            '<b>Solicitar aprobación</b>, está gated</li>' +
+            '<li>¿Ves alguna patente o marca registrada fuerte que domine el nicho?</li>' +
+          '</ul>' +
+          '<p>Si todavía no tienes cuenta de Seller Central, dímelo y lo marcamos como pendiente antes del pedido.</p>' +
+        '</div>' +
+        '<div class="s-why"><b>¿Por qué estos datos?</b>' +
+          '<p>El margen, el sourcing con aranceles, la diferenciación COSMO y las barreras de entrada son los 4 ' +
+          'factores que más negocios quiebran después del lanzamiento. Los verificamos antes de invertir, no después.</p>' +
+        '</div>' +
+        '<div class="s-cta">Pega los datos de los 5 pasos, o los que ya tengas, y seguimos 👇</div>';
+    }
   };
 
 
@@ -306,32 +504,35 @@
       return h;
     },
 
-    /* ---- 3 · El panel de filtros. La busqueda la hace la aplicacion ---- */
-    //
-    // ESTA PANTALLA ERA UN TEXTO QUE DESCRIBIA UNA BUSQUEDA. Decia "yo hago la
-    // busqueda, no necesitas abrir nada" y despues el turno se lo quedaba el
-    // modelo, que unas veces llamaba a la consulta y otras narraba un recorrido
-    // de clics por una herramienta que el curso no usa.
-    //
-    // Ahora la pantalla ES el panel. El estudiante mueve los filtros y pulsa
-    // Buscar; la pagina llama al servidor y pinta la tabla. No hay turno que
-    // improvisar porque no hay nadie escribiendo.
-    //
-    // Y de paso arregla que salieran siempre los mismos productos: con la
-    // categoria como unica entrada, treinta estudiantes mandaban la misma
-    // consulta. Quien decide el rango de precio, el techo de resenas y las
-    // palabras es el, asi que la busqueda ya es suya.
+    /* ---- 3 · Sophie busca los candidatos (sustituye a Black Box) ---- */
     3: function (v) {
-      var h = '<h1>Ajusta tu busqueda</h1>' +
-        '<p class="s-lead">Estos son los filtros del metodo, ya puestos. ' +
-        'Muevelos si quieres: cada uno te dice para que sirve.</p>' +
-        '<div class="s-why"><b>Por que los eliges tu y no yo</b>' +
-          '<p>Si todos buscamos igual, todos encontramos lo mismo — y acabariamos compitiendo ' +
-          'entre nosotros en el mismo nicho. Tus numeros y tus palabras hacen que tu lista no ' +
-          'se parezca a la de nadie.</p>' +
+      return '<h1>Voy a buscarte candidatos</h1>' +
+        '<p class="s-lead">Con <b>[categoria]</b> elegida, yo hago la busqueda. No necesitas abrir ninguna ' +
+        'herramienta.</p>' +
+        '<div class="s-card">' +
+          '<p><b>Lo que voy a filtrar por ti</b></p>' +
+          '<ul class="s-list">' +
+            '<li><b>Precio</b> desde $20 — por debajo de ahi las tarifas de Amazon se comen el margen</li>' +
+            '<li><b>Resenas</b> maximo 500 — los mercados amurallados quedan fuera</li>' +
+            '<li><b>Revenue</b> minimo real, para que el nicho tenga dinero de verdad</li>' +
+            '<li><b>Sin marcas dominantes</b>, que son las que no te dejan entrar</li>' +
+          '</ul>' +
         '</div>' +
-        '<div id="panel-filtros"></div>';
-      return h;
+        // SIN ADVERTENCIA. Aqui habia un `s-warn` —rojo, con "esto no es
+        // relleno"— explicando que si treinta estudiantes buscan igual acaban
+        // compitiendo entre ellos. Cierto, pero en el paso 3 el estudiante aun
+        // no tiene con que preocuparse: se le estaba dando una alarma antes que
+        // un producto. La personalizacion se consigue PREGUNTANDO bien, no
+        // avisando de lo que pasa si no contesta.
+        //
+        // Las tres defensas anti-clon siguen intactas: viven en el motor
+        // (repartir() con semilla por persona, yaTomados(), y la cache de
+        // descubrimiento por usuario), no en este parrafo.
+        '<div class="s-why"><b>Para ajustarlo a ti</b>' +
+          '<p>Dime dos cosas y la busqueda sale distinta: <b>cuanto capital tienes</b> para el primer pedido, y ' +
+          '<b>que te interesa de verdad</b> — un hobby que practicas, un problema que conoces, algo que ya compras.</p>' +
+        '</div>' +
+        '<div class="s-cta">Dime tu capital y que temas te interesan 👇</div>';
     },
 
     /* ---- 4 · La keyword raiz la confirmo yo ---- */
@@ -377,19 +578,10 @@
       return '<h1>Lo ultimo, y es lo mas valioso</h1>' +
         '<p class="s-lead">Los numeros del mercado ya los tengo. Faltan cuatro cosas que ningun dato puede ' +
         'contestarme.</p>' +
-        // NO VOLVER A PEDIR EL CAPITAL. Lo pide el paso 3 y lo volvia a pedir
-        // aqui, en el guion, no por olvido del modelo. Al estudiante le llegaba
-        // como si no le hubieran escuchado, que es el error que mas confianza
-        // cuesta. Si la ficha lo sabe, se CONFIRMA en una linea; si no, se pide.
         '<div class="s-card">' +
           '<p><b>1 · Tu dinero</b></p>' +
-          (v && v.capital
-            ? '<p>Tu capital ya me lo dijiste: <b>' + esc(v.capital) + '</b>. Si cambio, dimelo; si no, ' +
-              'sigue.</p>' +
-              '<p>Lo que si me falta es el <b>costo del producto en Alibaba</b>, si ya cotizaste. Si no has ' +
-              'cotizado, dimelo y lo estimo — pero lo marcamos como estimado.</p>'
-            : '<p>Capital disponible para el primer pedido, y el costo del producto en Alibaba si ya cotizaste. ' +
-              'Si no has cotizado, dimelo y lo estimo — pero lo marcamos como estimado.</p>') +
+          '<p>Capital disponible para el primer pedido, y el costo del producto en Alibaba si ya cotizaste. Si no has ' +
+          'cotizado, dimelo y lo estimo — pero lo marcamos como estimado.</p>' +
         '</div>' +
         '<div class="s-card">' +
           '<p><b>2 · Las resenas de 1 y 2 estrellas del lider</b></p>' +
@@ -425,25 +617,13 @@
   // opts: { reaccion, chips: [], vars: {}, win: bool }
   function pantalla(paso, opts) {
     opts = opts || {};
-    // LA VERSION DE JUNGLE SCOUT ES LA UNICA. Aqui habia una eleccion —"si hay
-    // datos reales usa esta, si no, la manual"— y era la raiz de que Black Box
-    // siguiera saliendo despues de semanas arreglandolo. Cualquier cosa que
-    // dejara `datos` en false —una variable de entorno sin poner, una sesion sin
-    // correo, un campo perdido en un puente— devolvia al estudiante al guion de
-    // Helium 10. Un camino de repliegue que nadie queria recorrer, esperando a
-    // que algo fallara para aparecer.
-    //
-    // El curso ya no se da con Helium 10. Asi que el repliegue no es enviar al
-    // estudiante a una herramienta de pago que no tiene: es decirle la verdad,
-    // que ahora mismo no se pueden traer los datos. Eso lo hace PASOS_DATOS, que
-    // manda SIEMPRE cuando existe para ese paso.
-    //
-    // `datos` sigue existiendo, pero solo decide la ETIQUETA de la cabecera.
-    var cuerpo = PASOS_DATOS[paso] || PASOS[paso];
+    // Con datos reales se usa la version que no manda a recolectar. Si ese paso
+    // no tiene variante, cae a la de siempre — y si la senal no llega, tambien.
+    // El fallo seguro es ese: ver la pantalla manual, que es lo que pasa hoy.
+    var cuerpo = (opts.datos && PASOS_DATOS[paso]) || PASOS[paso];
     if (!cuerpo) return null; // no es un paso guiado (6, 8 y 9 los dibuja el motor)
 
-    if (PASOS_DATOS[paso]) opts = { ...opts, datos: true };
-    if (paso === 2 && PASOS_DATOS[2]) estiloCategorias();
+    if (opts.datos && paso === 2) estiloCategorias();
     var html = cabecera(paso, opts.datos) + '<div class="s-body">';
 
     if (opts.win && WINS[paso]) html += '<div class="s-win">' + WINS[paso] + '</div>';

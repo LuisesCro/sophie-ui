@@ -93,28 +93,6 @@
   // El modelo puede mandar un número o un rango en texto ("$24–51",
   // "230–246"). Los dos son válidos: un producto con variaciones tiene
   // rango de verdad, y redondearlo a un número sería inventar precisión.
-  // EL NOMBRE DEL PRODUCTO VIENE CON DOS NOMBRES, y esa es toda la historia.
-  //
-  // La API de Amazon lo devuelve como `titulo`. Este modulo leia `nombre`,
-  // porque asi se lo pedia el prompt al modelo cuando era el quien armaba el
-  // marcador. Mientras el modelo estuvo en medio, el traducia sin que nadie lo
-  // supiera. En cuanto la pagina empezo a pasar los candidatos DIRECTOS de la
-  // API —que es lo que queriamos— el campo dejo de existir: la tabla salio con
-  // los nombres en blanco y el mensaje "Quiero analizar estos productos: · ·".
-  //
-  // Es el mismo fallo que ya ha pasado cinco veces en este proyecto y siempre
-  // igual: un campo que se cae entre dos capas sin que nada falle. Por eso se
-  // aceptan los dos nombres y hay UN solo sitio donde se decide, en vez de
-  // cuatro `p.nombre` repartidos.
-  //
-  // Y el ASIN como ultimo recurso: un producto sin nombre sigue siendo
-  // identificable, y un mensaje con un ASIN es infinitamente mejor que uno con
-  // un punto y nada al lado.
-  function nom(p) {
-    if (!p) return '';
-    return String(p.nombre || p.titulo || p.title || p.asin || '').trim();
-  }
-
   function celda(v) {
     if (v === null || v === undefined || v === '') return '—';
     // Un punto de corte DESPUES del guion de un rango, para que "$19K-50K"
@@ -168,9 +146,9 @@
       // tiempo, y quien se lleva ocho candidatos a la vez no analiza ninguno.
       '<td class="s-hz-ckc" data-l="Elegir">' +
         '<label class="s-hz-lb"><input type="checkbox" class="s-hz-ck" value="' +
-        esc(nom(p)) + '"><span></span></label></td>' +
+        esc(p.nombre) + '"><span></span></label></td>' +
       '<td data-l="Producto"><div class="s-hz-prod">' + foto(p) +
-        '<div><span class="s-hz-n">' + esc(nom(p)) + '</span>' +
+        '<div><span class="s-hz-n">' + esc(p.nombre) + '</span>' +
         ((p.marca || p.asin) ? '<span class="s-hz-meta">' +
           (p.marca ? esc(p.marca) : '') + (p.marca && p.asin ? ' · ' : '') +
           (p.asin ? '<code>' + esc(p.asin) + '</code>' : '') + '</span>' : '') +
@@ -471,7 +449,7 @@
     var e = estadoDe(f.estado);
     return '<li class="s-hz-f ' + e.clase + '">' +
       '<span class="s-hz-fi">' + e.icono + '</span>' +
-      '<span class="s-hz-fn">' + esc(nom(f)) + '</span>' +
+      '<span class="s-hz-fn">' + esc(f.nombre) + '</span>' +
       (f.nota ? '<span class="s-hz-fx">' + esc(f.nota) + '</span>' : '') +
       '</li>';
   }
@@ -483,7 +461,7 @@
     c = c || {};
     return '<tr>' +
       '<td data-l="Competidor"><div class="s-hz-prod">' + foto(c) +
-        '<div><span class="s-hz-n">' + esc(nom(c)) + '</span>' +
+        '<div><span class="s-hz-n">' + esc(c.nombre) + '</span>' +
         ((c.marca || c.asin) ? '<span class="s-hz-meta">' +
           (c.marca ? esc(c.marca) : '') + (c.marca && c.asin ? ' · ' : '') +
           (c.asin ? '<code>' + esc(c.asin) + '</code>' : '') + '</span>' : '') +
@@ -636,16 +614,6 @@
     '.s-hz-n{overflow-wrap:anywhere}',
     '@container (max-width:580px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
     '@media (max-width:580px){.s-hz-wrap{overflow-x:hidden;background-image:none}}',
-    // POR QUE LLEVAN `position:relative` LOS PADRES. Esconder algo con
-    // `position:absolute` lo saca de la caja que hace scroll si por encima no
-    // hay ningun elemento posicionado: su bloque contenedor pasa a ser la
-    // pagina entera, y entonces su posicion —que esta abajo del todo del hilo—
-    // ESTIRA el area de scroll del BODY. El sintoma es el que se veia: una
-    // segunda barra vertical que se pasa por debajo de la ventana de Sophie.
-    //
-    // Un `<span>` de un pixel movia 777 px de scroll. Pesa lo mismo contenerlo:
-    // basta con que su padre este posicionado.
-    '.s-hz-ckc{position:relative}',
     '.s-hz-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
 
     /* La casilla y la fila elegida. */
@@ -799,7 +767,6 @@
     // soporte de contenedores tiene que apilar igual: en ese caso el corte por
     // viewport es una aproximacion peor, pero nunca deja un dato fuera.
     '@container (max-width:580px){',
-    '.s-hz{position:relative}',
     '.s-hz thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
     '.s-hz,.s-hz tbody,.s-hz tr,.s-hz td{display:block;width:100%}',
     '.s-hz tbody tr{padding:12px 6px;border-bottom:1px solid var(--hz-line2)}',
@@ -816,7 +783,6 @@
 
     '}',
     '@media (max-width:580px){',
-    '.s-hz{position:relative}',
     '.s-hz thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
     '.s-hz,.s-hz tbody,.s-hz tr,.s-hz td{display:block;width:100%}',
     '.s-hz tbody tr{padding:12px 6px;border-bottom:1px solid var(--hz-line2)}',
@@ -854,7 +820,6 @@
 
   global.SophieHallazgos = {
     version: '1.0',
-    nombreDe: nom,
     disponible: disponible,
     // La lista de candidatos que Sophie encontró (salida de `descubrir`).
     detectar: detectar,
