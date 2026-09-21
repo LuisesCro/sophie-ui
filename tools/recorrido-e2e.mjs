@@ -412,27 +412,28 @@ t("término que gastó el CPA de equilibrio sin ventas → NEGAR", () => {
   eq(r.decisiones[0].accion, "NEGAR", "acción");
 });
 
-t("término rentable fuera de exacta → COSECHAR", () => {
+t("término que convierte fuera de exacta (≥ 12 clics, ≥ 2 órdenes, CVR ≥ cuenta) → COSECHAR", () => {
   const r = SophiePPC.clasificar(
-    [{ term: "garlic press", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
+    [{ term: "garlic press", imp: 1000, clk: 12, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
     PPC_CTX);
   eq(r.decisiones[0].accion, "COSECHAR", "acción");
 });
 
-t("gastó el equilibrio pero con muy pocos clics → VIGILAR (poca evidencia para negar)", () => {
+t("gastó el equilibrio pero con menos de 12 clics → G5, no se toca", () => {
   const r = SophiePPC.clasificar(
     [{ term: "niche term", imp: 300, clk: 2, spd: 14, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 14, ord: 0 } } }],
     PPC_CTX);
-  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+  eq(r.decisiones[0].grupo, "G5", "grupo");
+  eq(r.decisiones[0].accion, "MANTENER", "acción");
 });
 
-t("muchas impresiones y CTR bajísimo sin gastar el equilibrio → REVISAR_LISTING (no es puja)", () => {
-  // Coherente con el gate '¿pujas o listing?' del Optimizador: cuando la gente
-  // ve el anuncio y sigue de largo, el cuello de botella es imagen/precio, no puja.
+t("12 clics sin órdenes se podan aunque el CTR sea bajo (la poda va antes que el listing)", () => {
+  // Método: 12 clics y 0 órdenes = G4, negativo exacto. El CTR bajo de la cuenta
+  // lo diagnostica el gate '¿pujas o listing?' del Optimizador, no esta fila.
   const r = SophiePPC.clasificar(
     [{ term: "relevant term", imp: 8000, clk: 12, spd: 4, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 4, ord: 0 } } }],
     PPC_CTX);
-  eq(r.decisiones[0].accion, "REVISAR_LISTING", "acción");
+  eq(r.decisiones[0].accion, "NEGAR", "acción");
 });
 
 /* ============================================================
@@ -463,6 +464,9 @@ if (!rutaOptiads) {
   });
   const w = domOpt.window;
   w.HTMLElement.prototype.scrollIntoView = function () {}; // jsdom no lo implementa
+  // El Optimizador carga el motor desde ui.crezcamosonline.com; aquí se inyecta la copia local
+  // para probar el flujo contra el motor que se va a publicar.
+  w.eval(readFileSync(resolve(raiz, "sophie-ppc.js"), "utf8"));
 
   t("el Optimizador expone su gate y su flujo (evaluarGateListing / renderGateListing / analizar)", () => {
     ok(typeof w.evaluarGateListing === "function", "falta evaluarGateListing (¿cargó el index.html?)");
