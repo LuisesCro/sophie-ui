@@ -158,7 +158,8 @@
 
     var niveles = null, presupuesto = null;
     if (maxCPC !== null) {
-      presupuesto = maxCPC * CLICS_DIA_PRESUPUESTO;
+      // Del maxCPC redondeado que ve el alumno: 0,61 × 25 = 15,25 (no 0,6098 × 25 = 15,24).
+      presupuesto = r2(maxCPC) * CLICS_DIA_PRESUPUESTO;
       niveles = NIVELES.map(function (l) {
         return { id: l.id, nombre: l.nombre, tipo: l.tipo, reparto: l.reparto,
                  presupuestoDia: r2(presupuesto * l.reparto), puja: r2(maxCPC * l.factorPuja) };
