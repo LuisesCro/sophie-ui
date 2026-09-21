@@ -416,14 +416,14 @@ const PPC_CTX = { precio: 30, breakEvenACOS: 33 };
    borde exacto, para que un cambio futuro en Z_CONFIANZA o PRIOR_FUERZA se note
    aquí en vez de en las recomendaciones de un estudiante. */
 
-t("gastó el equilibrio sin vender, pero con 12 clics → VIGILAR (aún es mala suerte plausible)", () => {
+t("gastó el equilibrio sin vender con 12 clics → NEGAR (umbral de poda del método)", () => {
   const r = SophiePPC.clasificar(
     [{ term: "cheap gadget", imp: 500, clk: 12, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }],
     PPC_CTX);
   eq(r.ok, true, "ok");
-  eq(r.decisiones[0].accion, "VIGILAR", "acción");
-  // El motivo debe decir cuántos clics faltan: si no, el estudiante no sabe qué esperar.
-  eq(/clics antes de negar/.test(r.decisiones[0].motivo || ""), true, "el motivo dice cuándo volver");
+  eq(r.decisiones[0].accion, "NEGAR", "acción");
+  // El motivo debe decir qué lo dispara: clics sin órdenes contra el umbral de 12.
+  eq(/sin una sola orden/.test(r.decisiones[0].motivo || ""), true, "el motivo muestra el dato que dispara la poda");
 });
 
 t("el MISMO término con 15 clics y cero ventas → NEGAR (ya hay evidencia)", () => {
@@ -433,19 +433,26 @@ t("el MISMO término con 15 clics y cero ventas → NEGAR (ya hay evidencia)", (
   eq(r.decisiones[0].accion, "NEGAR", "acción");
 });
 
-t("borde de negación: 14 clics todavía no, 15 sí", () => {
+t("borde de poda del método: 11 clics sin venta todavía no (G5), 12 sí (G4)", () => {
   const caso = (clk) => SophiePPC.clasificar(
     [{ term: "cheap gadget", imp: clk * 42, clk, spd: clk, sal: 0, ord: 0, src: { "Auto [broad]": { spd: clk, ord: 0 } } }],
-    PPC_CTX).decisiones[0].accion;
-  eq(caso(14), "VIGILAR", "14 clics");
-  eq(caso(15), "NEGAR", "15 clics");
+    PPC_CTX).decisiones[0];
+  eq(caso(11).accion, "MANTENER", "11 clics"); eq(caso(11).grupo, "G5", "11 clics es G5");
+  eq(caso(12).accion, "NEGAR", "12 clics");
 });
 
-t("término rentable fuera de exacta con 10 clics → VIGILAR (muestra corta para escalar)", () => {
+t("término que convierte fuera de exacta (≥ 12 clics, ≥ 2 órdenes, CVR ≥ cuenta) → COSECHAR", () => {
+  const r = SophiePPC.clasificar(
+    [{ term: "garlic press", imp: 1000, clk: 12, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
+    PPC_CTX);
+  eq(r.decisiones[0].accion, "COSECHAR", "acción");
+});
+
+t("el mismo término con 10 clics es G5: no se cosecha todavía", () => {
   const r = SophiePPC.clasificar(
     [{ term: "garlic press", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
     PPC_CTX);
-  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+  eq(r.decisiones[0].accion, "MANTENER", "acción");
 });
 
 t("el MISMO término con 30 clics y 9 órdenes → COSECHAR", () => {
@@ -455,20 +462,21 @@ t("el MISMO término con 30 clics y 9 órdenes → COSECHAR", () => {
   eq(r.decisiones[0].accion, "COSECHAR", "acción");
 });
 
-t("gastó el equilibrio pero con muy pocos clics → VIGILAR (poca evidencia para negar)", () => {
+t("gastó el equilibrio pero con menos de 12 clics → G5, no se toca", () => {
   const r = SophiePPC.clasificar(
     [{ term: "niche term", imp: 300, clk: 2, spd: 14, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 14, ord: 0 } } }],
     PPC_CTX);
-  eq(r.decisiones[0].accion, "VIGILAR", "acción");
+  eq(r.decisiones[0].grupo, "G5", "grupo");
+  eq(r.decisiones[0].accion, "MANTENER", "acción");
 });
 
-t("muchas impresiones y CTR bajísimo sin gastar el equilibrio → REVISAR_LISTING (no es puja)", () => {
-  // Coherente con el gate '¿pujas o listing?' del Optimizador: cuando la gente
-  // ve el anuncio y sigue de largo, el cuello de botella es imagen/precio, no puja.
+t("12 clics sin órdenes se podan aunque el CTR sea bajo (la poda va antes que el listing)", () => {
+  // Método: 12 clics y 0 órdenes = G4, negativo exacto. El CTR bajo de la cuenta
+  // lo diagnostica el gate '¿pujas o listing?' del Optimizador, no esta fila.
   const r = SophiePPC.clasificar(
     [{ term: "relevant term", imp: 8000, clk: 12, spd: 4, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 4, ord: 0 } } }],
     PPC_CTX);
-  eq(r.decisiones[0].accion, "REVISAR_LISTING", "acción");
+  eq(r.decisiones[0].accion, "NEGAR", "acción");
 });
 
 /* ============================================================
@@ -499,6 +507,9 @@ if (!rutaOptiads) {
   });
   const w = domOpt.window;
   w.HTMLElement.prototype.scrollIntoView = function () {}; // jsdom no lo implementa
+  // El Optimizador carga el motor desde ui.crezcamosonline.com; aquí se inyecta la copia local
+  // para probar el flujo contra el motor que se va a publicar.
+  w.eval(readFileSync(resolve(raiz, "sophie-ppc.js"), "utf8"));
 
   t("el Optimizador expone su gate y su flujo (evaluarGateListing / renderGateListing / analizar)", () => {
     ok(typeof w.evaluarGateListing === "function", "falta evaluarGateListing (¿cargó el index.html?)");

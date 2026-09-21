@@ -314,166 +314,162 @@ t("texto(r) trae el bloque que la red server-side busca", () => {
   ok(s.includes("RESCATAR"), "debe incluir el veredicto");
 });
 
-/* ---------- 8 · SophiePPC.clasificar (motor de Cosecha y Poda / Ads) ---------- */
+/* ---------- 8 · SophiePPC v2 — método sophie-ads + sophie-optimizador ---------- */
 
-grupo("SophiePPC.clasificar — decisiones de PPC");
+grupo("SophiePPC.economia — los cinco números (sophie-ads)");
 
-const PPC_CTX = { precio: 30, breakEvenACOS: 33 };
+const cerca = (a, b, tol, msg) => { if (Math.abs(a - b) > (tol || 0.011)) throw new Error((msg ? msg + ": " : "") + "esperaba ≈" + b + " y dio " + a); };
+const CASO1 = { precio: 22.99, cau: 6.50, referral: 3.45, fba: 7.89, devolucionesPct: 2, cvr: 10, fase: "lanzamiento" };
 
-t("sin precio/break-even → ok:false con error", () => {
-  const r = SophiePPC.clasificar([], {});
-  eq(r.ok, false, "debe fallar");
-  ok(r.error, "debe explicar qué falta");
+t("caso de referencia: margen 20,4% → ACOS obj 26,5% → targetCPA 6,10 → maxCPC 0,61 → 15,25/día", () => {
+  const E = SophiePPC.economia(CASO1);
+  eq(E.ok, true, "ok");
+  cerca(E.margenPct, 20.4, 0.05, "margen %"); cerca(E.breakEvenACOS, 20.4, 0.05, "break-even");
+  cerca(E.acosObjetivo, 26.52, 0.02, "ACOS objetivo"); cerca(E.targetCPA, 6.10, 0.01, "targetCPA");
+  cerca(E.maxCPC, 0.61, 0.01, "maxCPC"); cerca(E.pujaArranque, 0.49, 0.01, "puja de arranque ×0,80");
+  cerca(E.presupuestoDia, 15.25, 0.03, "presupuesto maxCPC × 25");
+  cerca(E.niveles[0].puja, 0.37, 0.01, "N1 ×0,60"); cerca(E.niveles[1].puja, 0.49, 0.01, "N2 ×0,80"); cerca(E.niveles[2].puja, 0.61, 0.01, "N3 completo");
+  eq(E.niveles.map((l) => l.reparto).join("/"), "0.2/0.25/0.4/0.15", "reparto 20/25/40/15");
+});
+t("factores de fase oficiales: 1,3 / 0,70 / 0,50 / 1,5", () => {
+  const f = (fase) => SophiePPC.economia({ ...CASO1, fase }).acosObjetivo;
+  cerca(f("escalamiento"), 20.4 * 0.70, 0.05); cerca(f("madurez"), 20.4 * 0.50, 0.05); cerca(f("liquidacion"), 20.4 * 1.5, 0.05);
+});
+t("margen negativo → no hay estrategia de ads posible", () => {
+  const E = SophiePPC.economia({ precio: 15, cau: 9, referral: 2.25, fba: 5.5, cvr: 10, fase: "lanzamiento" });
+  eq(E.ok, false); eq(E.viable, false); ok(/no hay estrategia de ads/i.test(E.error), "debe decirlo");
+});
+t("sin FBA → bloquea (antes inflaba el break-even de 22% a 57%)", () => {
+  const E = SophiePPC.economia({ ...CASO1, fba: 0 });
+  eq(E.ok, false); ok(E.errores.some((x) => /FBA/.test(x)), "pide la FBA");
+});
+t("sin CVR → sin maxCPC y con aviso de usar el del nicho", () => {
+  const E = SophiePPC.economia({ ...CASO1, cvr: "" });
+  eq(E.ok, true); eq(E.maxCPC, null); ok(/nicho/.test(E.aviso), "aviso del CVR del nicho");
+  eq(SophiePPC.economia({ ...CASO1, cvr: 140 }).maxCPC, null, "CVR > 100% es inválido");
+});
+t("México: descuenta el IVA antes de restar el costo", () => {
+  const E = SophiePPC.economia({ precio: 499, referralPct: 15, fba: 80, cau: 150, cvr: 10, fase: "escalamiento", mercado: "MX" });
+  cerca(E.margenPct, 29.4, 0.1, "margen MX");
+});
+t("textoEconomia trae el bloque que el modelo no recalcula", () => {
+  const txt = SophiePPC.textoEconomia(SophiePPC.economia(CASO1));
+  ok(txt.includes("ECONOMÍA CALCULADA POR LA APLICACIÓN") && txt.includes("maxCPC") && txt.includes("N3 Rentabilidad"), "bloque completo");
 });
 
-t("evidencia estadística suficiente sin ventas → NEGAR", () => {
-  const r = SophiePPC.clasificar(
-    [{ term: "cheap gadget", imp: 500, clk: 20, spd: 20, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 20, ord: 0 } } }],
-    PPC_CTX);
-  eq(r.ok, true, "ok");
-  eq(r.decisiones[0].accion, "NEGAR", "20 clics / 0 ventas: el techo del CVR ya no llega al equilibrio");
+grupo("SophiePPC — estadística del optimizador");
+
+t("Wilson 6/40, Z=1,28 → 0,0916 (el ejemplo del manual ya corregido)", () => cerca(SophiePPC.wilson(6, 40, 1.28).lo, 0.0916, 0.0005));
+t("CVR bayesiano con cuenta al 10%: 1/3 → 14,7% · 24/200 → 11,9%", () => {
+  cerca(SophiePPC.cvrBayes(1, 3, 0.10) * 100, 14.67, 0.01); cerca(SophiePPC.cvrBayes(24, 200, 0.10) * 100, 11.89, 0.01);
+});
+t("intervalo (compatibilidad v1): su media es el CVR bayesiano", () => cerca(SophiePPC.intervalo(1, 3, 0.10, 12, 1.28).media, SophiePPC.cvrBayes(1, 3, 0.10), 1e-9));
+
+grupo("SophiePPC.clasificar — reglas del optimizador");
+
+const PPC_CTX = { precio: 30, breakEvenACOS: 33, fase: "escalamiento", cvrCuenta: 0.10 };
+const T = (term, clk, ord, spd, sal, src) => ({ term, imp: clk * 50, clk, ord, spd, sal, src: src || { "Auto [broad]": { spd, ord, clk } } });
+const una = (fila, ctx, op) => SophiePPC.clasificar([fila], ctx || PPC_CTX, op).decisiones[0];
+
+t("sin precio/break-even → ok:false con error", () => { const r = SophiePPC.clasificar([], {}); eq(r.ok, false); ok(r.error); });
+t("G5: 11 clics y 0 órdenes NO se poda", () => { const d = una(T("once clics", 11, 0, 16, 0)); eq(d.grupo, "G5"); eq(d.accion, "MANTENER"); });
+t("G5: 3 clics y 1 orden NO se toca (antes subía la puja)", () => { const d = una(T("suerte", 3, 1, 2, 30)); eq(d.grupo, "G5"); eq(d.accion, "MANTENER"); });
+t("G4: 12 clics y 0 órdenes → podar con negativo exacto, aunque el CPC sea bajo", () => {
+  const d = una(T("barato", 12, 0, 6, 0)); eq(d.grupo, "G4"); eq(d.accion, "NEGAR"); eq(d.negativo, "negativo exacto");
+});
+t("COSECHAR: 2 órdenes en 12 clics con CVR bayesiano ≥ cuenta → exacta con puja CVR_bayes × targetCPA × 0,90", () => {
+  const d = una(T("garlic press", 12, 2, 9, 60));
+  eq(d.accion, "COSECHAR");
+  const tcpa = 30 * 0.33 * 0.70;
+  cerca(d.pujaSugerida, (2 + 1.2) / 24 * tcpa * 0.90, 0.01, "puja de cosecha");
+});
+t("NO cosecha si el CVR bayesiano queda bajo el de la cuenta", () => {
+  const d = una(T("flojo", 40, 2, 20, 60)); ok(d.accion !== "COSECHAR", "dio " + d.accion);
+});
+t("NO cosecha lo que ya vive solo en exacta; si también corre fuera → NEGAR_EN_ORIGEN", () => {
+  const src = { "Exacta [exact]": { spd: 10, ord: 3, clk: 20 }, "Auto [broad]": { spd: 5, ord: 1, clk: 10 } };
+  eq(una(T("ganador", 30, 4, 15, 120, src)).accion, "NEGAR_EN_ORIGEN");
+});
+t("cambio de puja limitado a ±25% (antes −73%)", () => {
+  const src = { "Exacta [exact]": { spd: 45, ord: 1, clk: 30 } };
+  const d = una(T("carisimo", 30, 1, 45, 30, src));
+  ok(d.cambioPct >= -25.01, "cambio " + d.cambioPct + "%");
+});
+t("nunca sube la puja sin pasar el test de Wilson", () => {
+  const src = { "Exacta [exact]": { spd: 3, ord: 1, clk: 12 } };
+  const d = una(T("pocas pruebas", 12, 1, 3, 30, src));
+  ok(d.accion !== "SUBIR_PUJA" || d.wilsonLB >= d.cpc / (30 * 0.33 * 0.70), "subió sin pasar Wilson");
+});
+t("órdenes > clics → REVISAR_DATO (antes cosechaba y Wilson daba NaN)", () => eq(una(T("raro", 12, 20, 5, 100)).accion, "REVISAR_DATO"));
+t("término de marca de competidor → REVISAR_MARCA", () => eq(una(T("yeti tumbler", 15, 0, 20, 0), { ...PPC_CTX, marcasCompetidores: ["yeti"] }).accion, "REVISAR_MARCA"));
+t("expresiones de segmentación → SEGMENTACION, nunca NEGAR/COSECHAR", () => {
+  ['keyword-group=""Keywords related to your product category""', "substitutes", "complements", "close-match", "loose-match", 'asin="B08N5WRWNW"', 'category="12345"', "*"]
+    .forEach((term) => eq(una(T(term, 100, 0, 75, 0)).accion, "SEGMENTACION", "«" + term + "»"));
+});
+t("objetivo 'ranking' (v1) se lee como fase de lanzamiento (factor 1,3)", () => {
+  const r = SophiePPC.clasificar([T("x", 12, 0, 5, 0)], { precio: 30, breakEvenACOS: 33, objetivo: "ranking" });
+  eq(r.economia.fase, "lanzamiento"); cerca(r.economia.targetACOS, 42.9, 0.01);
+});
+t("TACOS: ventas totales → valor y lectura de la tabla del manual", () => {
+  const r = SophiePPC.clasificar([T("x", 12, 3, 20, 100)], { ...PPC_CTX, ventasTotales: 400 });
+  eq(r.resumen.tacos, 5); eq(r.resumen.lecturaTacos.banda, "< 8%");
+  ok(SophiePPC.texto(r).includes("TACOS: 5%"), "texto muestra el TACOS");
+});
+t("texto(res) trae la salida obligatoria: BASE, SEGMENTACIÓN G1–G5 e IMPACTO", () => {
+  const txt = SophiePPC.texto(SophiePPC.clasificar([T("a", 12, 0, 6, 0), T("b", 3, 0, 1, 0)], PPC_CTX));
+  ["MOTOR PPC", "BASE", "SEGMENTACIÓN", "G1 Motores", "G5 Inmaduros", "PODAR", "IMPACTO ESPERADO"].forEach((x) => ok(txt.includes(x), "falta " + x));
 });
 
-t("convierte rentable con muestra sólida → COSECHAR", () => {
-  const r = SophiePPC.clasificar(
-    [{ term: "garlic press", imp: 3000, clk: 30, spd: 15, sal: 150, ord: 10, src: { "Auto [broad]": { spd: 15, ord: 10 } } }],
-    PPC_CTX);
-  eq(r.decisiones[0].accion, "COSECHAR", "30 clics / 10 órdenes: ganador confirmado");
+grupo("SophiePPC.leerReporte — Search Term Report real");
+
+t("suma las filas de un mismo término (reporte diario o varias campañas)", () => {
+  const csv = "Date,Campaign Name,Ad Group Name,Match Type,Customer Search Term,Impressions,Clicks,Spend,7 Day Total Sales,7 Day Total Orders (#)\n" +
+    [1, 2, 3, 4, 5, 6].map((d) => `2026-09-0${d},Auto,AG1,-,cheap matcha whisk,100,4,$6.00,$0.00,0`).join("\n");
+  const r = SophiePPC.leerReporte(csv);
+  eq(r.ok, true); eq(r.terminos.length, 1); eq(r.terminos[0].clk, 24); cerca(r.terminos[0].spd, 36);
+  eq(r.calidad.dias, 6); eq(r.calidad.filasSumadas, 5);
+  eq(SophiePPC.clasificar(r.terminos, PPC_CTX).decisiones[0].accion, "NEGAR", "sumado, se poda");
 });
-
-t("término de marca de competidor → REVISAR_MARCA (economía aparte)", () => {
-  const r = SophiePPC.clasificar(
-    [{ term: "yeti tumbler", imp: 800, clk: 15, spd: 20, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 20, ord: 0 } } }],
-    { ...PPC_CTX, marcasCompetidores: ["yeti"] });
-  eq(r.decisiones[0].accion, "REVISAR_MARCA", "acción");
+t("descarta la fila de totales", () => {
+  const csv = "Campaign Name,Customer Search Term,Clicks,Spend,Sales,Orders\nAuto,uno,10,5,20,1\nAuto,Total,10,5,20,1";
+  const r = SophiePPC.leerReporte(csv); eq(r.terminos.length, 1); eq(r.calidad.totalesDescartados, 1);
 });
-
-t("texto(res) trae el bloque MOTOR PPC", () => {
-  const r = SophiePPC.clasificar([{ term: "x", imp: 10, clk: 1, spd: 1, sal: 0, ord: 0, src: {} }], PPC_CTX);
-  ok(SophiePPC.texto(r).includes("MOTOR PPC"), "debe contener 'MOTOR PPC'");
+t("encabezados en español, punto y coma y números latinos (1.234 y 0,50)", () => {
+  const csv = "Nombre de la campaña;Término de búsqueda del cliente;Impresiones;Clics;Gasto;Ventas totales de 7 días;Pedidos totales de 7 días\nAuto;soporte bordado;1.234;12;$6,50;0,00;0";
+  const t0 = SophiePPC.leerReporte(csv).terminos[0];
+  eq(t0.imp, 1234); eq(t0.clk, 12); cerca(t0.spd, 6.5);
 });
-
-t("expresión de segmentación (no es término) → SEGMENTACION, nunca NEGAR/COSECHAR", () => {
-  // Filas que Amazon mete como 'término' pero son grupos/targets, no búsquedas.
-  const casos = [
-    'keyword-group=""Keywords related to your product category""',
-    "substitutes", "complements", "close-match", "loose-match",
-    'asin="B08N5WRWNW"', 'category="12345"', "*"
-  ];
-  casos.forEach((term) => {
-    // aun con gasto y 0 ventas (lo que antes disparaba NEGAR)
-    const r = SophiePPC.clasificar([{ term, imp: 2000, clk: 100, spd: 75, sal: 0, ord: 0, src: { "Auto": { spd: 75, ord: 0 } } }], PPC_CTX);
-    eq(r.decisiones[0].accion, "SEGMENTACION", "«" + term + "» debe ser SEGMENTACION");
-  });
-  // control: una búsqueda real perdedora SIGUE yendo a NEGAR
-  const real = SophiePPC.clasificar([{ term: "cheap shoulder pads", imp: 1000, clk: 34, spd: 52, sal: 0, ord: 0, src: { "Auto": { spd: 52, ord: 0 } } }], PPC_CTX);
-  eq(real.decisiones[0].accion, "NEGAR", "una búsqueda real perdedora sí se niega");
+t("fila de total con el término vacío y 'Total' en la campaña → se descarta", () => {
+  const r = SophiePPC.leerReporte("Campaign Name,Customer Search Term,Clicks,Spend,Sales,Orders\nAuto,uno,10,5,20,1\nTotal,,10,5,20,1");
+  eq(r.calidad.totalesDescartados, 1); eq(r.terminos.length, 1);
 });
-
-/* ---------- OBJETIVO de campaña (PPC Mastery V9-V10) ---------- */
-
-t("objetivo RANKING: convierte aunque no sea rentable → COSECHAR (no exige rentabilidad)", () => {
-  const fila = [{ term: "garlic press", imp: 1000, clk: 15, spd: 20, sal: 45, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }];
-  // ACOS ~44% > break-even 33%: en rentabilidad NO cosecha; en ranking sí.
-  const rank = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33, objetivo: "ranking" });
-  eq(rank.decisiones[0].accion, "COSECHAR", "ranking cosecha lo que convierte");
-  const rent = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33 });
-  ok(rent.decisiones[0].accion !== "COSECHAR", "rentabilidad NO cosecha un no-rentable");
+t("texto(): el motivo de PODAR no se corta en los decimales", () => {
+  const txt = SophiePPC.texto(SophiePPC.clasificar([T("caro", 14, 0, 9.1, 0)], PPC_CTX));
+  ok(txt.includes("$9.10"), "debe mostrar $9.10");
 });
-
-t("objetivo RANKING: gasto sin venta NO se niega de una (priming) → VIGILAR", () => {
-  // Muestra con evidencia suficiente (25 clics) para que rentabilidad sí niegue;
-  // en ranking, el mismo insumo se vigila (podría ser una priming query).
-  const fila = [{ term: "relevant broad", imp: 2000, clk: 25, spd: 20, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 20, ord: 0 } } }];
-  const rank = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33, objetivo: "ranking" });
-  eq(rank.decisiones[0].accion, "VIGILAR", "en ranking se es paciente");
-  const rent = SophiePPC.clasificar(fila, { precio: 30, breakEvenACOS: 33 });
-  eq(rent.decisiones[0].accion, "NEGAR", "en rentabilidad, con evidencia suficiente, el mismo insumo se niega");
+t("una comilla suelta dentro del término no se come el resto del archivo", () => {
+  const r = SophiePPC.leerReporte('Campaign Name\tCustomer Search Term\tClicks\tSpend\tSales\tOrders\nAuto\t12" matcha whisk\t12\t6\t0\t0\nAuto\tdos\t5\t2\t0\t0\nAuto\ttres\t5\t2\t0\t0');
+  eq(r.terminos.length, 3); eq(r.terminos[0].clk, 12);
 });
-
-t("objetivo CONQUISTA: ROAS≥1 → MANTENER; ROAS<1 → BAJAR_PUJA", () => {
-  const gana = SophiePPC.clasificar([{ term: "yeti alt", imp: 800, clk: 20, spd: 9, sal: 25, ord: 1, src: { "PAT": { spd: 9, ord: 1 } } }], { precio: 30, breakEvenACOS: 33, objetivo: "conquista" });
-  eq(gana.decisiones[0].accion, "MANTENER", "ROAS 2.78: ACOS alto es esperado en conquista");
-  const pierde = SophiePPC.clasificar([{ term: "yeti alt", imp: 800, clk: 20, spd: 30, sal: 25, ord: 1, src: { "PAT": { spd: 30, ord: 1 } } }], { precio: 30, breakEvenACOS: 33, objetivo: "conquista" });
-  eq(pierde.decisiones[0].accion, "BAJAR_PUJA", "ROAS 0.83: pierde más de lo que entra");
+t("fechas dd/mm de un reporte en español: 01/08 a 29/09 son 60 días, no 265", () => {
+  const r = SophiePPC.leerReporte("Fecha;Nombre de la campaña;Término de búsqueda del cliente;Clics;Gasto;Ventas;Pedidos\n01/08/2026;Auto;uno;5;2;0;0\n29/09/2026;Auto;uno;5;2;0;0");
+  eq(r.calidad.dias, 60);
 });
-
-/* ---------- Rigor estadístico (intervalo de Wilson) ---------- */
-
-t("RIGOR: pocos clics sin venta NO se niega (protege de mala suerte) → VIGILAR", () => {
-  // 12 clics / 0 ventas: el naive lo negaba; con Wilson el CVR real aún puede
-  // cruzar el equilibrio → se espera más evidencia.
-  const r = SophiePPC.clasificar(
-    [{ term: "borderline term", imp: 500, clk: 12, spd: 12, sal: 0, ord: 0, src: { "Auto [broad]": { spd: 12, ord: 0 } } }],
-    PPC_CTX);
-  eq(r.decisiones[0].accion, "VIGILAR", "12 clics no bastan para negar con confianza");
+t("mismo término en dos grupos de la misma campaña → un negativo por grupo", () => {
+  const csv = "Campaign Name,Ad Group Name,Match Type,Customer Search Term,Clicks,Spend,Sales,Orders\nManual,AG1,BROAD,malo,6,3,0,0\nManual,AG2,BROAD,malo,6,3,0,0";
+  const res = SophiePPC.clasificar(SophiePPC.leerReporte(csv).terminos, PPC_CTX);
+  const filas = SophiePPC.acciones(res).filter((f) => f.accion === "Negativo exacto");
+  eq(filas.map((f) => f.grupoAnuncios).sort().join(","), "AG1,AG2");
 });
-
-t("RIGOR: rentable pero muestra fina NO se cosecha (evita cosecha prematura) → VIGILAR", () => {
-  // 3 órdenes en 10 clics a CPC $2: rentable por ACOS, pero el piso del CVR aún
-  // no supera el equilibrio → confirmar antes de aislar a exacta.
-  const r = SophiePPC.clasificar(
-    [{ term: "lucky term", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: { "Auto [broad]": { spd: 20, ord: 3 } } }],
-    PPC_CTX);
-  eq(r.decisiones[0].accion, "VIGILAR", "3 órdenes no confirman un ganador aún");
+t("CSV: los números negativos no se tratan como fórmulas", () => {
+  const src = { "Exacta [exact]": { spd: 45, ord: 1, clk: 30 } };
+  ok(!SophiePPC.accionesCSV(SophiePPC.clasificar([T("carisimo", 30, 1, 45, 30, src)], PPC_CTX)).includes("'-"), "Δ% negativo sin comilla");
 });
-
-t("wilson: el intervalo se estrecha al crecer la muestra", () => {
-  const chico = SophiePPC.wilson(0, 5, 1.28);
-  const grande = SophiePPC.wilson(0, 50, 1.28);
-  ok(grande.hi < chico.hi, "más datos → techo más bajo con 0 éxitos");
-  ok(chico.lo === 0 && grande.lo === 0, "sin éxitos, el piso es 0");
-  const mitad = SophiePPC.wilson(5, 10, 1.28);
-  ok(mitad.lo > 0 && mitad.hi < 1, "una proporción intermedia da banda interior");
-});
-
-/* ---------- Prior Bayesiano (Empirical Bayes · shrinkage) ---------- */
-
-t("intervalo: encoge una muestra chica de suerte hacia la base de la cuenta", () => {
-  // 1/1 = 100% observado, pero la cuenta convierte al 10%: la media posterior
-  // debe quedar MUCHO más cerca de la base que del 100%.
-  const conPrior = SophiePPC.intervalo(1, 1, 0.10, 12, 1.28);
-  ok(conPrior.media < 0.30, "1/1 se encoge muy por debajo de 100% (dio " + (conPrior.media*100).toFixed(0) + "%)");
-  ok(conPrior.media > 0.10, "pero sube algo sobre la base por el éxito observado");
-  // k=0 desactiva el prior → cae a Wilson (no informativo)
-  const sinPrior = SophiePPC.intervalo(1, 1, 0.10, 0, 1.28);
-  const wil = SophiePPC.wilson(1, 1, 1.28);
-  ok(Math.abs(sinPrior.hi - wil.hi) < 1e-9, "k=0 equivale a Wilson");
-});
-
-t("prior: cuenta SANA da beneficio de la duda (más paciente para negar)", () => {
-  // Cuenta con base ~13% CVR. Un término de 22 clics / 0 ventas: Wilson lo niega,
-  // el prior lo mantiene en vigilar (dado que la cuenta suele convertir).
-  const cuenta = [
-    { term: "winner uno", imp: 4000, clk: 40, spd: 30, sal: 240, ord: 8, src: { "Auto [broad]": { spd: 30, ord: 8 } } },
-    { term: "winner dos", imp: 3000, clk: 30, spd: 22, sal: 120, ord: 4, src: { "Auto [broad]": { spd: 22, ord: 4 } } },
-    { term: "quiza malo", imp: 2000, clk: 22, spd: 19, sal: 0,  ord: 0, src: { "Auto [broad]": { spd: 19, ord: 0 } } }
-  ];
-  const ctx = { precio: 30, breakEvenACOS: 33 };
-  const conPrior = SophiePPC.clasificar(cuenta, ctx);
-  const sinPrior = SophiePPC.clasificar(cuenta, ctx, { PRIOR_FUERZA: 0 });   // Wilson puro
-  eq(conPrior.decisiones[2].accion, "VIGILAR", "con prior sano: paciencia");
-  eq(sinPrior.decisiones[2].accion, "NEGAR", "sin prior (Wilson): lo niega");
-});
-
-t("prior: cuenta DÉBIL corta antes (niega con menos evidencia)", () => {
-  // Cuenta que apenas convierte (~1.3%). Un término de 16 clics / 0 ventas: el
-  // prior ya lo condena; Wilson todavía esperaría más datos.
-  const cuenta = [
-    { term: "flojo base", imp: 8000, clk: 60, spd: 40, sal: 25, ord: 1, src: { "Auto [broad]": { spd: 40, ord: 1 } } },
-    { term: "sospechoso", imp: 2000, clk: 16, spd: 13, sal: 0,  ord: 0, src: { "Auto [broad]": { spd: 13, ord: 0 } } }
-  ];
-  const ctx = { precio: 30, breakEvenACOS: 33 };
-  const conPrior = SophiePPC.clasificar(cuenta, ctx);
-  const sinPrior = SophiePPC.clasificar(cuenta, ctx, { PRIOR_FUERZA: 0 });
-  eq(conPrior.decisiones[1].accion, "NEGAR", "con prior débil: corta antes");
-  eq(sinPrior.decisiones[1].accion, "VIGILAR", "sin prior (Wilson): aún esperaría");
-});
-
-t("TACOS: ventasTotales alimenta el resumen y el texto para el modelo", () => {
-  const r = SophiePPC.clasificar([{ term: "x", imp: 1000, clk: 10, spd: 20, sal: 100, ord: 3, src: {} }], { precio: 30, breakEvenACOS: 33, ventasTotales: 400 });
-  eq(r.resumen.tacos, 5, "TACOS = 20/400 = 5%");
-  ok(SophiePPC.texto(r).includes("TACOS 5%"), "texto muestra el TACOS");
+t("reporte sin columnas clave → error claro", () => { const r = SophiePPC.leerReporte("a,b\n1,2"); eq(r.ok, false); ok(/columnas/.test(r.error)); });
+t("accionesCSV: una fila por acción y sin fórmulas ejecutables", () => {
+  const res = SophiePPC.clasificar([T("=HYPERLINK(1)", 12, 0, 6, 0, { "Auto [broad]": { spd: 6, ord: 0, clk: 12, grupo: "AG1" } })], PPC_CTX);
+  const csv = SophiePPC.accionesCSV(res);
+  ok(csv.includes("Negativo exacto"), "trae la acción"); ok(csv.includes("'=HYPERLINK"), "neutraliza la fórmula");
 });
 
 /* ---------- 9 · SophieKeywords.parsear — encabezados de rank de Cerebro ---------- */
