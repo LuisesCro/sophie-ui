@@ -10,21 +10,25 @@ Los umbrales, la pedagogía y los vetos del currículum **GO / NO GO** viven en 
 solo lugar: **`sophie-criterios.js`**. El modelo no puede alterarlos.
 
 - **`sophie-criterios.js`** — la fuente única: los 13 criterios (umbral, alerta,
-  veto), la escala de veredictos y los filtros de Black Box / Cerebro.
+  veto), la escala de veredictos, los tres presets de descubrimiento de Black
+  Box (Core, Emergente y Premium) y los filtros de Cerebro.
 - **`sophie-motor.js`** — calcula puntaje, vetos y veredicto **leyendo** de
   `sophie-criterios.js`. Por eso el score que ve el alumno nunca se desincroniza.
+- **`sophie-candidatos.js`** — calcula la prioridad preliminar de los candidatos,
+  muestra qué preset cumplen y conserva los productos fuera de preset como
+  watchlist. Los vetos operativos siguen dominando y el score final continúa
+  perteneciendo al motor de 13 criterios.
 
-### El riesgo: copias en prosa
+### El riesgo: la copia en el prompt
 
-Dos lugares repiten esos números **escritos a mano** (un build step no los genera):
+El **prompt del modelo** en `sophie-producto/netlify/edge-functions/chat.js`
+repite en prosa los umbrales finales para que Sophie razone con el mismo
+criterio. Las pantallas guiadas ya no copian los presets de Black Box: los
+renderizan directamente desde `sophie-criterios.js`. Cerebro conserva su texto
+guiado y la guarda verifica el HTML resultante.
 
-1. El **prompt del modelo** en `sophie-producto/netlify/edge-functions/chat.js`
-   (`SYSTEM_PROMPT_V2 + BLOQUE_V2`), para que Sophie razone con el mismo criterio.
-2. Las **pantallas guiadas** del alumno en `sophie-pasos.js` (pasos 3 y 4: los
-   filtros de Black Box y Cerebro).
-
-Si cambias un umbral en `sophie-criterios.js` y olvidas actualizar una de esas
-copias, el alumno vería un número y el motor usaría otro.
+Si cambias un umbral final en `sophie-criterios.js` y olvidas actualizar el
+prompt, Sophie razona con un número y el motor usa otro.
 
 ### La guarda: `tools/verificar-metodologia.mjs`
 
@@ -34,14 +38,16 @@ Antes de desplegar un cambio de umbrales, corre:
 node tools/verificar-metodologia.mjs
 ```
 
-Lee los números canónicos de `sophie-criterios.js` y confirma que las dos copias
-en prosa siguen de acuerdo. Sale con código `1` y un reporte claro si algo no
-coincide. Requiere que el repo `sophie-producto` esté montado junto a este
+Lee los números canónicos de `sophie-criterios.js`, confirma que el prompt sigue
+de acuerdo y valida los filtros de las pantallas renderizadas. Sale con código
+`1` y un reporte claro si algo no coincide. Requiere que el repo
+`sophie-producto` esté montado junto a este
 (lo busca en `/workspace/sophie-producto` y en `../sophie-producto`); si no lo
 encuentra, avisa en vez de dar un falso OK.
 
-**Flujo para cambiar un umbral:** edita `sophie-criterios.js` → actualiza la
-prosa en `chat.js` y `sophie-pasos.js` → corre la guarda hasta que dé OK → despliega.
+**Flujo para cambiar un umbral:** edita `sophie-criterios.js` → si pertenece a
+los 13 criterios, actualiza la prosa de `chat.js` → corre la guarda hasta que dé
+OK → despliega. Los presets de Black Box se actualizan solos en el paso 3.
 
 ## Contrato del router de modelo
 
