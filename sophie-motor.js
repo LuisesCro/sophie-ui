@@ -190,6 +190,20 @@
     if (datos.unidadesPosibles !== undefined)
       add('Primer pedido', fmt(datos.unidadesPosibles) + ' u',
           num(datos.unidadesPosibles) >= 150 ? 'ok' : 'alerta', 'con tu capital');
+    // RITMO PARA RANKEAR (Kevin King): la velocidad de venta que hay que alcanzar
+    // para llegar a página 1, calculada del competidor MÁS DÉBIL del top (no el
+    // líder). El modelo pasa el dato crudo (ventas mensuales de ese competidor) y
+    // el motor hace la aritmética: ventas/día = mensuales/30; runway = ×45 días.
+    // NO es "unidades para regalar": es ritmo objetivo + inventario para sostenerlo.
+    // Solo en veredictos que no son NO GO.
+    if (datos.ventasMensualesMasDebil !== undefined && num(datos.ventasMensualesMasDebil) > 0 && r.estado !== 'nogo') {
+      var vDia = Math.max(1, Math.round(num(datos.ventasMensualesMasDebil) / 30));
+      var runway = vDia * 45;
+      var cabe = datos.unidadesPosibles !== undefined ? num(datos.unidadesPosibles) >= runway : null;
+      add('Ritmo para rankear', '~' + vDia + ' ventas/día',
+          cabe === false ? 'alerta' : 'ok',
+          'inventario ~' + runway + ' u para sostenerlo' + (cabe === false ? ' — supera tu primer pedido' : ''));
+    }
     return m;
   }
 
