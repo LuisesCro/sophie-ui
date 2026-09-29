@@ -49,7 +49,12 @@
   // ctrl = el controlador devuelto por Sophie.mount()
   function pintar(ctrl, payload, opts) {
     opts = opts || {};
+    // El modelo a veces manda el número de PASO (6, 8, 9) en vez de la FASE
+    // (1, 2, 9). Se normaliza aquí para que el filtro de criterios por fase no
+    // devuelva vacío (síntoma: "0 de 0" en el badge y el total contando los 13).
     var fase = payload.fase || 9;
+    if (fase === 6) fase = 1;
+    else if (fase === 8) fase = 2;
     var t = TITULOS[fase] || TITULOS[9];
 
     /* El mercado sale del selector de la página; la compatibilidad la declara
