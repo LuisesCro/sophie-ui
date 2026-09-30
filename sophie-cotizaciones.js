@@ -147,7 +147,9 @@
     var moq = n0(c.moq);
     var unidadesPedido = moq > 0 ? Math.max(moq, 0) : unidadesPosibles;
     var inversionMOQ = moq * aterrizado;
-    var alcanza = moq > 0 ? inversionMOQ <= paraInventario : true;
+    // Solo juzgamos si el MOQ cabe cuando el estudiante DIO su presupuesto. Sin
+    // capital no se inventa una alerta (no hay "$0 para inventario"): alcanza=true.
+    var alcanza = (moq > 0 && capital > 0) ? inversionMOQ <= paraInventario : true;
 
     var roi = aterrizado > 0 ? (margen / aterrizado) * 100 : 0;
 
