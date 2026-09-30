@@ -169,6 +169,20 @@
               lider.capital.paraInventario.toLocaleString() + ' para inventario. Negocia el MOQ.</p>') +
         '</section>' : '';
 
+    // PRECIOS META (rentabilidad): el piso para no perder (break-even) y los
+    // precios de venta que dan 20% y 30% de margen, calculados del costo aterrizado.
+    var pm = lider && lider.preciosMeta;
+    var preciosSec = (pm && pm.breakEven != null)
+      ? '<section class="s-card">' +
+          '<p class="s-card__eyebrow">Tu precio de venta: piso y metas</p>' +
+          '<div class="s-metricas">' +
+            metrica('Punto de equilibrio', '$' + d2(pm.breakEven), 'fail', 'por debajo, pierdes') +
+            metrica('Para ganar 20%', '$' + d2(pm.m20), 'alerta', 'margen sano') +
+            metrica('Para ganar 30%', '$' + d2(pm.m30), 'pass', 'margen ideal') +
+          '</div>' +
+          '<p class="s-veredicto__razon" style="margin:12px 0 0">El punto de equilibrio es tu piso: por debajo de $' + d2(pm.breakEven) + ' pierdes dinero. Apunta a vender entre $' + d2(pm.m20) + ' y $' + d2(pm.m30) + ' para un margen sano.</p>' +
+        '</section>' : '';
+
     var hallazgos = r.cotizaciones.map(function (a) {
       if (!a.evaluacion.hallazgos.length) return '';
       return '<section class="s-card"><p class="s-card__eyebrow">' + esc(a.proveedor) + ' · ' +
@@ -185,7 +199,7 @@
       '<section class="s-card">' +
         '<p class="s-card__eyebrow">Costo aterrizado · ' + r.total + ' cotizaciones</p>' +
         comparativa +
-      '</section>' + trampa + desgloseLider + hallazgos;
+      '</section>' + trampa + desgloseLider + preciosSec + hallazgos;
     return true;
   }
 

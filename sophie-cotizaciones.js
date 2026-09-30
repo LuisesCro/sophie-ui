@@ -151,6 +151,13 @@
 
     var roi = aterrizado > 0 ? (margen / aterrizado) * 100 : 0;
 
+    // PRECIOS META (rentabilidad inversa): dado el costo aterrizado, a qué
+    // precio de venta se logra un margen X. Break-even (X=0) = el piso para no
+    // perder; 20% y 30% = las metas sanas. precio = (aterrizado+fba)/(1 - (com%+dev%+X%)/100).
+    var _comPct = n0(ctx.comisionPct, 15), _devPct = n0(ctx.devolucionesPct, 3);
+    function precioMeta(m) { var d = 1 - (_comPct + _devPct + m) / 100; return d > 0 ? r2((aterrizado + fba) / d) : null; }
+    var preciosMeta = { breakEven: precioMeta(0), m20: precioMeta(20), m30: precioMeta(30) };
+
     return {
       proveedor: c.proveedor || 'Sin nombre',
       incoterm: inc.clave,
@@ -183,6 +190,7 @@
       margenPct: r2(margenPct),
       breakEvenAcos: r2(margenPct),
       roi: r2(roi),
+      preciosMeta: preciosMeta,
 
       capital: {
         paraInventario: r2(paraInventario),
