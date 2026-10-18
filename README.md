@@ -121,6 +121,28 @@ real en jsdom y prueba el gate por unidad y por el flujo completo `analizar()`;
 si no está montado, esa sección **se omite sin bloquear** (misma convención que
 las guardas del router).
 
+## Sophie KDP — motor de low-content
+
+KDP no se valida como FBA (no hay inventario ni COGS), así que Sophie KDP
+tiene su propia fuente única y su propio motor:
+
+- **`sophie-kdp-criterios.js`** — umbrales de validación, piso de regalía,
+  reglas de las 7 casillas y lista de términos que el auditor marca. Los
+  umbrales son **provisionales** (`provisional: true`) hasta que se calibren
+  con datos reales; la lista de términos es provisional hasta reemplazarla
+  por la guía oficial de KDP.
+- **`sophie-kdp-motor.js`** — regalía y precio mínimo, veredicto del nicho
+  (IR · PIVOTAR · IR_CATALOGO · DESCARTAR · BLOQUEADO · REVISAR_PRECIO ·
+  FALTAN_DATOS) y auditoría de título y casillas. Las tarifas de impresión no
+  viven aquí: el alumno escribe el costo que le muestra KDP.
+
+```bash
+node tools/test-kdp.mjs
+```
+
+Cuando exista el prompt del módulo `sophie-kdp`, los umbrales que repita en
+prosa deben agregarse a `verificar-metodologia.mjs`.
+
 ## Hook de pre-push (recomendado)
 
 En vez de un GitHub Action (que necesitaría clonar los 6 repos con un token), la
