@@ -66,6 +66,11 @@
       reparto: { objetivo: [2, 3], categoria: [1, 2] }
     },
 
+    /* ---------- Descripción ---------- */
+    descripcion: {
+      maxCaracteres: 4000         // límite del campo en KDP
+    },
+
     /* ---------- Título y subtítulo ---------- */
     titulo: {
       maxPalabrasTitulo: 5,       // consejo, no regla de Amazon

@@ -116,12 +116,48 @@ t("casillas: las comillas son error", () => {
 
 t("casillas: palabra repetida entre casillas (incluye plural)", () => {
   const r = M.auditarCasillas(["regalo enfermera", "regalos para medicos"]);
-  ok(r.hallazgos.some((h) => h.codigo === "repetida" && h.casilla === 2));
+  ok(r.hallazgos.some((h) => h.codigo === "repetida" && h.detalle[0].casillas.join(",") === "1,2"));
 });
 
 t("casillas: palabra que ya está en el título", () => {
   const r = M.auditarCasillas(["planner de turnos"], { titulo: "Planner para Enfermeras" });
-  ok(r.hallazgos.some((h) => h.codigo === "en_titulo" && h.palabra === "planner"));
+  ok(r.hallazgos.some((h) => h.codigo === "en_titulo" && h.palabras.includes("planner")));
+});
+
+t("casillas: una palabra del título repetida en varias casillas es UNA sola alerta", () => {
+  const r = M.auditarCasillas(["nurse planner", "nurse gifts", "nurse notebook"], { titulo: "Nurse Brain Sheets" });
+  const a = r.hallazgos.filter((h) => h.codigo === "en_titulo");
+  eq(a.length, 1);
+  eq(a[0].detalle[0].palabra, "nurse");
+  eq(a[0].detalle[0].casillas.join(","), "1,2,3");
+  // ya avisada por estar en el título: no se repite como "repetida entre casillas"
+  eq(r.hallazgos.filter((h) => h.codigo === "repetida").length, 0);
+});
+
+t("casillas: la repetición entre casillas se agrupa por palabra", () => {
+  const r = M.auditarCasillas(["regalo enfermera", "regalos para medicos", "regalo turno"]);
+  const a = r.hallazgos.filter((h) => h.codigo === "repetida");
+  eq(a.length, 1);
+  ok(/regalo \(1, 2 y 3\)/.test(a[0].mensaje));
+});
+
+t("descripción: un precio con símbolo es error", () => {
+  const r = M.auditarDescripcion("<p>Planner de 120 páginas. Hoy solo $9.99.</p>");
+  ok(r.hallazgos.some((h) => h.codigo === "precio" && h.nivel === "error" && h.texto === "$9.99"));
+});
+
+t("descripción: precio con moneda escrita y porcentaje de descuento", () => {
+  ok(M.auditarDescripcion("Cuesta 12,99 dólares").hallazgos.some((h) => h.codigo === "precio"));
+  ok(M.auditarDescripcion("Get 20% off this week").hallazgos.some((h) => h.codigo === "precio"));
+});
+
+t("descripción: números normales no son precio", () => {
+  const r = M.auditarDescripcion("Includes 120 pages, 52 weeks and 8.5 x 11 inch format.");
+  eq(r.hallazgos.filter((h) => h.codigo === "precio").length, 0);
+});
+
+t("descripción: más de 4000 caracteres es error", () => {
+  ok(M.auditarDescripcion("a".repeat(4001)).hallazgos.some((h) => h.codigo === "largo"));
 });
 
 t("casillas: marca de Amazon es error", () => {
