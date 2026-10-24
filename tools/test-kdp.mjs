@@ -143,6 +143,11 @@ t("casillas: cuenta casillas usadas y vacías", () => {
   eq(r.hallazgos.filter((h) => h.codigo === "vacia").length, 5);
 });
 
+t("casillas: una palabra del título se avisa una sola vez aunque se repita", () => {
+  const r = M.auditarCasillas(["planner turnos", "planner regalo", "planner noche"], { titulo: "Planner para Enfermeras" });
+  eq(r.hallazgos.filter((h) => h.palabra === "planner").length, 1);
+});
+
 /* ---------- Título ---------- */
 
 t("título: distinto de la portada es error", () => {

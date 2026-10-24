@@ -34,6 +34,7 @@
   }
 
   function redondear(n) { return Math.round(n * 100) / 100; }
+  function miles(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 
   // Minúsculas y sin acentos, para comparar sin importar cómo se escribió.
   function normalizar(texto) {
@@ -143,7 +144,7 @@
     else veredicto = 'DESCARTAR';
 
     var motivos = [
-      venden + ' de ' + comps.length + ' competidores con BSR menor a ' + V.demanda.bsrMax + ' (mínimo ' + V.demanda.minLibros + ').',
+      venden + ' de ' + comps.length + ' competidores con BSR menor a ' + miles(V.demanda.bsrMax) + ' (mínimo ' + V.demanda.minLibros + ').',
       alcanzables + ' de ' + comps.length + ' con menos de ' + V.competencia.resenasMax + ' reseñas (mínimo ' + V.competencia.minLibros + ').'
     ];
     if (!demandaAlta && competenciaBaja) motivos.push('Esfuerzo de producción: ' + esfuerzo + '.');
@@ -187,6 +188,7 @@
     });
 
     var vistas = {};      // raíz → número de casilla donde apareció primero
+    var avisadas = {};    // una sola alerta por palabra, aunque aparezca en varias casillas
     var usadas = 0, frasesSolas = 0;
 
     lista.forEach(function (texto, i) {
@@ -214,12 +216,14 @@
       ws.forEach(function (w) {
         if (VACIAS[w]) return;
         var r = raiz(w);
-        if (enTitulo[r] && !repetidasAqui['t' + r]) {
+        if (enTitulo[r] && !repetidasAqui['t' + r] && !avisadas['t' + r]) {
           repetidasAqui['t' + r] = true;
+          avisadas['t' + r] = true;
           hallazgos.push(hallazgo('alerta', 'en_titulo', 'Casilla ' + n + ': "' + w + '" ya está en el título o subtítulo; ese espacio rinde más con otra palabra.', { casilla: n, palabra: w }));
         }
-        if (vistas[r] && vistas[r] !== n && !repetidasAqui['c' + r]) {
+        if (vistas[r] && vistas[r] !== n && !repetidasAqui['c' + r] && !enTitulo[r] && !avisadas['c' + r]) {
           repetidasAqui['c' + r] = true;
+          avisadas['c' + r] = true;
           hallazgos.push(hallazgo('alerta', 'repetida', 'Casilla ' + n + ': "' + w + '" ya aparece en la casilla ' + vistas[r] + '. Repetirla no suma.', { casilla: n, palabra: w }));
         }
         if (!vistas[r]) vistas[r] = n;
