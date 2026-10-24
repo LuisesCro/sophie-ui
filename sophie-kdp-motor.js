@@ -188,8 +188,12 @@
     });
 
     var vistas = {};      // raíz → número de casilla donde apareció primero
-    var avisadas = {};    // una sola alerta por palabra, aunque aparezca en varias casillas
+    var enTituloPor = {}, repetidaPor = {}, primera = {};
     var usadas = 0, frasesSolas = 0;
+    function agregar(mapa, r, w, n, origen) {
+      var g = mapa[r] || (mapa[r] = { palabra: w, casillas: [], origen: origen });
+      if (g.casillas.indexOf(n) < 0) g.casillas.push(n);
+    }
 
     lista.forEach(function (texto, i) {
       var n = i + 1;
@@ -212,23 +216,39 @@
       var ws = palabras(bruto);
       if (ws.length <= K.maxPalabrasFraseSola) frasesSolas++;
 
-      var repetidasAqui = {};
+      // Las repeticiones se acumulan por palabra y se informan una sola vez
+      // al final: "nurse" en 5 casillas es UNA alerta, no cinco.
       ws.forEach(function (w) {
         if (VACIAS[w]) return;
         var r = raiz(w);
-        if (enTitulo[r] && !repetidasAqui['t' + r] && !avisadas['t' + r]) {
-          repetidasAqui['t' + r] = true;
-          avisadas['t' + r] = true;
-          hallazgos.push(hallazgo('alerta', 'en_titulo', 'Casilla ' + n + ': "' + w + '" ya está en el título o subtítulo; ese espacio rinde más con otra palabra.', { casilla: n, palabra: w }));
-        }
-        if (vistas[r] && vistas[r] !== n && !repetidasAqui['c' + r] && !enTitulo[r] && !avisadas['c' + r]) {
-          repetidasAqui['c' + r] = true;
-          avisadas['c' + r] = true;
-          hallazgos.push(hallazgo('alerta', 'repetida', 'Casilla ' + n + ': "' + w + '" ya aparece en la casilla ' + vistas[r] + '. Repetirla no suma.', { casilla: n, palabra: w }));
-        }
-        if (!vistas[r]) vistas[r] = n;
+        if (enTitulo[r]) agregar(enTituloPor, r, w, n);
+        if (vistas[r] && vistas[r] !== n) agregar(repetidaPor, r, primera[r], n, vistas[r]);
+        if (!vistas[r]) { vistas[r] = n; primera[r] = w; }
       });
     });
+
+    // Un solo aviso por tipo, con el detalle por palabra: la lista corta se
+    // lee; veinte alertas iguales no. Si la palabra ya está en el título, el
+    // aviso de "repetida entre casillas" sobra.
+    function detalle(mapa, conOrigen) {
+      return Object.keys(mapa).map(function (r) {
+        var g = mapa[r];
+        var cs = conOrigen ? [g.origen].concat(g.casillas) : g.casillas;
+        return { palabra: g.palabra, casillas: cs };
+      }).sort(function (a, b) { return b.casillas.length - a.casillas.length || a.casillas[0] - b.casillas[0]; });
+    }
+    function enLista(d) {
+      return d.map(function (x) { return x.palabra + ' (' + enCasillas(x.casillas).replace(/^Casillas? /, '') + ')'; }).join(', ');
+    }
+    var dt = detalle(enTituloPor, false);
+    if (dt.length) {
+      hallazgos.push(hallazgo('alerta', 'en_titulo', (dt.length === 1 ? 'Esta palabra ya está' : 'Estas ' + dt.length + ' palabras ya están') + ' en el título o subtítulo y las repites en las casillas: ' + enLista(dt) + '. Amazon ya las indexa; ese espacio rinde más con palabras nuevas.', { palabras: dt.map(function (x) { return x.palabra; }), detalle: dt }));
+    }
+    Object.keys(repetidaPor).forEach(function (r) { if (enTituloPor[r]) delete repetidaPor[r]; });
+    var dr = detalle(repetidaPor, true);
+    if (dr.length) {
+      hallazgos.push(hallazgo('alerta', 'repetida', 'Repites entre casillas: ' + enLista(dr) + '. Basta con una vez: repetirla no suma.', { palabras: dr.map(function (x) { return x.palabra; }), detalle: dr }));
+    }
 
     if (usadas >= 2 && frasesSolas === 0) {
       hallazgos.push(hallazgo('alerta', 'sin_frase_sola', 'Ninguna casilla lleva una frase objetivo sola. Reserva ' + K.reparto.objetivo[0] + ' o ' + K.reparto.objetivo[1] + ' casillas para tus frases principales, sin palabras alrededor.'));
@@ -237,6 +257,42 @@
     return {
       usadas: usadas,
       frasesSolas: frasesSolas,
+      errores: hallazgos.filter(function (h) { return h.nivel === 'error'; }).length,
+      hallazgos: hallazgos
+    };
+  }
+
+  function enCasillas(lista) {
+    if (lista.length === 1) return 'Casilla ' + lista[0];
+    return 'Casillas ' + lista.slice(0, -1).join(', ') + ' y ' + lista[lista.length - 1];
+  }
+
+  /* ---------- Auditoría de la descripción ---------- */
+
+  // Precio escrito con símbolo o moneda: "$9.99", "US$ 12", "12,99 USD", "10 dólares", "20% off".
+  var RE_PRECIO = /(?:US\$|\$|€|£)\s?\d+(?:[.,]\d{1,2})?|\d(?:[.,]\d{1,2})?\s?(?:US\$|USD|EUR|d[oó]lares?|dollars?|euros?)\b|\d+\s?%\s?(?:off|de\s+descuento|descuento)/i;
+
+  function auditarDescripcion(texto) {
+    var D = C.descripcion;
+    var bruto = String(texto || '');
+    var limpio = bruto.replace(/<[^>]+>/g, ' ');
+    var hallazgos = [];
+    if (!limpio.trim()) {
+      hallazgos.push(hallazgo('info', 'vacia', 'Descripción vacía: es tu argumento de venta y Amazon también la usa para entender el libro.'));
+    } else {
+      if (bruto.length > D.maxCaracteres) {
+        hallazgos.push(hallazgo('error', 'largo', 'Descripción: ' + bruto.length + ' caracteres; KDP acepta máximo ' + D.maxCaracteres + '.'));
+      }
+      var m = limpio.match(RE_PRECIO);
+      if (m) {
+        hallazgos.push(hallazgo('error', 'precio', 'Descripción: menciona un precio u oferta ("' + m[0].trim() + '"). KDP no permite precios ni promociones en la descripción.', { texto: m[0].trim() }));
+      }
+      buscarTerminos(limpio).forEach(function (t) {
+        hallazgos.push(hallazgo(t.nivel, 'termino', 'Descripción: "' + t.termino + '" (' + t.motivo + ').', { termino: t.termino }));
+      });
+    }
+    return {
+      caracteres: bruto.length,
       errores: hallazgos.filter(function (h) { return h.nivel === 'error'; }).length,
       hallazgos: hallazgos
     };
@@ -306,11 +362,12 @@
   }
 
   global.SophieKdpMotor = {
-    version: '0.1',
+    version: '0.2',
     regalia: regalia,
     evaluarNicho: evaluarNicho,
     auditarCasillas: auditarCasillas,
     auditarTitulo: auditarTitulo,
+    auditarDescripcion: auditarDescripcion,
     buscarTerminos: buscarTerminos,
     veredictos: VEREDICTOS,
     num: num
