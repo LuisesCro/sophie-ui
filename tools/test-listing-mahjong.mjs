@@ -36,5 +36,13 @@ const rep = K.repararBackend({ ...L, backend: 'mah jong mahjongg holder american
 t('el relleno de español no mete luz/baño', !/\b(luz|bano|ambiente)\b/.test(rep.backend));
 t('el backend reparado queda con 5+ en español', rep.espanol.length >= 5);
 
+t('"secure" no cuenta como la palabra prohibida "cure"', K.frasesProhibidas('Secure pusher locks into the rack', true).length === 0);
+t('"bestseller" no cuenta como "best", pero "the best rack" sí', K.frasesProhibidas('a bestseller', true).length === 0 && K.frasesProhibidas('the best rack', true).includes('best'));
+t('"#1" se sigue detectando', K.frasesProhibidas('the #1 rack', true).includes('#1'));
+t('"Perfect for" se detecta con mayúsculas', K.frasesProhibidas('Perfect for game night').includes('perfect for'));
+const fmt = K.medidasParaModelo({ vinetas: ['FULL-LENGTH RACK FOR 19 TILES - Holds all 19 tiles.', 'PUSHERS THAT STAY PUT - Locked.'] });
+t('avisa del guion dentro del encabezado de la viñeta 1 y no de la 2', /Viñeta 1: el encabezado/.test(fmt) && !/Viñeta 2: el encabezado/.test(fmt));
+const hk = K.medidasParaModelo({ keywordP1: 'mahjong racks with pushers', descripcion: 'Your Tuesday group deserves better than racks that cut short. '.repeat(20) });
+t('avisa si la keyword principal no está en el hook de la descripción', /no aparece en los primeros 200/.test(hk));
 console.log(`\nRESULTADO: ${ok} pasan · ${mal} fallan`);
 process.exit(mal ? 1 : 0);

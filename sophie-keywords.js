@@ -281,14 +281,22 @@
   ];
   var PROHIBIDAS_SALUD = ['cure', 'heal', 'treatment', 'medical grade', 'fda approved'];
 
+  // Busca la FRASE como palabras completas: con indexOf, 'secure' daba 'cure' y
+  // 'bestseller' daba 'best' (falso positivo real del 11 nov 2026, Mahjong Racks).
+  function contieneFrase(t, f) {
+    var esc = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var borde = /^[a-z0-9]/.test(f) ? '(^|[^a-z0-9])' : '';
+    var fin = /[a-z0-9]$/.test(f) ? '(?![a-z0-9])' : '';
+    return new RegExp(borde + esc + fin).test(t);
+  }
   function frasesProhibidas(texto, permitirIdealForPrefijo) {
     var t = ' ' + String(texto || '').toLowerCase() + ' ';
     var halladas = [];
     PROHIBIDAS.concat(PROHIBIDAS_SALUD).forEach(function (f) {
-      if (t.indexOf(f) > -1) halladas.push(f);
+      if (contieneFrase(t, f)) halladas.push(f);
     });
     // 'IDEAL FOR' vale como prefijo de sección en la descripción, no como afirmación.
-    if (!permitirIdealForPrefijo && t.indexOf('ideal for') > -1) halladas.push('ideal for');
+    if (!permitirIdealForPrefijo && contieneFrase(t, 'ideal for')) halladas.push('ideal for');
     return halladas;
   }
 
@@ -809,6 +817,11 @@
       var idx = indexadoVinetas(L.vinetas);
       if (idx.totalBytes > LIMITES.vinetasIndexado.max)
         probs.push('Viñetas juntas: ' + idx.totalBytes + '/1000 bytes — recorta ~' + (idx.totalBytes - 950) + ' bytes de relleno (deja margen a 950).');
+      L.vinetas.forEach(function (v, i) {
+        var s = String(v || '').trim();
+        if (/\s-\s/.test(s) && !/^[A-ZÁÉÍÓÚÑ0-9&\s]{4,}\s-\s/.test(s))
+          probs.push('Viñeta ' + (i + 1) + ': el encabezado antes de " - " solo puede llevar MAYÚSCULAS, números, & y espacios — sin guiones internos (FULL-LENGTH → FULL LENGTH), comas ni apóstrofes.');
+      });
       var vpro = frasesProhibidas(L.vinetas.join(' '));
       if (vpro.length) probs.push('Viñetas: frases prohibidas (' + vpro.join(', ') + ') — reescríbelas sin ellas; Amazon las trata como lenguaje sensacionalista.');
     }
@@ -827,6 +840,11 @@
       var dc = chars(L.descripcion);
       if (dc > LIMITES.descripcion.max) probs.push('Descripción: ' + dc + '/2000 chars — recórtala a 2000 o menos.');
       else if (dc < LIMITES.descripcion.min) probs.push('Descripción: ' + dc + '/2000 chars — muy corta, mínimo 1000.');
+      if (L.keywordP1) {
+        var raiz = String(L.keywordP1).toLowerCase().split(' ')[0];
+        if (raiz && String(L.descripcion).slice(0, 200).toLowerCase().indexOf(raiz) === -1)
+          probs.push('Descripción: la keyword principal ("' + L.keywordP1 + '") no aparece en los primeros 200 caracteres — es lo único que se ve en el celular; ponla en el hook.');
+      }
       var dpro = frasesProhibidas(L.descripcion, true);
       if (dpro.length) probs.push('Descripción: palabras prohibidas (' + dpro.join(', ') + ') — quítalas.');
     }
