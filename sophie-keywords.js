@@ -281,14 +281,22 @@
   ];
   var PROHIBIDAS_SALUD = ['cure', 'heal', 'treatment', 'medical grade', 'fda approved'];
 
+  // Busca la FRASE como palabras completas: con indexOf, 'secure' daba 'cure' y
+  // 'bestseller' daba 'best' (falso positivo real del 11 nov 2026, Mahjong Racks).
+  function contieneFrase(t, f) {
+    var esc = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var borde = /^[a-z0-9]/.test(f) ? '(^|[^a-z0-9])' : '';
+    var fin = /[a-z0-9]$/.test(f) ? '(?![a-z0-9])' : '';
+    return new RegExp(borde + esc + fin).test(t);
+  }
   function frasesProhibidas(texto, permitirIdealForPrefijo) {
     var t = ' ' + String(texto || '').toLowerCase() + ' ';
     var halladas = [];
     PROHIBIDAS.concat(PROHIBIDAS_SALUD).forEach(function (f) {
-      if (t.indexOf(f) > -1) halladas.push(f);
+      if (contieneFrase(t, f)) halladas.push(f);
     });
     // 'IDEAL FOR' vale como prefijo de sección en la descripción, no como afirmación.
-    if (!permitirIdealForPrefijo && t.indexOf('ideal for') > -1) halladas.push('ideal for');
+    if (!permitirIdealForPrefijo && contieneFrase(t, 'ideal for')) halladas.push('ideal for');
     return halladas;
   }
 
@@ -359,7 +367,11 @@
     // objetos / cocina / manualidades (nichos previos)
     'organizador','soporte','tabla','bolsa','estuche','botella','taza','caja','cesta','maceta',
     'manualidades','bordado','tejido','hilo','aguja','lana','pincel','pintura','decoracion','adorno',
-    'antideslizante','decorativo','elegante','duradero'
+    'antideslizante','decorativo','elegante','duradero',
+    // juegos, juguetes y accesorios (genéricos de cualquier nicho)
+    'mesa','ficha','fichas','accesorio','accesorios','juegos','juguete','juguetes','tablero',
+    'jugador','jugadores','porta','portafichas','diversion','almacenamiento','estante','repisa',
+    'transparente','herramienta','herramientas','mascota','mascotas','perro','gato'
   ];
 
   function terminosEspanol(backend) {
@@ -697,7 +709,7 @@
   // quita duplicados del título/Item Highlights, garantiza ≥5 términos en
   // español y recorta a ≤ objetivo bytes. Devuelve el backend corregido y qué
   // cambió, o null si ya estaba bien.
-  var ES_RELLENO = ['regalo','hogar','decoracion','luz','ambiente','relajacion','bano','viaje','navidad','adultos'];
+  var ES_RELLENO = ['regalo','hogar','familia','adultos','viaje','navidad','casa','fiesta','cumpleanos','decoracion'];
   function repararBackend(listing) {
     var L = listing || {};
     var original = String(L.backend || '');
@@ -805,12 +817,22 @@
       var idx = indexadoVinetas(L.vinetas);
       if (idx.totalBytes > LIMITES.vinetasIndexado.max)
         probs.push('Viñetas juntas: ' + idx.totalBytes + '/1000 bytes — recorta ~' + (idx.totalBytes - 950) + ' bytes de relleno (deja margen a 950).');
+      L.vinetas.forEach(function (v, i) {
+        var s = String(v || '').trim();
+        if (/\s-\s/.test(s) && !/^[A-ZÁÉÍÓÚÑ0-9&\s]{4,}\s-\s/.test(s))
+          probs.push('Viñeta ' + (i + 1) + ': el encabezado antes de " - " solo puede llevar MAYÚSCULAS, números, & y espacios — sin guiones internos (FULL-LENGTH → FULL LENGTH), comas ni apóstrofes.');
+      });
+      var vpro = frasesProhibidas(L.vinetas.join(' '));
+      if (vpro.length) probs.push('Viñetas: frases prohibidas (' + vpro.join(', ') + ') — reescríbelas sin ellas; Amazon las trata como lenguaje sensacionalista.');
     }
     if (L.backend !== undefined && L.backend) {
       var bb = bytes(L.backend);
       if (bb > LIMITES.backend.max) probs.push('Backend: ' + bb + '/249 bytes — recorta ' + (bb - LIMITES.backend.objetivo) + ' bytes (apunta a 240).');
-      var esn = terminosEspanol(L.backend).length;
-      if (esn < 5) probs.push('Backend: solo ' + esn + ' términos en español (mínimo 5) — agrega palabras claramente españolas y CON acento (luz, baño, ducha, lámpara, relajación…).');
+      var esl = terminosEspanol(L.backend), esn = esl.length;
+      if (esn < 5) probs.push('Backend: la app reconoce ' + esn + ' términos en español' +
+        (esn ? ' (' + esl.join(', ') + ')' : '') + ' y el mínimo es 5 — agrega ' + (5 - esn) +
+        ' palabra(s) en español del nicho del estudiante, de preferencia CON acento (el acento la hace reconocible). ' +
+        'No repitas las que ya cuentan.');
       var rep = solapan(L.titulo + ' ' + L.itemHighlights, L.backend);
       if (rep.length > 2) probs.push('Backend repite del título/Item Highlights: ' + rep.slice(0, 4).join(', ') + ' — quítalas, Amazon indexa una vez por sección.');
     }
@@ -818,6 +840,13 @@
       var dc = chars(L.descripcion);
       if (dc > LIMITES.descripcion.max) probs.push('Descripción: ' + dc + '/2000 chars — recórtala a 2000 o menos.');
       else if (dc < LIMITES.descripcion.min) probs.push('Descripción: ' + dc + '/2000 chars — muy corta, mínimo 1000.');
+      if (L.keywordP1) {
+        var raiz = String(L.keywordP1).toLowerCase().split(' ')[0];
+        if (raiz && String(L.descripcion).slice(0, 200).toLowerCase().indexOf(raiz) === -1)
+          probs.push('Descripción: la keyword principal ("' + L.keywordP1 + '") no aparece en los primeros 200 caracteres — es lo único que se ve en el celular; ponla en el hook.');
+      }
+      var dpro = frasesProhibidas(L.descripcion, true);
+      if (dpro.length) probs.push('Descripción: palabras prohibidas (' + dpro.join(', ') + ') — quítalas.');
     }
     if (!probs.length) return '';
     return 'MEDIDAS EXACTAS DE LA APP — usa estos números reales, NO estimes ni cuentes a mano.\n' +
@@ -826,7 +855,7 @@
   }
 
   global.SophieKeywords = {
-    version: '2.3',
+    version: '2.4',
     vigenteDesde: '2026-07-27',
     limites: LIMITES,
     umbrales: UMBRALES,
