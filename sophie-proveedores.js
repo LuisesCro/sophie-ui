@@ -145,16 +145,26 @@
           '<p class="s-card__eyebrow">Desglose de ' + esc(lider.proveedor) + '</p>' +
           '<ul class="s-list" style="margin:0">' +
             '<li><b>Producto</b> $' + d2(lider.desglose.producto) + '</li>' +
-            '<li><b>Flete</b> $' + d2(lider.desglose.flete) +
+            (lider.desglose.comisionAgente > 0
+              ? '<li><b>Comisión del agente</b> $' + d2(lider.desglose.comisionAgente) + '</li>' : '') +
+            (lider.desglose.envioDDP
+              ? '<li><b>Envío DDP</b> $' + d2(lider.desglose.flete) +
+                  ' — flete, aduana y arancel incluidos según tu cotización' +
+                  (lider.desglose.zonas && lider.desglose.zonas.length > 1
+                    ? ' (zona ' + esc(lider.desglose.zonaUsada) + '; ' +
+                      lider.desglose.zonas.map(function (z) { return esc(z.zona) + ' $' + d2(z.unidad); }).join(' · ') + ' por unidad)'
+                    : '') + '</li>'
+              : '<li><b>Flete</b> $' + d2(lider.desglose.flete) +
               (lider.desglose.flete === 0 ? ' — incluido en el incoterm ' + lider.incoterm
                 : lider.desglose.fleteBase === 'peso' ? ' — estimado por peso (' + lider.desglose.pesoUnidadKg + ' kg, ' + (lider.desglose.modoEnvio === 'aire' ? 'aéreo' : 'marítimo') + '), confírmalo con tu agente'
                 : lider.desglose.fleteEstimado ? ' — estimado, confírmalo con tu agente de carga'
                 : '') + '</li>' +
-            '<li><b>Arancel</b> $' + d2(lider.desglose.arancel) + ' (' + d2(lider.desglose.arancelPct) + '%)' +
-              (lider.desglose.arancelEstimado ? ' — estimado, confirma con el código HTS antes de pagar' : '') + '</li>' +
-            '<li><b>Colocación inbound</b> $' + d2(lider.desglose.placement) + '</li>' +
-            '<li><b>Empaque</b> $' + d2(lider.desglose.empaque) + '</li>' +
-            '<li><b>Inspección</b> $' + d2(lider.desglose.inspeccion) + '</li>' +
+                '<li><b>Arancel</b> $' + d2(lider.desglose.arancel) +
+                  (lider.desglose.arancel > 0 ? ' (' + d2(lider.desglose.arancelPct) + '%)' : '') +
+                  (lider.desglose.arancelEstimado && lider.desglose.arancel > 0 ? ' — estimado, confirma con el código HTS antes de pagar' : '') + '</li>') +
+            '<li><b>Colocación inbound (Amazon)</b> $' + d2(lider.desglose.placement) + '</li>' +
+            '<li><b>Empaque</b> ' + (lider.desglose.empaque > 0 ? '$' + d2(lider.desglose.empaque) : 'no viene en la cotización') + '</li>' +
+            '<li><b>Inspección</b> ' + (lider.desglose.inspeccion > 0 ? '$' + d2(lider.desglose.inspeccion) : 'no viene en la cotización') + '</li>' +
             '<li><b>Costo aterrizado</b> $' + d2(lider.aterrizado) + '</li>' +
           '</ul>' +
           '<p class="s-veredicto__razon" style="margin:14px 0 0"><b>' + esc(lider.incoterm) + ':</b> ' +

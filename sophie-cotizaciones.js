@@ -125,11 +125,61 @@
     }
     var arancel = inc.reglas.arancel ? producto * arancelPct / 100 : 0;
 
-    var placement  = n0(ctx.inboundPlacement, 0.35);
-    var empaque    = n0(ctx.empaque, 0.55);
-    var inspeccion = n0(ctx.inspeccion, 0.30);
+    // Unidades de la cotización: divide los cargos que el proveedor o el
+    // agente cotizan por el total del pedido (envío DDP, bolsa, comisión).
+    var unidadesCot = n0(c.cantidad) > 0 ? n0(c.cantidad) : n0(c.moq);
+    function porUnidad(unitario, total) {
+      if (!isNaN(num(unitario))) return num(unitario);
+      if (!isNaN(num(total)) && unidadesCot > 0) return num(total) / unidadesCot;
+      return 0;
+    }
 
-    var aterrizado = producto + flete + arancel + placement + empaque + inspeccion;
+    // ENVÍO DDP COTIZADO (Jin Sourcing, Kevin y agentes parecidos): al pie de
+    // la cotización viene el "Estimated Shipping Cost" con flete, aduana y
+    // arancel YA incluidos. Se toma tal cual, se divide entre las unidades y
+    // no se suma arancel ni se estima flete. A veces viene por zona de FBA
+    // (West / East / South): se calcula cada una y, salvo que el estudiante
+    // elija, se usa la más cara (cálculo conservador).
+    var zonas = [], zonaUsada = null, envioDDP = NaN;
+    if (Array.isArray(c.envioDDPZonas) && c.envioDDPZonas.length) {
+      zonas = c.envioDDPZonas.map(function (z) {
+        var tot = num(z && z.total);
+        return { zona: String((z && z.zona) || ''), total: r2(tot),
+                 unidad: unidadesCot > 0 && !isNaN(tot) ? r2(tot / unidadesCot) : null };
+      }).filter(function (z) { return z.unidad != null; });
+      if (zonas.length) {
+        var pedida = String(c.zonaElegida || ctx.zonaElegida || '').toLowerCase();
+        zonaUsada = zonas.filter(function (z) { return pedida && z.zona.toLowerCase() === pedida; })[0] ||
+                    zonas.slice().sort(function (x, y) { return y.total - x.total; })[0];
+        envioDDP = zonaUsada.total / unidadesCot;
+      }
+    } else if (!isNaN(num(c.envioDDPTotal)) && unidadesCot > 0) {
+      envioDDP = num(c.envioDDPTotal) / unidadesCot;
+    } else if (!isNaN(num(c.envioDDPUnidad))) {
+      envioDDP = num(c.envioDDPUnidad);
+    }
+    var ddpConEnvio = inc.clave === 'DDP' && !isNaN(envioDDP);
+    if (ddpConEnvio) {
+      flete = envioDDP; fleteEstimado = false; fleteBase = 'ddp';
+      arancel = 0; arancelEstimado = false;
+    }
+
+    // Comisión del agente: SOLO si la cotización la trae (Kevin la cobra,
+    // Jin Sourcing no). Puede venir como monto total, por unidad o como %.
+    var comisionAgente = !isNaN(num(c.comisionAgentePct))
+      ? (producto + porUnidad(c.empaqueUnidad, c.empaqueTotal)) * num(c.comisionAgentePct) / 100
+      : porUnidad(c.comisionAgenteUnidad, c.comisionAgenteTotal);
+
+    // Empaque e inspección: SOLO lo que aparece en la cotización. Si no viene,
+    // es 0: a veces se pide enviar el producto tal como lo entrega el proveedor.
+    var empaque    = porUnidad(c.empaqueUnidad, c.empaqueTotal);
+    var inspeccion = porUnidad(c.inspeccionUnidad, c.inspeccionTotal);
+    if (isNaN(num(c.empaqueUnidad)) && isNaN(num(c.empaqueTotal)) && !isNaN(num(ctx.empaque))) empaque = num(ctx.empaque);
+    if (isNaN(num(c.inspeccionUnidad)) && isNaN(num(c.inspeccionTotal)) && !isNaN(num(ctx.inspeccion))) inspeccion = num(ctx.inspeccion);
+    // Colocación de inventario (inbound placement): la cobra Amazon, no el proveedor.
+    var placement  = n0(ctx.inboundPlacement, 0.35);
+
+    var aterrizado = producto + flete + arancel + comisionAgente + placement + empaque + inspeccion;
 
     var precio = n0(ctx.precioVenta);
     var comision = precio * n0(ctx.comisionPct, 15) / 100;
@@ -180,6 +230,11 @@
         arancel: r2(arancel),
         arancelPct: r2(arancelPct),
         arancelEstimado: arancelEstimado,
+        envioDDP: ddpConEnvio,
+        zonas: zonas,
+        zonaUsada: zonaUsada ? zonaUsada.zona : null,
+        comisionAgente: r2(comisionAgente),
+        unidadesCotizadas: unidadesCot,
         placement: r2(placement),
         empaque: r2(empaque),
         inspeccion: r2(inspeccion)
