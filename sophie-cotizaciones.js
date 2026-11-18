@@ -184,6 +184,11 @@
     var precio = n0(ctx.precioVenta);
     var comision = precio * n0(ctx.comisionPct, 15) / 100;
     var fba = n0(ctx.fbaUnidad);
+    // Sin tarifa FBA los precios meta salen casi iguales al costo aterrizado
+    // (aterrizado ÷ 0.85) y parecen un precio de venta cuando no lo son.
+    // Se marca para que el panel NO los muestre como si estuvieran completos.
+    var faltaFba = !(fba > 0);
+    var faltaPrecio = !(n0(ctx.precioVenta) > 0);
     var devoluciones = precio * n0(ctx.devolucionesPct, 0) / 100;
 
     var margen = precio - aterrizado - comision - fba - devoluciones;
@@ -248,6 +253,8 @@
       breakEvenAcos: r2(margenPct),
       roi: r2(roi),
       preciosMeta: preciosMeta,
+      faltaFba: faltaFba,
+      faltaPrecio: faltaPrecio,
 
       capital: {
         paraInventario: r2(paraInventario),
@@ -287,6 +294,12 @@
       f.push({ e: 'fail', t: 'ROI de ' + a.roi + '%. El estándar profesional es 100%: por cada dólar invertido, dos de vuelta.' });
     else if (a.roi < UMBRALES.roi.objetivo)
       f.push({ e: 'alerta', t: 'ROI de ' + a.roi + '%, por debajo del 100% objetivo.' });
+
+    if (a.faltaFba)
+      f.push({ e: 'fail', t: 'Falta la tarifa FBA de Amazon. Sin ella el margen sale inflado y el precio de venta mínimo queda casi igual a tu costo aterrizado. ' +
+        'Dale a Sophie la tarifa FBA (calculadora de Amazon o Helium 10) o el ASIN del producto de referencia.' });
+    if (a.faltaPrecio)
+      f.push({ e: 'fail', t: 'Falta el precio de venta en Amazon: sin él no hay margen que calcular.' });
 
     if (a.desglose.arancelEstimado && a.desglose.arancel > 0)
       f.push({ e: 'alerta', t: 'El arancel del ' + a.desglose.arancelPct + '% es un estimado, no un dato. ' +

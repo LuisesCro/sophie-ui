@@ -182,7 +182,14 @@
     // PRECIOS META (rentabilidad): el piso para no perder (break-even) y los
     // precios de venta que dan 20% y 30% de margen, calculados del costo aterrizado.
     var pm = lider && lider.preciosMeta;
-    var preciosSec = (pm && pm.breakEven != null)
+    var preciosSec = (lider && lider.faltaFba)
+      ? '<section class="s-card">' +
+          '<p class="s-card__eyebrow">Tu precio de venta: piso y metas</p>' +
+          '<p class="s-veredicto__razon" style="font-size:15px;margin:0"><b>Falta la tarifa FBA de Amazon.</b> ' +
+          'Sin ella, el precio mínimo saldría casi igual a tu costo aterrizado ($' + d2(lider.aterrizado) + ') y no es un precio de venta real. ' +
+          'Escríbele a Sophie tu tarifa FBA (calculadora de Amazon o Helium 10) o el ASIN del producto de referencia, y aquí aparecen tu piso y tus metas.</p>' +
+        '</section>'
+      : (pm && pm.breakEven != null)
       ? '<section class="s-card">' +
           '<p class="s-card__eyebrow">Tu precio de venta: piso y metas</p>' +
           '<div class="s-metricas">' +
