@@ -139,7 +139,7 @@
     // arancel YA incluidos. Se toma tal cual, se divide entre las unidades y
     // no se suma arancel ni se estima flete. A veces viene por zona de FBA
     // (West / East / South): se calcula cada una y, salvo que el estudiante
-    // elija, se usa la más cara (cálculo conservador).
+    // elija, se usa la más económica.
     var zonas = [], zonaUsada = null, envioDDP = NaN;
     if (Array.isArray(c.envioDDPZonas) && c.envioDDPZonas.length) {
       zonas = c.envioDDPZonas.map(function (z) {
@@ -150,7 +150,7 @@
       if (zonas.length) {
         var pedida = String(c.zonaElegida || ctx.zonaElegida || '').toLowerCase();
         zonaUsada = zonas.filter(function (z) { return pedida && z.zona.toLowerCase() === pedida; })[0] ||
-                    zonas.slice().sort(function (x, y) { return y.total - x.total; })[0];
+                    zonas.slice().sort(function (x, y) { return x.total - y.total; })[0];
         envioDDP = zonaUsada.total / unidadesCot;
       }
     } else if (!isNaN(num(c.envioDDPTotal)) && unidadesCot > 0) {
@@ -184,7 +184,7 @@
     var precio = n0(ctx.precioVenta);
     var comision = precio * n0(ctx.comisionPct, 15) / 100;
     var fba = n0(ctx.fbaUnidad);
-    var devoluciones = precio * n0(ctx.devolucionesPct, 3) / 100;
+    var devoluciones = precio * n0(ctx.devolucionesPct, 0) / 100;
 
     var margen = precio - aterrizado - comision - fba - devoluciones;
     var margenPct = precio > 0 ? margen / precio * 100 : 0;
@@ -206,7 +206,7 @@
     // PRECIOS META (rentabilidad inversa): dado el costo aterrizado, a qué
     // precio de venta se logra un margen X. Break-even (X=0) = el piso para no
     // perder; 20% y 30% = las metas sanas. precio = (aterrizado+fba)/(1 - (com%+dev%+X%)/100).
-    var _comPct = n0(ctx.comisionPct, 15), _devPct = n0(ctx.devolucionesPct, 3);
+    var _comPct = n0(ctx.comisionPct, 15), _devPct = n0(ctx.devolucionesPct, 0);
     function precioMeta(m) { var d = 1 - (_comPct + _devPct + m) / 100; return d > 0 ? r2((aterrizado + fba) / d) : null; }
     var preciosMeta = { breakEven: precioMeta(0), m20: precioMeta(20), m30: precioMeta(30) };
 
