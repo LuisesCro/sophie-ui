@@ -315,8 +315,9 @@
         'Confírmalo antes de pedir.' });
     }
 
-    if (!a.personalizacion)
-      f.push({ e: 'alerta', t: 'No confirmaste que acepte empaque personalizado. Sin marca en la caja, tu diferenciación se queda en el listing.' });
+    // Si la cotización ya trae el empaque, el tema está resuelto: no se vuelve a mencionar.
+    if (!a.personalizacion && !(a.desglose.empaque > 0))
+      f.push({ e: 'alerta', t: 'Confirma con el proveedor si la caja puede llevar tu marca. Sin marca en la caja, tu diferenciación se queda en el listing.' });
 
     var criticos = f.filter(function (x) { return x.e === 'fail'; }).length;
     return {

@@ -352,6 +352,13 @@ t("proveedor sano pero sin empaque personalizado → NEGOCIAR (alerta, no críti
   eq(e.criticos, 0, "sin hallazgos críticos, solo alertas");
 });
 
+t("cotización que ya trae el empaque → no se vuelve a pedir confirmación de empaque", () => {
+  const a = SophieCotizaciones.aterrizar({ ...PROV_SANO, personalizacion: false, empaqueTotal: 40 }, PROV_CTX);
+  const e = SophieCotizaciones.evaluar(a);
+  ok(!e.hallazgos.some(h => /caja|empaque/i.test(h.t)), "no debe haber nota de empaque");
+  eq(e.veredicto, "VIABLE", "veredicto");
+});
+
 /* ============================================================
    5 · VEREDICTO POR MÓDULO — Lanzamiento (semáforo + reorden)
    ============================================================ */

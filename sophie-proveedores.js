@@ -350,9 +350,10 @@
 
     var hallazgos = r.cotizaciones.map(function (a) {
       if (!a.evaluacion.hallazgos.length) return '';
-      return '<section class="s-card"><p class="s-card__eyebrow">' + esc(a.proveedor) + ' · ' +
-        esc(a.evaluacion.veredicto) + '</p>' +
-        (vd && vd.e !== 'nogo' ? '<p class="s-veredicto__razon" style="margin:0 0 10px;opacity:.85">Puntos para negociar con el proveedor. No cambian el veredicto de rentabilidad de arriba.</p>' : '') +
+      // Al final del paso, como notas: no son preguntas ni un segundo veredicto.
+      return '<section class="s-card"><p class="s-card__eyebrow">Puntos a tener en cuenta' +
+        (r.cotizaciones.length > 1 ? ' · ' + esc(a.proveedor) : '') + '</p>' +
+        (vd && vd.e !== 'nogo' ? '<p class="s-veredicto__razon" style="margin:0 0 10px;opacity:.85">Sirven para negociar con el proveedor. No cambian el veredicto de rentabilidad.</p>' : '') +
         a.evaluacion.hallazgos.map(function (h) {
           return '<div class="s-bloqueado" style="border-style:solid;border-color:' +
             (h.e === 'fail' ? 'rgba(229,72,77,.3)' : 'rgba(247,170,46,.28)') + '">' +
@@ -365,7 +366,7 @@
       '<section class="s-card">' +
         '<p class="s-card__eyebrow">Costo aterrizado · ' + r.total + ' cotizaciones</p>' +
         comparativa +
-      '</section>' + trampa + desgloseLider + aTuPrecio + preciosSec + hallazgos + siguienteSec;
+      '</section>' + trampa + desgloseLider + aTuPrecio + preciosSec + siguienteSec + hallazgos;
     return true;
   }
 
