@@ -108,9 +108,81 @@
 
   /* ---------- paso 8 · costo aterrizado ---------- */
 
+  /* ---------- tarifas de Amazon por ASIN (Jungle Scout) con respaldo ----------
+     Si el modelo manda el ASIN de referencia y no hay tarifa FBA, el panel la
+     trae solo: primero Jungle Scout (/api/ficha), y si no aparece, las tablas
+     propias de Sophie 2026 con categoría y peso. Los datos se escriben en el
+     mismo ctx del marcador, así al restaurar la sesión no se vuelve a pedir. */
+
+  function baseProveedores() {
+    if (global.SOPHIE_PROVEEDORES_BASE) return global.SOPHIE_PROVEEDORES_BASE;
+    var enSuite = typeof location !== 'undefined' && location.pathname.indexOf('/proveedores') === 0;
+    return enSuite ? 'https://sophie-proveedores.crezcamosonline.com/' : '/';
+  }
+  function correoSesion() {
+    try {
+      var m = document.cookie.match(/(?:^|; )crz_sesion=([^;]*)/);
+      if (m) { var c = JSON.parse(decodeURIComponent(m[1])); if (c && c.email) return c.email; }
+    } catch (e) {}
+    return '';
+  }
+  function feesTablas(ctx) {
+    var F = global.SophieFees;
+    var precio = n0p(ctx.precioVenta), peso = n0p(ctx.pesoLb);
+    if (!F || !(precio > 0) || !(peso > 0)) return null;
+    var cats = F.cats('us'), cat = null, k = String(ctx.categoria || '').toLowerCase().trim();
+    if (k) cat = cats.filter(function (c) { return c.n.toLowerCase() === k; })[0] ||
+                 cats.filter(function (c) { var n = c.n.toLowerCase(); return n.indexOf(k) > -1 || k.indexOf(n) > -1; })[0] || null;
+    var tier = /small|peque/i.test(String(ctx.tamano || '')) ? 'small_std'
+             : /bulky|volum/i.test(String(ctx.tamano || '')) ? 'small_bulky' : 'large_std';
+    var fba = F.fbaEstimate(tier, peso * 16, precio, 'us') * 1.035;
+    if (!(fba > 0)) return null;
+    var com = cat ? F.referral(precio, cat, 'us') : precio * 0.15;
+    return { fbaUnidad: Math.round(fba * 100) / 100, comisionPct: Math.round(com / precio * 10000) / 100,
+             fuente: 'Tablas de Sophie 2026 (estimado' + (cat ? ', ' + cat.n : ', comisión 15%') + ')' };
+  }
+  function aplicarTarifas(ctx, t) {
+    ctx.fbaUnidad = t.fbaUnidad;
+    if (t.comisionPct > 0) ctx.comisionPct = t.comisionPct;
+    if (!(n0p(ctx.precioVenta) > 0) && t.precio > 0) ctx.precioVenta = t.precio;
+    ctx._fuenteTarifas = t.fuente;
+  }
+  function necesitaTarifas(payload) {
+    var ctx = payload && payload.ctx;
+    return !!(ctx && !(n0p(ctx.fbaUnidad) > 0) && !ctx._tarifasIntentadas &&
+              (ctx.asin || (n0p(ctx.pesoLb) > 0 && global.SophieFees)));
+  }
+  function traerTarifas(sel, payload) {
+    var host = el(sel), ctx = payload.ctx;
+    ctx._tarifasIntentadas = true;
+    if (host) {
+      host.classList.add('sophie-panel', 'sophie-root');
+      host.innerHTML = '<section class="s-card"><p class="s-card__eyebrow">Tarifas de Amazon</p>' +
+        '<p class="s-veredicto__razon" style="margin:0">Calculando con datos de Amazon' +
+        (ctx.asin ? ' del ASIN ' + esc(String(ctx.asin).toUpperCase()) : '') + '…</p></section>';
+    }
+    function terminar() { pintarCotizaciones(sel, payload); }
+    function respaldo() { var t = feesTablas(ctx); if (t) aplicarTarifas(ctx, t); terminar(); }
+    if (!ctx.asin || !global.fetch) return respaldo();
+    var listo = false;
+    var reloj = setTimeout(function () { if (!listo) { listo = true; respaldo(); } }, 20000);
+    global.fetch(baseProveedores() + 'api/ficha', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ asin: ctx.asin, keyword: ctx.keyword || '', email: correoSesion() })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (listo) return; listo = true; clearTimeout(reloj);
+      if (d && d.ok && d.fbaUnidad > 0) {
+        aplicarTarifas(ctx, { fbaUnidad: d.fbaUnidad, comisionPct: d.comisionPct, precio: d.precio,
+          fuente: 'Jungle Scout · ASIN ' + d.asin + (d.variacion ? ' (familia de variaciones)' : '') });
+        terminar();
+      } else respaldo();
+    }).catch(function () { if (listo) return; listo = true; clearTimeout(reloj); respaldo(); });
+  }
+
   function pintarCotizaciones(sel, payload) {
     var host = el(sel);
     if (!host || !disponible()) return false;
+    if (necesitaTarifas(payload)) { traerTarifas(sel, payload); return true; }
     var C = global.SophieCotizaciones;
     var r = C.comparar(payload.lista || [], payload.ctx || {});
     host.classList.add('sophie-panel', 'sophie-root');
@@ -196,6 +268,7 @@
           '<p class="s-veredicto__razon" style="margin:12px 0 0">Amazon se queda con $' + d2(lider.amazon.comision) + ' de comisión y $' + d2(lider.amazon.fba) +
             ' de FBA; tu costo aterrizado es $' + d2(lider.aterrizado) + '. Lo que queda, $' + d2(lider.margen) + ', es tu ganancia antes de publicidad. ' +
             'Ese mismo margen (' + d2(lider.margenPct) + '%) es lo máximo que puedes gastar en ads por venta sin perder.</p>' +
+          (payload.ctx && payload.ctx._fuenteTarifas ? '<p class="s-veredicto__razon" style="margin:8px 0 0;opacity:.8">Tarifas de Amazon: ' + esc(payload.ctx._fuenteTarifas) + '.</p>' : '') +
         '</section>' : '';
 
     var preciosSec = (lider && lider.faltaFba)
