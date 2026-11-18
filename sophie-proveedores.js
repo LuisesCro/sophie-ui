@@ -289,10 +289,70 @@
           '<p class="s-veredicto__razon" style="margin:12px 0 0">El punto de equilibrio es tu piso: por debajo de $' + d2(pm.breakEven) + ' pierdes dinero. Apunta a vender entre $' + d2(pm.m20) + ' y $' + d2(pm.m30) + ' para un margen sano.</p>' +
         '</section>' : '';
 
+    // VEREDICTO DE RENTABILIDAD: el estudiante no debe esperar al cierre para
+    // saber si el producto sirve. Se decide con el margen antes de publicidad
+    // (mismo umbral del cierre: 30% / 20%) y se muestra cuánto queda después de
+    // un gasto estimado en publicidad (TACoS, 8% por defecto).
+    var precioV = n0p(payload.ctx && payload.ctx.precioVenta);
+    var tacos = n0p(payload.ctx && payload.ctx.tacosPct) || 8;
+    var hayVeredicto = lider && !lider.faltaFba && !lider.faltaPrecio && precioV > 0;
+    var vd = null;
+    if (hayVeredicto) {
+      var mp = lider.margenPct;
+      vd = mp >= 30 ? { e: 'go', t: 'RENTABLE', s: 'El producto cumple la meta de margen (30% o más).' }
+         : mp >= 20 ? { e: 'alerta', t: 'AJUSTAR', s: 'Es rentable con poco colchón. Conviene renegociar el costo o subir el precio con diferenciación.' }
+         : { e: 'nogo', t: 'NO RENTABLE', s: 'Con estos costos el margen no alcanza. Renegocia el costo, cambia de proveedor o evalúa otro producto.' };
+      var ads = precioV * tacos / 100;
+      vd.netoUsd = lider.margen - ads;
+      vd.netoPct = mp - tacos;
+      vd.adsUsd = ads;
+    }
+    var veredictoSec = vd
+      ? '<section class="s-card">' +
+          '<div class="s-veredicto" data-estado="' + vd.e + '" style="margin:0">' +
+            '<div class="s-veredicto__top">' +
+              '<div class="s-veredicto__badge" style="font-size:22px">' + vd.t + '</div>' +
+              '<div class="s-veredicto__puntaje"><b>' + d2(lider.margenPct) + '%</b><span>margen a $' + d2(precioV) + '</span></div>' +
+            '</div>' +
+            '<p class="s-veredicto__razon" style="margin:0">' + vd.s + '</p>' +
+          '</div>' +
+          '<div class="s-metricas" style="margin-top:14px">' +
+            metrica('Te queda por unidad', '$' + d2(vd.netoUsd), vd.netoPct >= 20 ? 'pass' : vd.netoPct >= 10 ? 'alerta' : 'fail', 'después de publicidad') +
+            metrica('Te queda', d2(vd.netoPct) + '%', vd.netoPct >= 20 ? 'pass' : vd.netoPct >= 10 ? 'alerta' : 'fail', 'del precio de venta') +
+            metrica('Publicidad estimada', '$' + d2(vd.adsUsd), 'info', tacos + '% del precio (TACoS)') +
+          '</div>' +
+        '</section>'
+      : (lider && !lider.faltaFba && !(precioV > 0))
+      ? '<section class="s-card"><p class="s-card__eyebrow">Veredicto de rentabilidad</p>' +
+          '<p class="s-veredicto__razon" style="margin:0"><b>Falta tu precio de venta.</b> Escríbele a Sophie a cuánto piensas vender (o el ASIN de referencia) y aquí aparece si el producto es rentable y cuánto te queda.</p></section>'
+      : '';
+
+    var opcionesSig = !vd ? [] : vd.e === 'go'
+      ? ['Pedir la muestra']
+      : vd.e === 'alerta'
+      ? ['Negociar el costo con el proveedor', 'Pedir la muestra de todos modos']
+      : ['Negociar el costo con el proveedor', 'Cotizar con otro proveedor'];
+    var siguienteSec = vd
+      ? '<section class="s-card">' +
+          '<p class="s-card__eyebrow">Siguiente paso</p>' +
+          '<p class="s-veredicto__razon" style="margin:0 0 12px">' +
+            (vd.e === 'go'
+              ? 'Los números dan. Ahora pide <b>una muestra</b> tal cual la vas a vender y apruébala antes de pagar la producción.'
+              : vd.e === 'alerta'
+              ? 'Para llegar al 30% necesitas vender a $' + d2(pm && pm.m30) + ' o bajar el costo. Negocia antes de pedir la muestra.'
+              : 'Para que sea rentable tendrías que vender a $' + d2(pm && pm.m30) + ' o bajar bastante el costo. No pidas muestra todavía.') +
+          '</p>' +
+          '<div style="display:grid;gap:10px">' + opcionesSig.map(function (o, i) {
+            // s-opt: el chat lo envía como respuesta al tocarlo; s-btn le da el estilo.
+            return '<button type="button" class="s-btn s-opt' + (i ? ' s-btn--fantasma' : '') + '">' + esc(o) + '</button>';
+          }).join('') + '</div>' +
+        '</section>' : '';
+
     var hallazgos = r.cotizaciones.map(function (a) {
       if (!a.evaluacion.hallazgos.length) return '';
       return '<section class="s-card"><p class="s-card__eyebrow">' + esc(a.proveedor) + ' · ' +
         esc(a.evaluacion.veredicto) + '</p>' +
+        (vd && vd.e !== 'nogo' ? '<p class="s-veredicto__razon" style="margin:0 0 10px;opacity:.85">Puntos para negociar con el proveedor. No cambian el veredicto de rentabilidad de arriba.</p>' : '') +
         a.evaluacion.hallazgos.map(function (h) {
           return '<div class="s-bloqueado" style="border-style:solid;border-color:' +
             (h.e === 'fail' ? 'rgba(229,72,77,.3)' : 'rgba(247,170,46,.28)') + '">' +
@@ -301,11 +361,11 @@
         }).join('') + '</section>';
     }).join('');
 
-    host.innerHTML =
+    host.innerHTML = veredictoSec +
       '<section class="s-card">' +
         '<p class="s-card__eyebrow">Costo aterrizado · ' + r.total + ' cotizaciones</p>' +
         comparativa +
-      '</section>' + trampa + desgloseLider + aTuPrecio + preciosSec + hallazgos;
+      '</section>' + trampa + desgloseLider + aTuPrecio + preciosSec + hallazgos + siguienteSec;
     return true;
   }
 
