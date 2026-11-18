@@ -359,6 +359,21 @@ t("cotización que ya trae el empaque → no se vuelve a pedir confirmación de 
   eq(e.veredicto, "VIABLE", "veredicto");
 });
 
+t("DDP escrito de otra forma ('DDP to FBA') no estima flete ni arancel", () => {
+  const a = SophieCotizaciones.aterrizar({ ...PROV_SANO, incoterm: "DDP to Amazon FBA" }, PROV_CTX);
+  eq(a.incoterm, "DDP", "incoterm");
+  eq(a.desglose.flete, 0, "flete");
+  eq(a.desglose.arancel, 0, "arancel");
+  ok(!a.desglose.fleteEstimado, "no debe marcar flete estimado");
+});
+
+t("cotización con envío DDP pero incoterm EXW por defecto → se trata como DDP", () => {
+  const a = SophieCotizaciones.aterrizar({ ...PROV_SANO, incoterm: "EXW", cantidad: 300, envioDDPTotal: 900 }, PROV_CTX);
+  eq(a.incoterm, "DDP", "incoterm");
+  eq(a.desglose.flete, 3, "flete = envío DDP por unidad");
+  eq(a.desglose.arancel, 0, "arancel");
+});
+
 /* ============================================================
    5 · VEREDICTO POR MÓDULO — Lanzamiento (semáforo + reorden)
    ============================================================ */

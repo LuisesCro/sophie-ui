@@ -74,9 +74,16 @@
     return ARANCEL_ESTIMADO.otro;
   }
 
+  // Acepta el incoterm como venga en la cotización: "DDP", "DDP Amazon",
+  // "DDP to FBA", "ddp (USA)"… Antes solo valía "DDP" exacto y lo demás caía
+  // a FOB, que estimaba flete y arancel que el proveedor ya había incluido.
   function incotermDe(v) {
     var k = String(v || 'FOB').toUpperCase().replace(/[^A-Z]/g, '');
-    return INCOTERM[k] ? { clave: k, reglas: INCOTERM[k] } : { clave: 'FOB', reglas: INCOTERM.FOB };
+    if (INCOTERM[k]) return { clave: k, reglas: INCOTERM[k] };
+    var claves = ['DDP', 'DAP', 'CIF', 'FOB', 'EXW'];
+    for (var i = 0; i < claves.length; i++)
+      if (k.indexOf(claves[i]) > -1) return { clave: claves[i], reglas: INCOTERM[claves[i]] };
+    return { clave: 'FOB', reglas: INCOTERM.FOB };
   }
 
   // 'aire' si el estudiante indica aéreo/air/avión; en cualquier otro caso, marítimo.
@@ -94,6 +101,11 @@
   function aterrizar(c, ctx) {
     c = c || {}; ctx = ctx || {};
     var inc = incotermDe(c.incoterm);
+    // Si la cotización trae el costo de envío DDP (flete + aduana + arancel),
+    // es DDP aunque el incoterm no venga escrito o venga mal: no se estima flete.
+    var traeEnvioDDP = (Array.isArray(c.envioDDPZonas) && c.envioDDPZonas.length) ||
+                       !isNaN(num(c.envioDDPTotal)) || !isNaN(num(c.envioDDPUnidad));
+    if (traeEnvioDDP && inc.clave !== 'DDP') inc = { clave: 'DDP', reglas: INCOTERM.DDP };
     var est = arancelDe(c.paisOrigen);
 
     var producto = n0(c.precioUnidad);
