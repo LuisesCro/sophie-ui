@@ -25,6 +25,7 @@
   function disponible() { return !!(global.SophieCotizaciones && global.Sophie); }
   function esc(s) { return global.Sophie ? global.Sophie.esc(s) : String(s == null ? '' : s); }
   function el(sel) { return typeof sel === 'string' ? document.querySelector(sel) : sel; }
+  function n0p(v) { var x = parseFloat(String(v == null ? '' : v).replace(/[$,\s]/g, '')); return isNaN(x) ? 0 : x; }
   function d2(x) { return (Math.round(x * 100) / 100).toFixed(2); }
 
   function detectar(texto) {
@@ -169,7 +170,7 @@
           '</ul>' +
           '<p class="s-veredicto__razon" style="margin:14px 0 0"><b>' + esc(lider.incoterm) + ':</b> ' +
             esc(lider.incotermNota) + '</p>' +
-          (lider.capital.alcanza
+          (!(lider.capital.paraInventario > 0) ? '' : lider.capital.alcanza
             ? '<p class="s-veredicto__razon" style="margin:8px 0 0">Su MOQ de ' + lider.moq +
               ' unidades cuesta $' + lider.capital.inversionMOQ.toLocaleString() +
               ' aterrizado, dentro de los $' + lider.capital.paraInventario.toLocaleString() +
@@ -182,6 +183,21 @@
     // PRECIOS META (rentabilidad): el piso para no perder (break-even) y los
     // precios de venta que dan 20% y 30% de margen, calculados del costo aterrizado.
     var pm = lider && lider.preciosMeta;
+    // A TU PRECIO: lo primero que pregunta el estudiante es cuánto gana al
+    // precio que piensa vender. Los precios meta van después.
+    var aTuPrecio = (lider && !lider.faltaFba && !lider.faltaPrecio)
+      ? '<section class="s-card">' +
+          '<p class="s-card__eyebrow">A tu precio de venta de $' + d2(n0p(payload.ctx && payload.ctx.precioVenta)) + '</p>' +
+          '<div class="s-metricas">' +
+            metrica('Ganancia por unidad', '$' + d2(lider.margen), lider.margenPct >= 30 ? 'pass' : lider.margenPct >= 20 ? 'alerta' : 'fail', 'antes de publicidad') +
+            metrica('Margen', d2(lider.margenPct) + '%', lider.margenPct >= 30 ? 'pass' : lider.margenPct >= 20 ? 'alerta' : 'fail', 'meta 30% o más') +
+            metrica('ROI', d2(lider.roi) + '%', lider.roi >= 100 ? 'pass' : lider.roi >= 60 ? 'alerta' : 'fail', 'meta 100%') +
+          '</div>' +
+          '<p class="s-veredicto__razon" style="margin:12px 0 0">Amazon se queda con $' + d2(lider.amazon.comision) + ' de comisión y $' + d2(lider.amazon.fba) +
+            ' de FBA; tu costo aterrizado es $' + d2(lider.aterrizado) + '. Lo que queda, $' + d2(lider.margen) + ', es tu ganancia antes de publicidad. ' +
+            'Ese mismo margen (' + d2(lider.margenPct) + '%) es lo máximo que puedes gastar en ads por venta sin perder.</p>' +
+        '</section>' : '';
+
     var preciosSec = (lider && lider.faltaFba)
       ? '<section class="s-card">' +
           '<p class="s-card__eyebrow">Tu precio de venta: piso y metas</p>' +
@@ -216,7 +232,7 @@
       '<section class="s-card">' +
         '<p class="s-card__eyebrow">Costo aterrizado · ' + r.total + ' cotizaciones</p>' +
         comparativa +
-      '</section>' + trampa + desgloseLider + preciosSec + hallazgos;
+      '</section>' + trampa + desgloseLider + aTuPrecio + preciosSec + hallazgos;
     return true;
   }
 
