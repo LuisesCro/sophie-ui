@@ -1,0 +1,9 @@
+# Documentos internos: no se publican en el CDN (ui.crezcamosonline.com).
+# Ningún módulo los carga; solo los .js/.css tienen que ser públicos.
+# Si agregas un .md nuevo al repo, agrégalo aquí (tools/test-md-privados.mjs lo vigila).
+/README.md                              /no-existe  404!
+/COMO-PUBLICAR.md                       /no-existe  404!
+/CLAUDE.md                              /no-existe  404!
+/docs/*                                 /no-existe  404!
+/piloto-helium10/README.md              /no-existe  404!
+/piloto-helium10/PLAYBOOK-CONSULTORIA.md /no-existe  404!
