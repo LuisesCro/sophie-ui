@@ -144,7 +144,11 @@
     var y = titulo(g, 'Top 5 Reasons Why Our ' + d.producto + ' Is The Best', d.producto);
 
     var filas = (d.razones || []).slice(0, 3).map(function (t) { return { t: t, ico: 'check', fuerte: true }; });
-    filas.push({ t: 'Proudly Sold by a US-Based Local Business', ico: 'bandera' });
+    // Razón 4: fija para un vendedor de EE.UU. Si no lo es, sería un claim falso: quien llama
+    // puede pasar d.razon4 (otra razón verificada) y deja de salir la bandera.
+    filas.push(d.razon4
+      ? { t: d.razon4, ico: ICONO[d.razon4Icono] ? d.razon4Icono : 'check' }
+      : { t: 'Proudly Sold by a US-Based Local Business', ico: 'bandera' });
     filas.push({ t: (d.marca || 'Our') + ' Risk-Free Guarantee — ' + (d.garantia || '30-Day Returns'), ico: 'escudo' });
 
     var HUECO = 22, alto = (L - M - y - HUECO * (filas.length - 1)) / filas.length;
@@ -279,7 +283,7 @@
      ============================================================ */
   function detalles(d, img, tema) {
     var g = crear(tema), x = g.x;
-    var y = titulo(g, d.titulo || 'Built To Last', null);
+    var y = titulo(g, d.titulo || 'The Details That Matter', null);
 
     var bloques = (d.bloques || []).slice(0, 3);
     var zonaFoto = 820;

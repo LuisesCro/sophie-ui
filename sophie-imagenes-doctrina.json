@@ -1,0 +1,69 @@
+{
+  "nombre": "Doctrina de imágenes de Amazon — Crezcamos Online",
+  "version": "2026-11-26",
+  "nota": "Fuente única. La consumen Sophie Imágenes (tools/verificar-doctrina-imagenes.mjs vigila que su prompt diga lo mismo) y Daniela, la diseñadora de Friday para negocios. Si cambias una regla aquí, corre npm run guardas.",
+  "leyes": [
+    { "id": "relativo", "titulo": "Tu CTR es relativo", "texto": "Una imagen nunca se juzga contra sus alternativas, solo contra la página de resultados real." },
+    { "id": "que-antes-que-como", "titulo": "Primero el qué, después el cómo", "texto": "Qué mostrar sale del comprador y de sus objeciones; cómo mostrarlo sale del diseño. En ese orden." },
+    { "id": "deduccion", "titulo": "Deducción, no acumulación", "texto": "Reduce hasta que solo quede lo que decide la compra. Un mensaje por imagen." }
+  ],
+  "sop": [
+    { "pos": 1, "slot": "principal", "nombre": "Main image", "decide": { "letra": "D", "palabra": "Destacar" }, "produce": "foto", "trabajo": "Producto solo, fondo blanco puro 255,255,255, ocupa al menos el 85% del encuadre, mínimo 2000x2000 px, sin texto, sin props, sin logos ajenos. Es la única imagen del carrusel de búsqueda." },
+    { "pos": 2, "slot": "index", "nombre": "Amazon Index Image", "decide": { "letra": "E", "palabra": "Explicar" }, "produce": "motor", "trabajo": "Top 5 Reasons Why. Va siempre en posición 2. Razones 1, 2 y 3 son los detonantes de compra sacados de las viñetas; la 4 y la 5 son fijas." },
+    { "pos": 3, "slot": "lifestyle1", "nombre": "Lifestyle 1", "decide": { "letra": "C", "palabra": "Contextualizar" }, "produce": "escena", "trabajo": "El cliente target usando el producto, ilustrando la razón 1 o 2 de la Index. Amplifica la Index: el comprador lee la promesa en la 2 y la ve cumplirse en la 3." },
+    { "pos": 4, "slot": "medidas", "nombre": "Specs y dimensiones", "decide": { "letra": "I", "palabra": "Informar" }, "produce": "motor", "trabajo": "Medidas, materiales y contenido del paquete. Responde: ¿qué exactamente recibo?" },
+    { "pos": 5, "slot": "comparativa", "nombre": "Comparativa vs competencia", "decide": { "letra": "D", "palabra": "Diferenciar" }, "produce": "motor", "trabajo": "3 a 4 puntos donde el producto gana, verificados. Nunca se nombra la marca del competidor: se describe la categoría." },
+    { "pos": 6, "slot": "detalles", "nombre": "Detalles de calidad", "decide": { "letra": "I", "palabra": "Informar" }, "produce": "motor", "trabajo": "Zoom a materiales, costuras y terminado. Combate la objeción: ¿será la calidad que prometen?" },
+    { "pos": 7, "slot": "lifestyle2", "nombre": "Lifestyle 2", "decide": { "letra": "C", "palabra": "Contextualizar" }, "produce": "escena", "trabajo": "Escenario distinto al de la 3, mostrando la razón 3 de la Index, o el unboxing si el empaque es diferencial." }
+  ],
+  "evaluar": { "letra": "E", "palabra": "Evaluar", "texto": "Después de cada imagen: control de fidelidad (¿se parece al producto real?) y de claims (¿todo lo impreso está respaldado y coincide con el título y las viñetas?)." },
+  "variantes": "Cada variante child necesita su propia main image con fondo blanco.",
+  "principal": {
+    "blanco": 255,
+    "blancoEfectivo": 250,
+    "coberturaMinima": 0.85,
+    "coberturaObjetivo": 0.88,
+    "lado": 2000,
+    "ladoZoom": 1000,
+    "nuncaSale": ["texto sobreimpreso", "props", "logos ajenos", "cosas que no vienen en la caja", "marca de agua"],
+    "tecnicas": ["Ángulo bajo, sin deformar: el producto se ve más grande y con autoridad.", "El texto impreso en el empaque real sí es legítimo.", "El 85% es el mínimo, no el objetivo: en la miniatura gana el que llena más."]
+  },
+  "index": {
+    "titulo": "Top 5 Reasons Why Our {producto} Is The Best",
+    "razonesLibres": 3,
+    "palabrasPorRazon": [3, 7],
+    "razon4": { "texto": "Proudly Sold by a US-Based Local Business", "icono": "bandera", "requiere": "Que el vendedor confirme que su negocio es de EE.UU. Si no lo es, es un claim falso y no se imprime." },
+    "razon5": { "texto": "{marca} Risk-Free Guarantee — {garantia}", "icono": "escudo", "requiere": "Una garantía real. Si no la hay, queda <PENDIENTE>." },
+    "porQue": "Quien empieza una lista numerada tiende a terminarla."
+  },
+  "limites": { "razones": 3, "incluye": 4, "filasComparativa": 5, "bloquesDetalles": 3 },
+  "tipografia": { "lienzo": 2000, "zonaSegura": 130, "minimoPx": 64 },
+  "texto": "Amazon extrae el texto de las imágenes por OCR y lo procesa con COSMO: legible y en lenguaje natural. Cada imagen lleva ALT-TEXT: producto + acción + contexto.",
+  "lifestyle": {
+    "brief": ["quién aparece (se parece a quien compra: edad, talla, contexto; ni demasiado perfecto)", "dónde", "qué está haciendo exactamente", "qué razón de la Index ilustra", "objetos que deben verse", "objetos que NO pueden aparecer"],
+    "anatomiaPrompt": ["sujeto", "medio", "entorno", "iluminación", "color", "ánimo", "composición"],
+    "revisar": "Manos, texto y proporciones antes de subir nada. Un objeto incoherente destruye la credibilidad de toda la galería."
+  },
+  "lecciones": [
+    { "id": "hires", "texto": "Amazon guarda dos imágenes por foto: hiRes (la que subió el vendedor) y large (~500 px, la genera Amazon). Medir la derivada lleva a concluir en falso que hay baja resolución. Se mide hiRes (data-old-hires o colorImages)." },
+    { "id": "leniencia", "texto": "Antes de exigir fondo blanco, mira cuántas de las 10 primeras lo usan. Si la categoría entera no lo cumple y Amazon no actúa, dilo así: infracción formal, riesgo real bajo." },
+    { "id": "cruce", "texto": "Cruza lo que dicen las imágenes contra el título y las viñetas, afirmación por afirmación. Una contradicción es lo primero que se reporta." },
+    { "id": "comparativa-honesta", "texto": "Una comparativa no puede mentir sobre la categoría. Si solo hay un diferenciador real, lleva una fila. Si no hay ninguno, el eje cambia a «qué te llevas»." },
+    { "id": "numeros", "texto": "Los números se piden, no se inventan: grado IP, batería, capacidad, garantía. Si no están, <PENDIENTE>." }
+  ],
+  "nunca": [
+    "Inventar una medida, un material o una certificación.",
+    "Premios auto-otorgados, «as seen in» comprados o insignias sin respaldo.",
+    "Claims médicos, de protección sin norma, «#1», «más vendido» o garantías sin respaldo.",
+    "Precio, «oferta», «envío gratis», URL, QR o teléfono sobre la imagen.",
+    "Nombrar la marca de un competidor.",
+    "Copiar al líder de la categoría.",
+    "Producir sin fotos: si no hay, se entrega la lista de tomas y se para."
+  ],
+  "claimsProhibidos": [
+    "\\b#\\s?1\\b", "\\bnumber one\\b", "\\bbest[- ]?sell(er|ing)\\b", "\\bm[aá]s vendid[oa]\\b",
+    "\\bfree shipping\\b", "\\benv[ií]o gratis\\b", "\\b(sale|oferta|descuento|discount)\\b",
+    "\\$\\s?\\d", "https?://", "\\bwww\\.", "\\b(fda|clinically|cl[ií]nicamente)\\b",
+    "\\b(cure|cura|heals?|sana)\\b", "\\bas seen (in|on)\\b", "\\baward[- ]winning\\b"
+  ]
+}
